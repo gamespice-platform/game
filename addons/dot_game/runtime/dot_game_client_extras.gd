@@ -74,6 +74,31 @@ static func add_render_quality(c: DotGameClient) -> void:
 	c.render_quality = preload("res://addons/dot_game/runtime/dot_game_client_render.gd").add(c, store)
 
 
+## dot-audio scripts the slide and landing pieces load, by path. Compiling them is most of those pieces' frame cost.
+const AUDIO_SCRIPTS: Array[String] = [
+	"res://addons/dot_audio/runtime/dot_audio_slide.gd",
+	"res://addons/dot_audio/runtime/dot_audio_surf.gd",
+	"res://addons/dot_audio/core/dot_audio_surf_rules.gd",
+	"res://addons/dot_audio/core/dot_audio_landing_rules.gd",
+]
+
+
+## Starts compiling the [constant AUDIO_SCRIPTS] on loader threads, so the sound pieces find them cached. Nothing without threads (web) or without dot-audio.
+static func request_audio_scripts() -> void:
+	if not DotPlatform.has_threads():
+		return
+	for path in AUDIO_SCRIPTS:
+		if ResourceLoader.exists(path) and not ResourceLoader.has_cached(path):
+			var _err := ResourceLoader.load_threaded_request(path)
+
+
+## Collects what [method request_audio_scripts] started (waits only for a load still running) and holds it on the client.
+static func collect_audio_scripts(c: DotGameClient) -> void:
+	for path in AUDIO_SCRIPTS:
+		if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			c._audio_scripts.append(ResourceLoader.load_threaded_get(path))
+
+
 static func add_landing(c: DotGameClient) -> void:
 	if not c.use_landing:
 		return

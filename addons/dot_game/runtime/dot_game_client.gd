@@ -205,6 +205,8 @@ var _profiler_bound: bool = false
 var slide_settings: Object = null
 ## The slide node, once `setup()` has added it.
 var slide_sounds: Node = null
+## The dot-audio scripts [method DotGameClientExtras.request_audio_scripts] compiled on a loader thread; held so the cache keeps them until the sound pieces ran.
+var _audio_scripts: Array = []
 ## Whether `setup()` adds the landing thump and camera-kick strength ([DotGameLanding]: `cl_landing_volume`, `cl_landing_kick`). Plays only with dot-audio and a `DotAudioManager` in the registry; fall damage is separate and server-side.
 var use_landing: bool = true
 ## The landing node, once `setup()` has added it.
@@ -236,8 +238,8 @@ var _vis_world: RefCounted = null
 var _vis_drawn: WeakRef = null
 var _vis_parent: WeakRef = null
 
-## The pieces of [method setup], in order; [method setup_stepped] runs one per frame. Late parts are [code]sounds[/code] and [code]quality[/code].
-const SETUP_PIECES: Array[StringName] = [&"chat", &"settings", &"console", &"profiler", &"menu", &"look", &"sounds", &"quality"]
+## The pieces of [method setup], in order; [method setup_stepped] runs one per frame. Late parts are [code]sounds[/code] (the slide scrape), [code]landing[/code] and [code]quality[/code].
+const SETUP_PIECES: Array[StringName] = [&"chat", &"settings", &"console", &"profiler", &"menu", &"look", &"sounds", &"landing", &"quality"]
 ## Microseconds each piece of the last [method setup] or [method setup_stepped] took, by piece name.
 var setup_usec: Dictionary = {}
 var _set_up: bool = false
@@ -296,6 +298,8 @@ func _ready() -> void:
 	# Compiled on a loader thread from here, so setup's profiler piece finds it ready rather than waiting frames for it.
 	if use_profiler and not gate_only and DisplayServer.get_name() != "headless":
 		var _loading := _Profiler.request_script()
+	if (use_slide_sounds or use_landing) and not gate_only and DisplayServer.get_name() != "headless":
+		DotGameClientExtras.request_audio_scripts()
 
 
 func _attach_screen_fit() -> void:

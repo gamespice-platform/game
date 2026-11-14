@@ -74,7 +74,9 @@ static func run_piece(c: DotGameClient, piece: StringName) -> void:
 		&"look":
 			DotGameClientLook.build(c)
 		&"sounds":
+			DotGameClientExtras.collect_audio_scripts(c)
 			DotGameClientExtras.add_slide_sounds(c)
+		&"landing":
 			DotGameClientExtras.add_landing(c)
 		&"quality":
 			DotGameClientExtras.add_render_quality(c)
