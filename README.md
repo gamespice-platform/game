@@ -1,21 +1,18 @@
-This is the **game** asset for TMC's **Dot** collection. It is the server-side wiring every game here was repeating — netcode, identity, services, a roster, one authoritative tick, and a teardown in reverse — extracted once so a game only writes what is actually its own.
+# dot-game
 
-This collection of assets provides modular building blocks for creating games and applications within the TMC ecosystem, ensuring consistency and interoperability across all `dot-*` assets. This includes core functionality, networking, authentication, cloud integration, and more.
+The shared wiring for a multiplayer Godot 4 game. Every server game in the family needed the same setup code: networking, player identity, services, a roster of who is playing, one authoritative tick, and a clean shutdown. dot-game does that once, so your game only writes what is its own. It also has the client's platform layer (loading cover, menus, console, HUD, chat) and a set of tools shared by every game. Part of TMC's open source **Dot** collection (MIT licence).
 
-**These assets are COMPLETELY OPEN SOURCE**. You are free to use, modify, and distribute them under the terms of the MIT license. The only thing not open source is the back-end web infrastructure. So if you opt into using your own authentication backend instead of integrating with TMC, you will need to build and integrate your own back-end infrastructure.
+> Built with Claude Code. Every addon has a headless test suite and the suites pass, but little of this has met real players yet. Please report rough edges.
 
-## From Maintainer & WARNING
-This asset, along with all the others, was built initially with **Claude Code** and will continue to be maintained and extended using it. This is because I (`gamemann`) cannot build the entire TMC platform alone (I wish I could lol).
+## Install
 
-**Please treat this as partially tested.** Every asset has its own headless test suite and those suites pass, but very little of this has been in front of real players yet. Expect rough edges, and please report anything you run into.
+Copy `addons/dot_game/` into your project with [dot-core](https://github.com/modcommunity/dot-core), [dot-server](https://github.com/modcommunity/dot-server) and [dot-net](https://github.com/modcommunity/dot-net) (all three are required), and enable dot-game under **Project > Project Settings > Plugins**. [dot-bootstrap](https://github.com/modcommunity/dot-bootstrap) does this for a whole project.
 
-I intend on reviewing code, testing, and editing documentation regularly. If you're interested in helping out, please let me know!
+Optional pieces (a map director, a vote, a services layer, dot-platform) are reached without being named, so you only need them if you use them.
 
-## The Wiring Every Server Game Repeats, Written Once
+## A server game in one file
 
-A game in this family is a `DotModule` the server loads. Five of them exist, and before this addon each one contained the same two hundred lines: find the game object, build a `DotNetManager` with the same four non-obvious settings, construct a bridge, attach it, open its link under the server node, seal the message schema, build an identity layer and await it, load the platform module by path, build a services layer and hand it the link, keep track of who is actually playing, drive one authoritative tick, and take it all down in the reverse order. The parts that genuinely differed between them were the class names and a handful of numbers.
-
-`DotGameModule` is that sequence. What is left for a game to write is what is actually its own.
+A game is a `DotModule` the server loads. Subclass `DotGameModule` and fill in only what differs:
 
 ```gdscript
 extends DotGameModule
@@ -40,52 +37,57 @@ func _game_load() -> DotResult:
     return DotResult.success(null)
 ```
 
-`examples/fixtures/test_module.gd` is a complete working one, and it is the fixture the suite drives.
+`examples/fixtures/test_module.gd` is a complete working module.
 
 ## What is in it
 
-| | |
+| Piece | What it does |
 | --- | --- |
-| `DotGameModule` | The sequence, the tick, the teardown. Subclass it. `report_map(id)` tells the server which map the game is on, so server listings print it instead of the game's name. |
-| `DotGameNetcode` | Builds a `DotNetManager` and attaches a game's bridge. Usable on its own. |
-| `DotGameRoster` | Who is in the game as opposed to who is connected, and everything that has to be told when that changes. |
-| `DotGameChatClient` | The client's chat box and push-to-talk microphone, with the server's own lines drawn and the player's block list honoured. |
-| `DotGameClient` | The client's platform layer, a node the client root adds first: the loading cover (held until the player exists and a camera is current, with the render warm-up), then from `setup()` the settings and Escape menu, the console, the HUD in the player's theme, Tab for the board, M for the map menu, the pointer, the chat's keyboard, one `input_blocked_changed` signal to suspend input on, and `user://` flushed on exit in a browser. Every piece switches off or is replaced. [docs/client-migration.md](docs/client-migration.md) moves a game onto it. |
+| `DotGameModule` | Builds the netcode, bridge, identity and services in order, drives the tick, and tears everything down in reverse. `report_map(id)` tells the server which map you are on, so server listings show it. |
+| `DotGameNetcode` | Builds a `DotNetManager` with the right settings and attaches your bridge. Usable alone. |
+| `DotGameRoster` | Who is in the game, as opposed to who is connected, and everything that must hear when that changes. |
+| `DotGameServices`, hooks | The services layer every game needs: relay, rules and voice range. See [docs/services.md](docs/services.md). |
+| `DotGameClient` | The client's platform layer: a loading cover (held until the player exists and a camera is current), the settings and Escape menu, console, HUD in the player's theme, Tab scoreboard, M map menu, pointer handling, chat keys, one `input_blocked_changed` signal, and a `user://` flush on exit in a browser. Each piece can be switched off or replaced. See [docs/client-migration.md](docs/client-migration.md). |
+| `DotGameChatClient` | Chat box and push-to-talk, with the server's lines and the player's block list. |
+| Avatar actions | Emotes, poses and gestures checked by the server and played on every client. [docs/avatar-actions.md](docs/avatar-actions.md) |
+| `DotGameConfigBinder` | Turns a game's config class into settings an operator can change. [docs/config-binder.md](docs/config-binder.md) |
+| Per-map settings and map edit commands | [docs/map-config.md](docs/map-config.md), [docs/map-edit.md](docs/map-edit.md) |
+| `DotGameNoblock` | Teammates pass through each other, enemies stop. [docs/noblock.md](docs/noblock.md) |
+| Touch controls | On-screen buttons for phones. [docs/touch-controls.md](docs/touch-controls.md), [docs/touch-layout.md](docs/touch-layout.md) |
+| `DotGameWorkbench` | Hosts dot-workbench inside a game. [docs/workbench.md](docs/workbench.md) |
+| QA tools | Perf bench, filmstrip, phone screenshots, netchaos and more, shared by every game. [docs/qa.md](docs/qa.md) |
 
-## What is deliberately not in it
+## What it leaves out
 
-**No rules.** Whether a round has ended, what a team is, what the objective is, who won — those are dot-match's and dot-objective's, and they stay there. A game is free to use neither and still use this.
+dot-game has no rules. Whether a round ended, what a team is, what the objective is and who won belong to [dot-match](https://github.com/modcommunity/dot-match) and [dot-objective](https://github.com/modcommunity/dot-objective). A game can use neither and still use this.
 
-The test for whether something belongs here is whether every game would write it the same way with only the class names changed. A map rotation would not: some games have one and some do not, and the ones that do wire it differently. So `DotGameRoster` will tell a rotation that somebody left — through duck-typing, by `follow()`ing it — and this addon does not know what a rotation is.
+A feature belongs here only if every game would write it the same way with just the class names changed. A map rotation does not qualify, so the roster only tells a rotation that someone left (it calls `follow()` on it) and does not know what a rotation is.
 
-## The four netcode settings, and why they are not defaults
+## Netcode settings that are fixed
 
-`DotGameNetcode` fixes four things and leaves the rest to the game:
+`DotGameNetcode` fixes four settings. Each one is a real mistake if left at the Godot default:
 
-- **`auto_tick = false`** — a game's tick happens *inside* the netcode's, between applying each peer's inputs and building the snapshot, which is what the bridge arranges. A manager ticking itself as well moves every player twice, and what that looks like is a game running at double speed only when somebody is connected.
-- **`config_file = ""`** — the manager reads a JSON file by default, so a stale one in `user://` sets a tick rate the game did not choose and nothing says so.
-- **`local_peer_id = 1`** — the authority's id in Godot's multiplayer, which the bridge routes by.
-- **`messages.seal()` last** — wire ids come from a sort of the registered type names, so a type registered after the seal renumbers every id above it and silently reinterprets every message.
+| Setting | Value | Why |
+| --- | --- | --- |
+| `auto_tick` | false | Your game's tick runs inside the netcode's, between applying inputs and building the snapshot. A second ticker moves every player twice (double speed, only while someone is connected). |
+| `config_file` | empty | By default the manager reads a JSON file, so a stale one in `user://` could change a tick rate you did not choose. |
+| `local_peer_id` | 1 | The authority's id in Godot's multiplayer, which the bridge routes by. |
+| `messages.seal()` | called last | Wire ids come from sorting registered type names. A type registered after the seal renumbers every id above it. |
 
-Tick rate, snapshot rate and world extent have **no** default here, because there is no default that is right for two different games, and a game running at a rate it did not choose is the kind of wrong that nothing reports.
+Tick rate, snapshot rate and world extent have no default: no value is right for two different games, so you set them in `_net_config()`.
 
-## Dependencies
+## More documentation
 
-dot-core, dot-server and dot-net, all three required and all three named freely.
+[docs/design.md](docs/design.md) explains the shape of the code. [docs/api-levels.md](docs/api-levels.md) lists what each API level added. [docs/history.md](docs/history.md) lists bugs worth recognising if they return.
 
-Everything optional is reached without naming it: a map director, a vote and a services layer are duck-typed, and dot-platform's module is loaded by path. A script that so much as mentions a `class_name` the project does not have fails to parse and takes down everything that references it, so an addon that named an optional dependency would make it mandatory.
-
-## Validating
+## Testing
 
 ```bash
 godot --headless --path . --import
-find . -name '*.gd' -not -path './.godot/*' | while read f; do
-    godot --headless --path . --check-only --script "res://${f#./}"
-done
 timeout 200 godot --headless --path . res://examples/game_selftest.tscn
 ```
 
-`game_selftest` counts its sections and checks, and a total that fails the run if any never ran: the sequence in order, the roster driven by the events a real server fires, the tick reaching the bridge before the game, an unload that leaves nothing running, every path that has to unwind what it had already built, and `DotGameClient` through stand-ins and in a build with neither dot-menu nor dot-console.
+The suite checks the setup sequence in order, the roster driven by real server events, the tick reaching the bridge before the game, an unload that leaves nothing running, every failure path unwinding what it had built, and `DotGameClient` with stand-ins and without dot-menu or dot-console. Other suites are in `examples/`.
 
 ## Licence
 
