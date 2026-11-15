@@ -85,6 +85,15 @@ static func schemas_for(scripts: Array) -> Dictionary:
 			push_error(made.error.message)
 			continue
 		var binder: DotGameConfigBinder = made.value
+		var own := _own_kinds(binder.config)
 		for set: DotProfileSet in binder.profile_sets():
-			out[set.rel_path] = set.schema
+			if not own.has(set.rel_path):
+				out[set.rel_path] = set.schema
 	return out
+
+
+## The kinds a config's own script provides through a static profile_schemas() (an addon config such as DotFlashlightConfig). profile_check takes those from the addon, and a second provider of a kind is an error there.
+static func _own_kinds(config: Object) -> Dictionary:
+	var sc: Script = config.get_script() if config != null else null
+	var kinds: Variant = sc.call("profile_schemas") if sc != null and sc.has_method("profile_schemas") else {}
+	return kinds if kinds is Dictionary else {}

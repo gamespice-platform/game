@@ -4,7 +4,7 @@ extends Node
 
 const TestConfig := preload("fixtures/test_config.gd")
 const ROOT := "res://examples/fixtures/config/"
-const CHECKS := 63
+const CHECKS := 64
 
 var _passed := 0
 var _failed := 0
@@ -224,6 +224,8 @@ func _schemas() -> void:
 		"a binder script that is not a config gets its config from make_config()")
 	_check(DotGameConfigSchemas.schemas_for([preload("fixtures/test_light_binder.gd")]).has("light"),
 		"and its kind joins the schemas")
+	_check(not DotGameConfigSchemas.schemas_for([preload("fixtures/test_own_schema_binder.gd")]).has("own"),
+		"a kind the config's own script provides is left to it (profile_check refuses a second provider)")
 	var odd := GDScript.new()
 	odd.source_code = "extends RefCounted\nstatic func make_binder(cfg: DotConfig) -> DotGameConfigBinder:\n\treturn DotGameConfigBinder.create(cfg, \"tu\", \"tu\")\n"
 	var _r := odd.reload()
