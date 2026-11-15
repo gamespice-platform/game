@@ -4,7 +4,7 @@ The shared wiring for a multiplayer Godot 4 game. Every server game in the famil
 
 ## Install
 
-Copy `addons/dot_game/` into your project with [dot-core](https://github.com/modcommunity/dot-core), [dot-server](https://github.com/modcommunity/dot-server) and [dot-net](https://github.com/modcommunity/dot-net) (all three are required), and enable dot-game under **Project > Project Settings > Plugins**. [dot-bootstrap](https://github.com/modcommunity/dot-bootstrap) does this for a whole project.
+Copy `addons/dot_game/` into your project with [dot-core](https://github.com/gamespice-platform/core), [dot-server](https://github.com/gamespice-platform/server) and [dot-net](https://github.com/gamespice-platform/net) (all three are required), and enable dot-game under **Project > Project Settings > Plugins**. [dot-bootstrap](https://github.com/gamespice-platform/bootstrap) does this for a whole project.
 
 Optional pieces (a map director, a vote, a services layer, dot-platform) are reached without being named, so you only need them if you use them.
 
@@ -57,7 +57,7 @@ func _game_load() -> DotResult:
 
 ## What it leaves out
 
-dot-game has no rules. Whether a round ended, what a team is, what the objective is and who won belong to [dot-match](https://github.com/modcommunity/dot-match) and [dot-objective](https://github.com/modcommunity/dot-objective). A game can use neither and still use this.
+dot-game has no rules. Whether a round ended, what a team is, what the objective is and who won belong to [dot-match](https://github.com/gamespice-platform/match) and [dot-objective](https://github.com/gamespice-platform/objective). A game can use neither and still use this.
 
 A feature belongs here only if every game would write it the same way with just the class names changed. A map rotation does not qualify, so the roster only tells a rotation that someone left (it calls `follow()` on it) and does not know what a rotation is.
 
