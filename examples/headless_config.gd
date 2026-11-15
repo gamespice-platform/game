@@ -4,7 +4,7 @@ extends Node
 
 const TestConfig := preload("fixtures/test_config.gd")
 const ROOT := "res://examples/fixtures/config/"
-const CHECKS := 60
+const CHECKS := 63
 
 var _passed := 0
 var _failed := 0
@@ -218,7 +218,18 @@ func _schemas() -> void:
 	_check(keys == ["speed"], "a kind's schema holds only its file's fields")
 	var other: Array = out.get("config_rules", []).map(func(e: Dictionary) -> String: return e["name"])
 	_check(other == ["friendly_fire"], "other groups get their own file")
-	_check(DotGameConfigSchemas.profile_schemas().has("config_move"), "the res:// scan finds only the fixture (the example project has one grouped config)")
+	_check(DotGameConfigSchemas.profile_schemas().has("config_move"), "the res:// scan finds the grouped fixture")
+	var light := DotGameConfigSchemas.binder_of(preload("fixtures/test_light_binder.gd"))
+	_check(light.ok and (light.value as DotGameConfigBinder).config is DotConfig,
+		"a binder script that is not a config gets its config from make_config()")
+	_check(DotGameConfigSchemas.schemas_for([preload("fixtures/test_light_binder.gd")]).has("light"),
+		"and its kind joins the schemas")
+	var odd := GDScript.new()
+	odd.source_code = "extends RefCounted\nstatic func make_binder(cfg: DotConfig) -> DotGameConfigBinder:\n\treturn DotGameConfigBinder.create(cfg, \"tu\", \"tu\")\n"
+	var _r := odd.reload()
+	var refused := DotGameConfigSchemas.binder_of(odd)
+	_check(not refused.ok and refused.error.message.contains("make_config"),
+		"a make_binder new() cannot feed is refused with the reason, not called (%s)" % ("" if refused.ok else refused.error.message))
 
 
 func _write_templates() -> void:

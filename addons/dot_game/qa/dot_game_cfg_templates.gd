@@ -10,7 +10,12 @@ func _init() -> void:
 	for script: Script in DotGameConfigSchemas.config_scripts():
 		if not script.has_method("make_binder"):
 			continue
-		var binder: DotGameConfigBinder = script.call("make_binder", script.new())
+		var made := DotGameConfigSchemas.binder_of(script)
+		if not made.ok:
+			printerr("FAILED ", made.error.message)
+			failed = true
+			continue
+		var binder: DotGameConfigBinder = made.value
 		var res := binder.write_templates()
 		print("%s %s" % ["wrote" if res.ok else "FAILED", ",".join(binder.template_files().keys())])
 		if not res.ok:
