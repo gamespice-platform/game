@@ -121,7 +121,7 @@ func _cvars() -> void:
 	console.set_cvar("tg_speed", "9")
 	_check(b.config.speed == 9.0 and b.source_of("speed") == "cvar", "cvar -> field")
 	console.set_cvar("tg_speed", "99")
-	_check(b.config.speed == 20.0, "cvar range clamps the field")
+	_check(b.config.speed == 9.0 and console.get_float("tg_speed") == 9.0, "cvar refuses an out-of-range value and the field keeps 9")
 	console.set_cvar("tg_friendly_fire", "1")
 	_check(b.config.friendly_fire, "bool cvar")
 	console.set_cvar("tg_tags", "p,q,r")
