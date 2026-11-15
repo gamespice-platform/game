@@ -1,11 +1,8 @@
 extends SceneTree
 
 ## Renders a game's real client at phone size with touch on and writes one PNG. Run through dot_game_phone_shot.sh.
-## `--scene=res://x.tscn` (default: the project's main scene), `--touch`, `--size=844x390`, `--out=PATH`,
-## `--frames=N` (settle frames, default 150), `--ready=property` (wait until the root's property is set; default `player`),
-## `--set=prop=value` (repeatable; `force_offline=true` is always set when the root has it).
-## `--call=[NodePath:]method[:arg1,arg2]` (repeatable, once ready; the path is relative to the scene root, none means the root;
-## an argument is a Godot literal such as 3 or true, anything else is a string, so a shout is `--call=Hud:shout:Run!`).
+## `--scene=res://x.tscn` (default: the project's main scene), `--touch`, `--size=844x390`, `--out=PATH`, `--frames=N` (settle frames, default 150), `--ready=property` (wait until the root's property is set; default `player`), `--set=prop=value` (repeatable; `force_offline=true` is always set when the root has it).
+## `--call=[NodePath:]method[:arg1,arg2]` (repeatable, once ready; the path is relative to the scene root, none means the root; an argument is a Godot literal such as 3 or true, anything else is a string, so a shout is `--call=Hud:shout:Run!`).
 
 const DEFAULT_SIZE := Vector2i(844, 390)
 

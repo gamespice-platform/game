@@ -3,7 +3,6 @@ extends RefCounted
 
 ## Fits a touch screen: aspect expand (no pillarbox), a canvas whose short side is the HUD design's, and touch buttons sized from the real window and the display's DPI.
 ## Only the real-pixel floor is guaranteed: on the web and headless the DPI is a guess, so the millimetre target is only as true as it.
-##
 ## [DotGameClient] attaches one to the root window when [member DotGameClient.use_screen_fit] is on and [method DotPlatform.has_touch] says a finger can reach the screen. A game tunes it by assigning [member DotGameClient.screen_fit] before the client is added, or opts out with [code]use_screen_fit = false[/code].
 
 const CHANNEL := "game.screen_fit"

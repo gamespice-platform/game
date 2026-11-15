@@ -1,7 +1,7 @@
 extends Node
 
-## DotGameNetchaosClient._find_game: the game node is found by `game`, by any other variable that has players(), and by
-## the `game` group; a client with none gives null (playground names its own `playground`).
+## DotGameNetchaosClient._find_game: the game node is looked up by `game`, by any other variable that has players(), and by
+## the `game` group; a client with none gives null (Playlot names its own `playground`).
 
 const CHECKS := 7
 

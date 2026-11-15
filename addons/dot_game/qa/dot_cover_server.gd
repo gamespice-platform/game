@@ -1,12 +1,9 @@
 class_name DotCoverServer
 extends Node
 
-## A headless dedicated server for a game's tools/render_cover.gd to join, left running:
-## `godot --headless --path . res://tools/cover_server.tscn -- --port 27399`. Tool-only (a pack never
-## calls it, so no API level). Seven games each had their own copy of this boot; the DotServer
-## and its config are the same in all of them, so a game's tools/cover_server.gd extends this and
-## overrides only the hooks. Name the scene's root CoverServer, like render_cover's, so the RPC path
-## to "Server" is the same on both sides.
+## A headless dedicated server for a game's tools/render_cover.gd to join, left running: `godot --headless --path . res://tools/cover_server.tscn -- --port 27399`. Tool-only (a pack never calls it, so no API level).
+## Seven games each had their own copy of this boot; the DotServer and its config are the same in all of them, so a game's tools/cover_server.gd extends this and overrides only the hooks.
+## Name the scene's root CoverServer, like render_cover's, so the RPC path to "Server" is the same on both sides.
 
 ## The DotServer this booted, named "Server".
 var server: DotServer = null

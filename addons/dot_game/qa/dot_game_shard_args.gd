@@ -1,10 +1,9 @@
 class_name DotGameShardArgs
 extends RefCounted
 
-## What a sharded suite reads from its command line, once: `game.sh test NAME.SHARD` runs the suite with `-- --shard SHARD` and
-## `test NAME.merge` with `-- --merge LOG...` (the `suite_shards` feature of dot-game-template's game.sh). Each shard is a whole run of its
-## own part and fails on its own; the merge only holds that nothing went missing. Every function takes the arguments as a parameter
-## (default: the process's user arguments) so a selftest can feed it.
+## What a sharded suite reads from its command line, once: `game.sh test NAME.SHARD` runs the suite with `-- --shard SHARD` and `test NAME.merge` with `-- --merge LOG...` (the `suite_shards` feature of dot-game-template's game.sh).
+## Each shard is a whole run of its own part and fails on its own; the merge only holds that nothing went missing.
+## Every function takes the arguments as a parameter (default: the process's user arguments) so a selftest can feed it.
 
 
 ## The shard this run plays, "" for the whole suite.

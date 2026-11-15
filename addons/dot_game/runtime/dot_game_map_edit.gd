@@ -1,22 +1,8 @@
 class_name DotGameMapEdit
 extends RefCounted
 
-## The admin map-edit command set: spawn points, spawn strategy, navigation links and the map-data file.
-##
-## [codeblock]
-## var edit := DotGameMapEdit.new()
-## edit.points = point_set            # dot-spawn's DotSpawnPointSet (duck-typed)
-## edit.store = map_data_store        # dot-map's DotMapDataStore (duck-typed)
-## edit.nav = nav_tools               # rebake and hand links (duck-typed)
-## edit.pose_fn = func(ctx): return {"position": pos, "yaw": yaw}
-## edit.map_fn = func(): return {"game": "arena", "id": "dm_box", "version": "3", "digest": ""}
-## edit.bind(server.console)
-## [/codeblock]
-##
-## [b]Duck-typed on every side, in the shape of [code]DotModToolCommands[/code].[/b] The host is anything with [code]add_command[/code] (a [code]DotModule[/code]) or [code]command[/code] (a console); the point set, the store and the navigation tools are objects this file calls by method name, so dot-game depends on none of dot-spawn, dot-map, dot-bot or dot-npc-ai. A missing collaborator turns its commands into a plain reply, never an error.
-##
-## [b]The contract.[/b] [member points]: [code]points[/code] (array), [code]find(id)[/code], [code]add(def)[/code], [code]to_dict()[/code], and a static [code]from_dict(d) -> DotResult[/code] on its script. A def: the [code]DotSpawnPointDef[/code] properties, [code]to_dict()[/code], [code]problem()[/code]. [member store]: [code]load(game, map_id, version)[/code] and [code]save(bundle, by)[/code], each returning a [code]DotResult[/code] and allowed to be a coroutine. [member nav]: [code]rebake()[/code], [code]add_link(dict)[/code], [code]remove_link(id)[/code], [code]links_dict()[/code] and [code]load_links(dict)[/code], each optional.
-##
+## The admin map-edit command set: spawn points, spawn strategy, navigation links and the map-data file. Wiring: `var edit := DotGameMapEdit.new()`, then set [member points] (dot-spawn's DotSpawnPointSet), [member store] (dot-map's DotMapDataStore), [member nav] (rebake and hand links), [code]pose_fn = func(ctx): return {"position": pos, "yaw": yaw}[/code], [code]map_fn = func(): return {"game": "fc", "id": "dm_box", "version": "3", "digest": ""}[/code], and call [code]edit.bind(server.console)[/code].
+## [b]Duck-typed on every side, in the shape of [code]DotModToolCommands[/code].[/b] The host is anything with [code]add_command[/code] (a [code]DotModule[/code]) or [code]command[/code] (a console); the point set, the store and the navigation tools are objects this file calls by method name, so dot-game depends on none of dot-spawn, dot-map, dot-bot or dot-npc-ai. A missing collaborator turns its commands into a plain reply, never an error. [b]The contract.[/b] [member points]: [code]points[/code] (array), [code]find(id)[/code], [code]add(def)[/code], [code]to_dict()[/code], and a static [code]from_dict(d) -> DotResult[/code] on its script. A def: the [code]DotSpawnPointDef[/code] properties, [code]to_dict()[/code], [code]problem()[/code]. [member store]: [code]load(game, map_id, version)[/code] and [code]save(bundle, by)[/code], each returning a [code]DotResult[/code] and allowed to be a coroutine. [member nav]: [code]rebake()[/code], [code]add_link(dict)[/code], [code]remove_link(id)[/code], [code]links_dict()[/code] and [code]load_links(dict)[/code], each optional.
 ## [b]Server validation.[/b] Every value is parsed, range-checked and finite before it reaches a def, an unknown key is refused, an id is a short lowercase token, and the def's own [code]problem()[/code] has the last word. An edit changes the working set only; [code]mapdata_save[/code] persists it. Every edit and every save is an INFO line and an audit record with the admin's id.
 
 const CHANNEL := "game.map_edit"
@@ -206,7 +192,7 @@ func _dispatch(role: String, ctx: Object, args: PackedStringArray) -> DotResult:
 	return DotResult.fail(DotError.CODE_UNSUPPORTED, "No such map edit command.")
 
 
-# --- Spawns ----------------------------------------------------------------
+# Spawns
 
 func _list(args: PackedStringArray) -> DotResult:
 	var gone := _need_points()
@@ -381,7 +367,7 @@ func _strategy(args: PackedStringArray) -> DotResult:
 	return made if not made.ok else DotResult.success("Spawn strategy is now '%s'." % name)
 
 
-# --- Navigation ------------------------------------------------------------
+# Navigation
 
 func _rebake() -> DotResult:
 	if nav == null or not nav.has_method("rebake"):
@@ -462,7 +448,7 @@ func _link_remove(args: PackedStringArray) -> DotResult:
 	return DotResult.success("Removed link '%s'." % args[0])
 
 
-# --- Map data --------------------------------------------------------------
+# Map data
 
 func _save(ctx: Object, args: PackedStringArray) -> DotResult:
 	var map := _map()
@@ -612,7 +598,7 @@ func _take(sections: Variant) -> DotResult:
 	return DotResult.success("")
 
 
-# --- Parsing and helpers -----------------------------------------------------
+# Parsing and helpers
 
 func _parse_pairs(args: PackedStringArray) -> DotResult:
 	return _Parse.parse_pairs(args)

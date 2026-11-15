@@ -1,17 +1,9 @@
 class_name DotGamePerfBench
 extends Node
 
-## A solo-client benchmark any game shares: its real client scene offline on a fixed map, mode, bot count and seed, recorded by the
-## client's own dot-profiler, so the report has the same per-system table as a player's `profiler_record`, plus a sidecar of engine
-## numbers (draw calls, objects, physics, tick rate, renderer, adapter). A game's `tools/perf_bench.gd` extends this and sets
-## `client_scene` in `_configure`; the hooks below cover the rest. Run it windowed on a GPU box with the game's `tools/perf_bench.sh`
-## (which execs dot-game's `tools/perf_bench.sh`), not headless: headless has no renderer, so the render cost reads as zero.
-##
-## Flags (after `--`): `--map ID --mode ID --bots N --seconds S --warmup S --seed N --out DIR --tag T --profiler record|idle|off`; every `--key value` pair is also
-## in [member args] (without the dashes) for a subclass's own flags. `--first-use 1` runs the game's `_first_use` hook between the selection
-## and the warm-up: it times each first use (first shot of each weapon, first explosion) with `time_first_use`, and the rows land in
-## the sidecar's `first_use` list, which `dot_game_perf_bench_compare.py` prints per name (A/B: `--ab DIR DIR::--prewarm 0 -- --first-use 1`). Prints `PERF_BENCH_REPORT {json}` (the profiler report without
-## spikes and samples, as the run may be on another box), `PERF_BENCH_SIDECAR {json}` and `PERF_BENCH {json}` (paths and tag).
+## A solo-client benchmark any game shares: its real client scene offline on a fixed map, mode, bot count and seed, recorded by the client's own dot-profiler, so the report has the same per-system table as a player's `profiler_record`, plus a sidecar of engine numbers (draw calls, objects, physics, tick rate, renderer, adapter). A game's `tools/perf_bench.gd` extends this and sets `client_scene` in `_configure`; the hooks below cover the rest. Run it windowed on a GPU box with the game's `tools/perf_bench.sh` (which execs dot-game's `tools/perf_bench.sh`), not headless: headless has no renderer, so the render cost reads as zero.
+## Flags (after `--`): `--map ID --mode ID --bots N --seconds S --warmup S --seed N --out DIR --tag T --profiler record|idle|off`; every `--key value` pair is also in [member args] (without the dashes) for a subclass's own flags. `--first-use 1` runs the game's `_first_use` hook between the selection and the warm-up: it times each first use (first shot of each weapon, first explosion) with `time_first_use`, and the rows land in the sidecar's `first_use` list, which `dot_game_perf_bench_compare.py` prints per name (A/B: `--ab DIR DIR::--prewarm 0 -- --first-use 1`).
+## Prints `PERF_BENCH_REPORT {json}` (the profiler report without spikes and samples, as the run may be on another box), `PERF_BENCH_SIDECAR {json}` and `PERF_BENCH {json}` (paths and tag).
 
 ## The game's client scene (`res://game/x.tscn`). Required.
 var client_scene := ""
@@ -153,8 +145,7 @@ func frame_times(count: int) -> PackedFloat32Array:
 	return out
 
 
-## Times one first use: the median of `base_frames` frames before as the baseline, then `action` (then `after` at frame `after_at`
-## of the window, a release say), then the worst of the next `frames` frames, its index, the pipelines compiled meanwhile and the
+## Times one first use: the median of `base_frames` frames before as the baseline, then `action` (then `after` at frame `after_at` of the window, a release say), then the worst of the next `frames` frames, its index, the pipelines compiled meanwhile and the
 ## growth in live resources (a load from disk, a new material). The row {name, base_ms, worst_ms, over_ms, at, compiles, resources}
 ## goes into the sidecar's `first_use` and is returned. Await it.
 func time_first_use(what: String, action: Callable, after := Callable(), after_at := 0, frames := 15, base_frames := 20) -> Dictionary:

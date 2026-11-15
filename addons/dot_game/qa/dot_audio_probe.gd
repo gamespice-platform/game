@@ -1,17 +1,9 @@
 class_name DotAudioProbe
 extends Node
 
-## Under xvfb-run (never --headless, whose audio driver is Dummy): does the game make a noise?
-## Bakes the game's audio bank as a client does, plays each cue three metres in front of the
-## listener, and fails if one baked to nothing or got no voice. Tool-only (a pack never calls it,
-## so no API level). Five games had their own copy of this loop; they differed in the audio class,
-## the cue ids, the shortest length that counts, and what they checked after the cues. A game's
-## tools/audio_probe.gd extends this and overrides those; tools/audio_probe.tscn is a one-script
-## scene. dot-audio is duck-typed, not required: the audio node needs `setup()` returning a
-## DotResult-like with `ok`, and a `manager` with `sink`, `play_at(id, pos)` and, on the sink, `bank`.
-## [codeblock]
-## xvfb-run -a godot --path . res://tools/audio_probe.tscn
-## [/codeblock]
+## Under xvfb-run (never --headless, whose audio driver is Dummy): does the game make a noise? Bakes the game's audio bank as a client does, plays each cue three metres in front of the listener, and fails if one baked to nothing or got no voice. Tool-only (a pack never calls it, so no API level).
+## Five games had their own copy of this loop; they differed in the audio class, the cue ids, the shortest length that counts, and what they checked after the cues. A game's tools/audio_probe.gd extends this and overrides those; tools/audio_probe.tscn is a one-script scene, run as `xvfb-run -a godot --path . res://tools/audio_probe.tscn`.
+## dot-audio is duck-typed, not required: the audio node needs `setup()` returning a DotResult-like with `ok`, and a `manager` with `sink`, `play_at(id, pos)` and, on the sink, `bank`.
 
 var audio: Node = null
 var ok := true

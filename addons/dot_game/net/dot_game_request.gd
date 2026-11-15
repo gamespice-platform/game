@@ -1,8 +1,7 @@
 class_name DotGameRequest
 extends DotNetMessage
 
-## A client asking the server for something: reliable, rare, never trusted. Every game had written this file (a kind and a body, the same ~65 lines); the game now subclasses it and adds only its name and its kinds.
-## One message type with a kind inside, so a new request is not a wire-id change on both ends. Nothing in a request is a fact: the server decides, and takes the sender from the transport, never from the body.
+## A client asking the server for something: reliable, rare, never trusted. Every game had written this file (a kind and a body, the same ~65 lines); the game now subclasses it and adds only its name and its kinds. One message type with a kind inside, so a new request is not a wire-id change on both ends. Nothing in a request is a fact: the server decides, and takes the sender from the transport, never from the body.
 ## A game overrides [method _type_name] (its wire name) and [method _kind_count] (how many kinds its enum has); [method _validate] uses the count and a suite asserts [method fits] with it.
 ## [b]Build it with [code]new(kind, body)[/code], and a subclass must not preload its own script[/b]: a [DotNetMessage] that preloads itself and is first loaded from a module a running [DotServer] loads leaks the script graph at exit on Godot 4.7.2 (mg-buses-from-hell 8ed866c). The registry decodes with a bare [code]new()[/code], so both arguments default.
 

@@ -1,16 +1,9 @@
 class_name DotLoadProbe
 extends Node
 
-## Boots a game's solo client and prints, per rendered frame, what a player would see: whether the
-## map, the player and the camera exist, where the body is, and whether the load gate still covers
-## the screen. A body that moves while uncovered, or a frame with no player, is the glitch. Tool-only
-## (a pack never calls it, so no API level). Ten games had their own copy; they differed in the
-## client class, how it is set up, which node holds the gate, and the columns after `covered=`.
-## A game's tools/load_probe.gd extends this and overrides those hooks; tools/load_probe.tscn is a
-## one-script scene. Needs xvfb-run, never --headless:
-## [codeblock]
-## xvfb-run -a godot --path . res://tools/load_probe.tscn -- [--frames=90] [--shot=N]
-## [/codeblock]
+## Boots a game's solo client and prints, per rendered frame, what a player would see: whether the map, the player and the camera exist, where the body is, and whether the load gate still covers the screen. A body that moves while uncovered, or a frame with no player, is the glitch. Tool-only (a pack never calls it, so no API level).
+## Ten games had their own copy; they differed in the client class, how it is set up, which node holds the gate, and the columns after `covered=`. A game's tools/load_probe.gd extends this and overrides those hooks; tools/load_probe.tscn is a one-script scene.
+## Needs xvfb-run, never --headless: `xvfb-run -a godot --path . res://tools/load_probe.tscn -- [--frames=90] [--shot=N]`.
 
 ## The client being probed.
 var client: Node = null

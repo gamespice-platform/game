@@ -2,12 +2,8 @@ class_name DotGameTouchLayout
 extends RefCounted
 
 ## Named touch-button presets (fps, driving, platformer) with canonical ids, places and sizes, so jump, fire, crouch and reload sit in the same spot in every game.
-## A game takes a preset, overrides per button, and hands the result to dot-ui's DotTouchButtons and [method DotGameClient.fit_touch_buttons] through [method apply].
-##
-## [codeblock]
-## var res := DotGameTouchLayout.build(DotGameTouchLayout.FPS, {&"alt": null, &"grab": &"inner"})
-## if res.ok: res.value.apply(touch_buttons, platform)
-## [/codeblock]
+## A game takes a preset, overrides per button, and hands the result to dot-ui's DotTouchButtons and [method DotGameClient.fit_touch_buttons] through [method apply]:
+## [code]var res := DotGameTouchLayout.build(DotGameTouchLayout.FPS, {&"alt": null, &"grab": &"inner"})[/code], then [code]if res.ok: res.value.apply(touch_buttons, platform)[/code].
 
 const CHANNEL := "game.touch_layout"
 

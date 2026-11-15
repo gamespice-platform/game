@@ -3,7 +3,7 @@ extends RefCounted
 
 ## The map-data bundle as a plain dictionary: build one, and check an untrusted one.
 ##
-## Uses dot-map's `DotMapDataBundle` when that script is in the project (found by path, so dot-game never depends on dot-map), and a plain dictionary of the same shape otherwise; the stores take the class, so a game with dot-map saves through it.
+## Uses dot-map's `DotMapDataBundle` when that script is in the project (located by path, so dot-game never depends on dot-map), and a plain dictionary of the same shape otherwise; the stores take the class, so a game with dot-map saves through it.
 
 const NATIVE_PATH := "res://addons/dot_map/data/dot_map_data_bundle.gd"
 const FORMAT := "dot-map-data"
