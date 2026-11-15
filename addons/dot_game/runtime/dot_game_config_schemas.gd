@@ -29,11 +29,7 @@ static func _scan(dir: String, scripts: Array) -> void:
 			_scan(dir.path_join(d), scripts)
 
 
-## The binder of a script declaring [code]make_binder[/code], as a [DotResult]. Its config is the script's own
-## [code]static func make_config()[/code] when it has one (a game's flashlight script hands a DotFlashlightConfig to
-## a binder on a script that is not itself a config), else [code]s.new()[/code] (a config whose make_binder takes
-## its own instances). A config the binder's first parameter would not accept is refused with the reason: calling
-## it anyway is a script error that stops the caller, which in a [code]--script[/code] tool means it never quits.
+## The binder of a script declaring [code]make_binder[/code], as a [DotResult]. Its config is the script's own [code]static func make_config()[/code] when it has one (a game's flashlight script hands a DotFlashlightConfig to a binder on a script that is not itself a config), else [code]s.new()[/code] (a config whose make_binder takes its own instances). A config the binder's first parameter would not accept is refused with the reason: calling it anyway is a script error that stops the caller, which in a [code]--script[/code] tool means it never quits.
 static func binder_of(s: Script) -> DotResult:
 	var config: Variant = s.call("make_config") if s.has_method("make_config") else s.new()
 	var wanted := _first_arg_class(s, "make_binder")
