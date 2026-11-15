@@ -8,8 +8,8 @@ func _test_server_threads_reach_the_netcode() -> void:
 	var sc := DotServerConfig.new()
 	var c := DotNetConfig.new()
 	_check(not DotGameNetcode.follow_server_threads(c, null), "no server config changes nothing")
-	_check(DotGameNetcode.follow_server_threads(c, sc) and c.snapshot_workers == -1,
-		"the default (switch on, automatic count) asks for -1")
+	_check(DotGameNetcode.follow_server_threads(c, sc) and c.snapshot_workers == sc.net_snapshot_workers(),
+		"the default (switch on, automatic count) asks for the server's resolved count")
 	sc.threads_net = false
 	DotGameNetcode.follow_server_threads(c, sc)
 	_check(c.snapshot_workers == 0, "with the switch off it stays 0")
@@ -19,7 +19,7 @@ func _test_server_threads_reach_the_netcode() -> void:
 		"switched on, the server's worker count is copied")
 	sc.worker_threads = -1
 	DotGameNetcode.follow_server_threads(c, sc)
-	_check(c.snapshot_workers == -1, "a later cvar change is followed")
+	_check(c.snapshot_workers == sc.net_snapshot_workers(), "a later cvar change is followed")
 	sc.threads_net = false
 	DotGameNetcode.follow_server_threads(c, sc)
 	_check(c.snapshot_workers == 0, "switched off again, back to 0")
