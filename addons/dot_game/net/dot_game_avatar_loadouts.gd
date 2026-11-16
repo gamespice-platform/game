@@ -26,8 +26,9 @@ const WEARABLES_KEY := "WEARABLES"
 ## A client's [DotGameAvatarLoadoutAsk] is answered at most this often per peer.
 const ASK_MIN_SEC := 2.0
 
-## Per kind, as the site caps it (AVATAR_ACTION_EQUIP_MAX).
-const MAX_PER_KIND := 8
+## Most equipped actions per kind this server accepts; 0 = unlimited (the site enforces
+## play.avatar.maxActionsEquipped). Over it, [method parse] refuses the whole read (null) and logs; no trimming.
+static var max_per_kind: int = 0
 
 ## Reads in flight at once; the rest wait in a queue of at most [constant MAX_QUEUE].
 var max_concurrent: int = 2
@@ -191,8 +192,9 @@ func wearables_of(peer_id: int) -> PackedStringArray:
 
 
 ## The backbone's `actions` as wire entries: built-ins by known id, uploads by a well-formed
-## `action/<id>/<version>` and a clip name, at most [constant MAX_PER_KIND] per kind. An empty kind
-## gets its built-ins, as the site does. Null for anything that is not an object.
+## `action/<id>/<version>` and a clip name. A kind the site answered, even empty, stays as it is (the
+## app may have it switched off); a kind the answer leaves out gets its built-ins. Null for anything that is
+## not an object, or a kind over [member max_per_kind].
 static func parse(actions: Variant) -> Variant:
 	if not actions is Dictionary:
 		return null
@@ -201,11 +203,14 @@ static func parse(actions: Variant) -> Variant:
 	var out: Array = []
 	var seen := {}
 	for kind in DotGameAvatarLoadoutMessage.KINDS.size():
-		var rows: Variant = (actions as Dictionary).get(DotGameAvatarLoadoutMessage.KINDS[kind].to_upper(), [])
+		var key: String = DotGameAvatarLoadoutMessage.KINDS[kind].to_upper()
+		var answered: bool = (actions as Dictionary).get(key) is Array
+		var rows: Variant = (actions as Dictionary).get(key, [])
 		var taken := 0
 		for row: Variant in (rows if rows is Array else []):
-			if taken >= MAX_PER_KIND:
-				break
+			if max_per_kind > 0 and taken >= max_per_kind:
+				DotLog.warn(CHANNEL, "loadout over max_per_kind; refused", {"kind": key, "max": max_per_kind})
+				return null
 			if not row is Dictionary:
 				continue
 			var d: Dictionary = row
@@ -223,7 +228,7 @@ static func parse(actions: Variant) -> Variant:
 			seen[entry["id"]] = true
 			out.append(entry)
 			taken += 1
-		if taken == 0:
+		if taken == 0 and not answered:
 			for b: String in STARTER_KINDS:
 				if STARTER_KINDS[b] == kind and not seen.has(b):
 					seen[b] = true

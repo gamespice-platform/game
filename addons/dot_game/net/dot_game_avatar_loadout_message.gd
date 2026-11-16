@@ -7,8 +7,9 @@ extends DotNetMessage
 
 const NAME := &"game.avatar_loadout"
 
-## Three kinds of at most eight (the site's AVATAR_ACTION_EQUIP_MAX).
-const MAX_ENTRIES := 24
+## Most entries one message may carry; 0 = unlimited (the site's play.avatar.maxActionsEquipped is the
+## real limit, and the count is a varint). Over it, [method validate] fails; nothing is trimmed.
+static var max_entries: int = 0
 const MAX_ID := 32
 const MAX_CLIP := 64
 ## Wearable slots the site has (dot-user-avatar's DotAvatarWearables.SLOT_BONES), one item each.
@@ -33,15 +34,15 @@ func _type_name() -> StringName:
 
 func _write(w: DotNetWriter) -> void:
 	w.write_varint(actor)
-	var n := mini(entries.size(), MAX_ENTRIES)
-	w.write_uint(n, 5)
+	var n := entries.size()
+	w.write_varint(n)
 	for i in n:
 		var e: Dictionary = entries[i]
 		w.write_string(String(e.get("id", "")), MAX_ID)
 		w.write_uint(clampi(int(e.get("kind", 0)), 0, 2), 2)
 		w.write_bool(bool(e.get("loop", false)))
 		w.write_string(String(e.get("clip", "")), MAX_CLIP)
-	var worn := mini(wearables.size(), MAX_WEARABLES)
+	var worn := wearables.size()
 	w.write_uint(worn, 3)
 	for i in worn:
 		w.write_string(wearables[i], MAX_ID)
@@ -49,22 +50,26 @@ func _write(w: DotNetWriter) -> void:
 
 func _read(r: DotNetReader) -> void:
 	actor = r.read_varint()
-	var n := r.read_uint(5)
+	var n := r.read_varint()
 	entries = []
-	for i in mini(n, MAX_ENTRIES):
+	for i in n:
+		if r.exhausted:
+			break
 		var id := r.read_string(MAX_ID)
 		var kind := r.read_uint(2)
 		var loop := r.read_bool()
 		var clip := r.read_string(MAX_CLIP)
 		entries.append({"id": id, "kind": kind, "loop": loop, "clip": clip})
 	wearables = PackedStringArray()
-	for i in mini(r.read_uint(3), MAX_WEARABLES):
+	for i in r.read_uint(3):
 		wearables.append(r.read_string(MAX_ID))
 
 
 func _validate() -> DotResult:
-	if actor <= 0 or entries.size() > MAX_ENTRIES or wearables.size() > MAX_WEARABLES:
+	if actor <= 0 or wearables.size() > MAX_WEARABLES:
 		return DotResult.fail(DotError.CODE_INVALID, "avatar loadout out of range")
+	if max_entries > 0 and entries.size() > max_entries:
+		return DotResult.fail(DotError.CODE_QUOTA, "avatar loadout has more entries than max_entries", "%d > %d" % [entries.size(), max_entries])
 	for e: Dictionary in entries:
 		var id := String(e.get("id", ""))
 		if id == "" or id.length() > MAX_ID or int(e.get("kind", 0)) > 2 or String(e.get("clip", "")).length() > MAX_CLIP:

@@ -195,18 +195,31 @@ func _loadouts_parse() -> void:
 	var ids := []
 	for e: Dictionary in (parsed if parsed is Array else []):
 		ids.append(e["id"])
-	_check(ids == ["action/9/1", "sit", "salute", "arms_crossed", "hands_on_hips", "wave"], "parse keeps an upload once, a built-in only of its own kind, and gives an empty kind the starters", str(ids))
+	_check(ids == ["action/9/1", "wave"], "parse keeps an upload once and a built-in only of its own kind; a kind the site answered is not topped up with starters", str(ids))
 	var many := []
 	for i in 30:
 		many.append({"contentId": "action/%d/1" % (i + 1), "clip": "c"})
 	var capped: Variant = DotGameAvatarLoadouts.parse({"EMOTE": many})
-	_check(capped is Array and (capped as Array).size() == DotGameAvatarLoadouts.MAX_PER_KIND + 9, "at most eight per kind", str((capped as Array).size() if capped is Array else capped))
+	_check(capped is Array and (capped as Array).size() == 30 + 4 + 5, "no cap by default: 30 emotes, the absent kinds get starters", str((capped as Array).size() if capped is Array else capped))
+	DotGameAvatarLoadouts.max_per_kind = 8
+	_check(DotGameAvatarLoadouts.parse({"EMOTE": many}) == null, "over max_per_kind the read is refused, not trimmed")
+	DotGameAvatarLoadouts.max_per_kind = 0
+	var switched_off: Variant = DotGameAvatarLoadouts.parse({"EMOTE": [], "POSE": [{"builtin": "sit"}], "GESTURE": []})
+	_check(switched_off is Array and (switched_off as Array).size() == 1, "a kind the site answered empty stays empty (switched off)")
 	_check(DotGameAvatarLoadouts.parse("junk") == null and DotGameAvatarLoadouts.parse(null) == null, "anything but an object is no loadout")
 	var big := DotGameAvatarLoadoutMessage.new()
 	big.actor = 3
-	for i in DotGameAvatarLoadoutMessage.MAX_ENTRIES + 1:
+	for i in 40:
 		big.entries.append({"id": "wave", "kind": 2, "loop": false, "clip": ""})
-	_check(not big.validate().ok, "a loadout message over the cap is refused")
+	_check(big.validate().ok, "no cap by default")
+	var w := DotNetWriter.new()
+	big._write(w)
+	var back := DotGameAvatarLoadoutMessage.new()
+	back._read(DotNetReader.new(w.to_bytes()))
+	_check(back.entries.size() == 40, "40 entries round-trip on the wire", str(back.entries.size()))
+	DotGameAvatarLoadoutMessage.max_entries = 24
+	_check(big.validate().error.code == DotError.CODE_QUOTA, "over max_entries is refused loudly")
+	DotGameAvatarLoadoutMessage.max_entries = 0
 
 
 func _loadouts_ask(module: DotGameModule, lo: DotGameAvatarLoadouts, sent: Array, clock: Array) -> void:
