@@ -76,10 +76,12 @@ for it in "${want[@]}"; do
         note="${reason[$it]}; $GAME@$commit"
         extra=()
         if grep -q -- --look "$poster"; then
-            m=$(ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames,duration,width,height -of csv=p=0 "$clip" 2>/dev/null)
-            IFS=, read -r w h dur nf <<< "$m"
+            # ffprobe prints them in its own order: width, height, r_frame_rate (30/1), duration, nb_frames.
+            m=$(ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames,duration,width,height,r_frame_rate -of csv=p=0 "$clip" 2>/dev/null)
+            IFS=, read -r w h rate dur nf <<< "$m"
+            fps=$(awk -F/ '$2 > 0 {printf "%g", $1 / $2}' <<< "$rate")
             extra=(--look "$(review_look "$kind" 2>/dev/null || echo "Check the motion reads cleanly: no pops, no sliding, loops back to the start pose.")"
-                   --metrics "{\"frames\":\"$nf\",\"seconds\":\"$(printf "%.1f" "${dur:-0}")\",\"size\":\"${w}x${h}\"}")
+                   --metrics "{\"fps\":\"${fps:-?}\",\"frames\":\"$nf\",\"seconds\":\"$(printf "%.1f" "${dur:-0}")\",\"size\":\"${w}x${h}\"}")
         fi
         if [ -f "$state/${it}__$kind.mp4" ]; then
             "$poster" media "$key" "$it" "$state/${it}__$kind.mp4" --slot clip --variant before --label "$kind" --title "$kind before" "${extra[@]}" >/dev/null || fail=1
