@@ -15,7 +15,7 @@ const OFF_ENV := "DOT_GAME_PROFILER"
 static func wanted() -> bool:
 	if OFF_FLAG in OS.get_cmdline_user_args() or OFF_FLAG in OS.get_cmdline_args():
 		return false
-	return OS.get_environment(OFF_ENV) != "0"
+	return DotConfig.gs_env(OFF_ENV) != "0"
 
 
 ## Starts compiling the profiler script on a loader thread, so [method add] later finds it cached instead of compiling it in one frame. True while a load is already in flight; false when there is nothing to load or no threads (web): [method add] then loads it itself.

@@ -113,6 +113,7 @@ func _ready() -> void:
 	if profiler_mode == "off":
 		# Before the client loads: it places the profiler itself unless this says no.
 		OS.set_environment(preload("../runtime/dot_game_profiler.gd").OFF_ENV, "0")
+		OS.set_environment("GS_GAME_PROFILER", "0")
 	seed(seed_value)
 	_run.call_deferred()
 
