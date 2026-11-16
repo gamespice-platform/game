@@ -7,7 +7,7 @@ const CLOUD_SERVICE := &"dot_cloud_client"
 ## The shipped client's trust file; the fallback is a copy of its public key that travels with this addon.
 const CONTENT_CONFIG := "res://client/content.json"
 const FALLBACK_CONFIG := "res://addons/dot_game/data/content.json"
-const DEFAULT_URL := "https://dotgames.org/content"
+const DEFAULT_URL := "https://content.gamespice.net/content"
 const REASON := &"content"
 ## What dot-map's `DotMapStore` sets on the gate: bytes the chosen map's slices still need.
 const META_DOWNLOAD_BYTES := &"download_bytes"
@@ -39,7 +39,7 @@ static func max_wait_sec() -> float:
 	return DEFAULT_WAIT_SEC
 
 
-## The `{urls, config_file}` this client uses: content.json's `content_urls` when it names some, else dotgames.org.
+## The `{urls, config_file}` this client uses: content.json's `content_urls` when it names some, else content.gamespice.net (formerly dotgames.org, still served).
 static func settings() -> Dictionary:
 	var file := CONTENT_CONFIG if FileAccess.file_exists(CONTENT_CONFIG) else FALLBACK_CONFIG
 	var urls := PackedStringArray()
