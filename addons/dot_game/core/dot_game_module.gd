@@ -28,7 +28,7 @@ const _Profiler := preload("res://addons/dot_game/runtime/dot_game_profiler.gd")
 
 ## Seconds a seat may stay loading before it counts as loaded anyway, with a warning.
 @export var load_timeout_sec: float = 30.0
-## Place dot-profiler with sv_profiler_* on the console; `--no-profiler` or DOT_GAME_PROFILER=0 turns it off.
+## Place dot-profiler with sv_profiler_* on the console; `--no-profiler` or GS_GAME_PROFILER=0 turns it off.
 @export var use_profiler: bool = true
 ## Wire dot-team's block rules (teammates pass through, enemies stop) when the game has a `body_rules`; false is the one-line opt-out.
 @export var use_noblock: bool = true

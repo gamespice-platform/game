@@ -167,7 +167,7 @@ static func follow_server_threads(config: DotNetConfig, server_config: Object) -
 
 
 ## ORs the server's [code]net_native[/code] and [code]net_native_interest[/code] cvars into [member DotNetConfig.native] and [member DotNetConfig.native_interest]: the game's own
-## true (its config, DOT_NET_NATIVE, --net-native) stays on whatever the operator says.
+## true (its config, GS_NET_NATIVE, --net-native) stays on whatever the operator says.
 static func _follow_server_native(config: DotNetConfig, server_config: Object) -> void:
 	if server_config == null or not ("net_native" in server_config):
 		return

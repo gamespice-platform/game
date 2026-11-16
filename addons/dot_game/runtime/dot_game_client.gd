@@ -45,7 +45,7 @@ signal menu_state_changed(any_open: bool)
 @export var use_standalone_content: bool = true
 ## Build the load gate and its cover. Off for a client whose shell covers it some other way.
 @export var use_gate: bool = true
-## Mount what `content.lock.json` pins ([DotGameLockedContent]) once at start. No lock file means nothing happens; `--locked_content=0` or `DOT_PACKS_FROM=none` switch it off.
+## Mount what `content.lock.json` pins ([DotGameLockedContent]) once at start. No lock file means nothing happens; `--locked_content=0` or `GS_PACKS_FROM=none` switch it off.
 @export var use_locked_content: bool = true
 ## Also mount the lock when offline, forced offline or headless. Off by default: a standalone client fetching its own pack holds the gate with reason `locked_content`, which hangs suites. `--locked_content=PATH` still opts in.
 @export var locked_content_offline: bool = false
@@ -196,7 +196,7 @@ var use_slide_sounds: bool = true
 var use_render_quality: bool = true
 ## The node [member use_render_quality] added, else null.
 var render_quality: Node = null
-## Place dot-profiler (the menu's Performance tab); `--no-profiler` or DOT_GAME_PROFILER=0 turns it off for the run.
+## Place dot-profiler (the menu's Performance tab); `--no-profiler` or GS_GAME_PROFILER=0 turns it off for the run.
 @export var use_profiler: bool = true
 ## The node [member use_profiler] added, else null.
 var profiler: Node = null

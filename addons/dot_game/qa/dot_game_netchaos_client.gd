@@ -100,7 +100,7 @@ func _ready() -> void:
 
 func _record_seq() -> void:
 	await get_tree().create_timer(maxf(_start_at + _active * 0.5 - _now(), 0.0)).timeout
-	OS.set_environment("DOT_SHOT_FRAMES", "16")
+	OS.set_environment("GS_SHOT_FRAMES", "16")
 	await DotShotSeq.new().record(get_tree(), _seq_dir.trim_suffix(".seq") + ".png")
 
 

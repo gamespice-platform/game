@@ -11,7 +11,7 @@ const OFF_FLAG := "--no-profiler"
 const OFF_ENV := "DOT_GAME_PROFILER"
 
 
-## False when the operator turned the placement off: `--no-profiler` or DOT_GAME_PROFILER=0.
+## False when the operator turned the placement off: `--no-profiler` or GS_GAME_PROFILER=0.
 static func wanted() -> bool:
 	if OFF_FLAG in OS.get_cmdline_user_args() or OFF_FLAG in OS.get_cmdline_args():
 		return false
