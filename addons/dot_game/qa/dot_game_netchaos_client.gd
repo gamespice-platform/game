@@ -313,7 +313,7 @@ func _roster() -> Array:
 
 ## The client's game node: its `game` property when set, else the first node-valued script variable of the client (or of a
 ## `DotGameClient` child) that has a `players()` method, else a node in group `game`. A game names it as it likes
-## (playground's is `playground`), so the roster watch must not need the name.
+## (playlot's is `playlot`), so the roster watch must not need the name.
 static func _find_game(client: Node) -> Object:
 	if client == null:
 		return null

@@ -1,7 +1,7 @@
 extends Node
 
 ## DotGameNetchaosClient._find_game: the game node is looked up by `game`, by any other variable that has players(), and by
-## the `game` group; a client with none gives null (Playlot names its own `playground`).
+## the `game` group; a client with none gives null (Playlot names its own `playlot`).
 
 const CHECKS := 7
 
@@ -23,7 +23,7 @@ class ByGame:
 
 class ByOther:
 	extends Node
-	var playground: Node = null
+	var playlot: Node = null
 	var unrelated: Node = null
 
 
@@ -50,7 +50,7 @@ func _run() -> void:
 	_check(find.call(a) == world, "the game property")
 	var b := ByOther.new()
 	b.unrelated = Node.new()
-	b.playground = world
+	b.playlot = world
 	add_child(b)
 	_check(find.call(b) == world, "a differently named variable that has players()")
 	_check(find.call(b) != b.unrelated, "a node without players() is not the game")

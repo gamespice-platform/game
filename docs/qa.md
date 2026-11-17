@@ -57,7 +57,7 @@ A `godot --script` tool that writes project files (`dot_game_cfg_templates.gd`, 
 - `DotLoadProbe`: `_make_client` (required), `_default_frames`, `_gate`, `_covered`, `_body`, `_columns` (the text between `covered=` and `pos=`), `_line`, `_shot_wanted`, `_shot_path`, `_started`, `_done`, `_finish`, `report`.
 - `DotAudioProbe`: `_make_audio` and `_cue_ids` (required), `_min_length`, `_cue_position`, `_after_cues(sink)` (the game's own checks, awaited, return false to fail), `report`, `_finish`. dot-audio is duck-typed: the audio node needs `setup()` returning something with `ok` and a `manager` whose `sink` has a `bank`.
 
-Not covered: g2gfast's `load_probe` (a server-tick cost bench, nothing to do with the client), and the audio probes that drive a real client (look-at-me, dangerous-delivery, playlot, smash-copter, FC, g2gfast). Suite: `examples/headless_probes.tscn`.
+Not covered: Airdrift's `load_probe` (a server-tick cost bench, nothing to do with the client), and the audio probes that drive a real client (look-at-me, dangerous-delivery, playlot, smash-copter, FC, Airdrift). Suite: `examples/headless_probes.tscn`.
 
 
 ## Sharded suites
