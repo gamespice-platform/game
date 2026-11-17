@@ -42,8 +42,8 @@ func _test_client_platform() -> void:
 	client.board_snapshot_fn = snapshot
 	client.maps_rows_fn = func() -> Array: return []
 	client.maps_change_fn = func(_id: StringName) -> DotResult: return DotResult.success(null)
-	client.maps_title = "Change arena"
-	client.maps_noun = "arenas"
+	client.maps_title = "Change FC map"
+	client.maps_noun = "FC maps"
 	client.console_kit_path = CONSOLE_KIT_FIXTURE
 	client.capture_pointer = false
 	var set_up := client.setup()
@@ -61,7 +61,7 @@ func _test_client_platform() -> void:
 		"Tab is the board's key, made when the game's table has none")
 	_check(client.board != null and client.board.get(&"source") == snapshot,
 		"offline the board is drawn from the game's own snapshot")
-	_check(client.maps != null and client.maps.get(&"title") == "Change arena" \
+	_check(client.maps != null and client.maps.get(&"title") == "Change FC map" \
 			and client.maps.get(&"link_service") == &"",
 		"M is the game's map list, and offline asks no server")
 	_check(client.console != null and client.console.get_parent() == client \

@@ -1,6 +1,6 @@
 # Visual QA: does it look like a real game?
 
-The family's loop for weapons, avatars and NPCs: one test scene per item, a first-person camera and two outside cameras (a teammate behind-right, an opponent in front), every frame captured at 60 fps, contact sheets small enough for an agent to read cheaply, a clip per animation that plays every frame in the nightly viewer, a numeric verdict per clip, and the checklist below. Findings go to nightly notes and items; re-capture until the sheets are clean. FC (Fatal Contact) ran the pilot (game-arena `docs/anim-review.md`) and now runs on this harness.
+The family's loop for weapons, avatars and NPCs: one test scene per item, a first-person camera and two outside cameras (a teammate behind-right, an opponent in front), every frame captured at 60 fps, contact sheets small enough for an agent to read cheaply, a clip per animation that plays every frame in the nightly viewer, a numeric verdict per clip, and the checklist below. Findings go to nightly notes and items; re-capture until the sheets are clean. FC (Fatal Contact) ran the pilot (game-fatal-contact `docs/anim-review.md`) and now runs on this harness.
 
 Nothing here ships in a pack, so none of it bumps the API level.
 

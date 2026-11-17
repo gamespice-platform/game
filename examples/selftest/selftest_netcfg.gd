@@ -231,8 +231,8 @@ class _FakeManager extends RefCounted:
 func _test_auto_update_wiring() -> void:
 	_section("server auto-update wiring")
 	var delivered := DotGameDescriptor.new()
-	delivered.game_id = "arena"
-	delivered.content_id = "me/arena"
+	delivered.game_id = "fc"
+	delivered.content_id = "me/fc"
 	delivered.version = "0.1.0"
 	delivered.scene = "scenes/main.tscn"
 	delivered.dependencies = PackedStringArray(["me/lib@1.0.0"])
@@ -246,7 +246,7 @@ func _test_auto_update_wiring() -> void:
 	fake.games = manager
 	var watched := DotGameModule.watched_packs(fake)
 	_check(watched == [
-		{"id": "me/arena", "version": "0.1.0"},
+		{"id": "me/fc", "version": "0.1.0"},
 		{"id": "me/lib", "version": "1.0.0"},
 		{"id": "me/dm_one", "version": "2"},
 	], "a delivered game's own pack, dependencies and maps; a built-in game adds nothing", str(watched))

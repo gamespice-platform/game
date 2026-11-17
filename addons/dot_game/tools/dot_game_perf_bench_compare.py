@@ -69,6 +69,7 @@ def load(path):
         rows[s["system"]] = {"ms": s["ms"] / frames, "call": s["ms"] / max(s["calls"], 1), "calls": s["calls"] / frames}
     for k, v in report.get("phases", {}).items():
         rows["phase." + k] = {"ms": v / frames, "call": v / frames, "calls": 1}
+    rows = renamed_prefix(rows, path)
     # What the engine spends in physics beyond the game's own physics section.
     pre = game_prefix(rows)
     if "phase.physics" in rows and pre + "physics" in rows:
@@ -102,11 +103,26 @@ def load(path):
 
 
 def game_prefix(rows):
-    """The game's own system prefix ("arena.", "zz."): the one in front of a `physics` system that is not the engine's."""
+    """The game's own system prefix ("fc.", "zz."): the one in front of a `physics` system that is not the engine's."""
     for k in rows:
         if k.endswith(".physics") and not k.startswith(("phase.", "engine.")):
             return k[: -len("physics")]
     return "game."
+
+
+# A renamed game's old system prefix, to the one it has now, so a reference recorded before the rename lines up with a
+# run after it: Fatal Contact's systems carried the old FC name's prefix until 2026-11.
+RENAMED_PREFIXES = {"arena.": "fc."}
+
+
+def renamed_prefix(rows, path):
+    """The rows with a renamed game's old system prefix read as the new one, and a WRN naming the old one on stderr."""
+    pre = game_prefix(rows)
+    new = RENAMED_PREFIXES.get(pre)
+    if new is None:
+        return rows
+    print("WRN   %s: systems carry the legacy prefix %r, read as %r" % (path, pre, new), file=sys.stderr)
+    return {(new + k[len(pre):] if k.startswith(pre) else k): v for k, v in rows.items()}
 
 
 def pct(a, b):

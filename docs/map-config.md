@@ -25,7 +25,7 @@ Build the helper once and call it from the map-change handler:
 var map_config: DotGameMapConfig
 func _on_map_changed(map) -> void:
 	if map_config == null:
-		map_config = DotGameMapConfig.for_console("game-fatal-contact", console, {"arena_surf": {"type": "int", "min": 0, "max": 1}})
+		map_config = DotGameMapConfig.for_console("game-fatal-contact", console, {"fc_surf": {"type": "int", "min": 0, "max": 1}})
 	map_config.apply(String(map.id))
 # and in the unload: map_config.restore()
 ```

@@ -53,7 +53,7 @@ Settings layer the same way in every addon, weakest first: the addon's schema de
    board = platform.board
    ```
 
-   A client that draws can spread the setup over frames instead (API 57): `await platform.setup_stepped(between)` builds one piece of `DotGameClient.SETUP_PIECES` a frame and awaits `between.call(piece)` after each (a frame when `between` is empty; headless it runs straight through). `platform.setup_usec` then holds each piece's cost. All of it in one `setup()` was about 200 ms in one frame in game-arena.
+   A client that draws can spread the setup over frames instead (API 57): `await platform.setup_stepped(between)` builds one piece of `DotGameClient.SETUP_PIECES` a frame and awaits `between.call(piece)` after each (a frame when `between` is empty; headless it runs straight through). `platform.setup_usec` then holds each piece's cost. All of it in one `setup()` was about 200 ms in one frame in game-fatal-contact.
 
    A settings node the game adds to its own tree before `setup()` stays where it is; one that is not in the tree is added under the platform. The same goes for the chat box.
 
@@ -112,7 +112,7 @@ Each is additive; leaving it alone keeps the old behaviour.
 | mg-deathrun, mg-prop-hunt, mg-wipeout | easy to moderate | the same shape as look-at-me: `_build_gate`, `_build_settings` with the kit and `follow_hud`, `_capture`/`_release`, `_suspend_input`, `_show_board` |
 | mg-smash-copter, mg-buses-from-hell, mg-dangerous-delivery | moderate | 2D or vehicle clients with their own pointer rules (`capture_pointer = false`) and their own chat window |
 | game-hide-n-seek, game-zombie-zone, game-hungario, game-airdrift | moderate | full settings pages and their own keys; check each suite's Tab and frame-count waits |
-| game-fatal-contact, game-playlot | hard | arena has its server browser as a menu page and its own chat flow; playlot keeps its spawn menu and server browser on its own stack. Use `use_settings = false` or a `_make_settings` override first |
+| game-fatal-contact, game-playlot | hard | FC has its server browser as a menu page and its own chat flow; playlot keeps its spawn menu and server browser on its own stack. Use `use_settings = false` or a `_make_settings` override first |
 
 ## Combat feel (spread, recoil, spread crosshair)
 

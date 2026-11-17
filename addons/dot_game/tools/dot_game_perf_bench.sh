@@ -10,7 +10,7 @@
 # and the summary prints INVALID and exits 3; --ab will not rank an inert side. A mover is a Node3D subtree that went
 # more than 1 m during the run, so a round that adds no nodes (a deathrun, a prop hunt) still counts as playing.
 # PERF_BENCH_INERT_PER_TICK (default 0.05 nodes per tick) and PERF_BENCH_LIVE_MOVERS (default 3) set the limits.
-# DIR may carry extra bench args after "::", e.g. ~/wt/game-arena-x::--bots 15.
+# DIR may carry extra bench args after "::", e.g. ~/wt/game-fatal-contact-x::--bots 15.
 # -d runs Godot with -d (debug build behaviour: script function timings for "-- --script-top N"); its
 # frame times are not comparable with a run without it, so --ab passes it to both sides.
 # --release benches a release export (what players run; ~27% faster client frame than the editor binary, FC 2026-11-13) instead

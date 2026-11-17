@@ -188,7 +188,7 @@ func wait_gate(limit: float) -> void:
 		t += 0.5
 
 
-## A players() method (arena) or a players Array/Dictionary property (the minigames); 0 if neither.
+## A players() method (FC) or a players Array/Dictionary property (the minigames); 0 if neither.
 func _players(game: Object) -> int:
 	if game == null:
 		return 0

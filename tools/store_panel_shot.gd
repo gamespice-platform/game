@@ -12,7 +12,7 @@ func _initialize() -> void:
 	panel.store_url = "https://games.tmcdev.net/dashboard/store"
 	panel.position = Vector2(40, 40)
 	root.add_child(panel)
-	panel.set_owned([{"key": "arena_gold_skin", "name": "Gold skin", "kind": "AVATAR"}, {"key": "launcher", "name": "Rocket launcher", "kind": "ITEM"}])
+	panel.set_owned([{"key": "fc_gold_skin", "name": "Gold skin", "kind": "AVATAR"}, {"key": "launcher", "name": "Rocket launcher", "kind": "ITEM"}])
 	for i in 4:
 		await process_frame
 	DirAccess.make_dir_recursive_absolute("screenshots")

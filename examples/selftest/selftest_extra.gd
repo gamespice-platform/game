@@ -170,8 +170,8 @@ class StoreClient:
 	extends RefCounted
 	func get_integration(_path: String, query: Dictionary) -> DotResult:
 		return DotResult.success({"ok": true, "player": query.get("player"), "items": [
-			{"key": "arena_gold_skin", "name": "Gold skin", "kind": "AVATAR"},
-			{"key": "arena_gold_skin", "name": "dup"},
+			{"key": "fc_gold_skin", "name": "Gold skin", "kind": "AVATAR"},
+			{"key": "fc_gold_skin", "name": "dup"},
 			{"key": "launcher_pack", "name": "Launcher", "kind": "ITEM"}, 5, {"name": "no key"}]})
 
 
@@ -182,7 +182,7 @@ func _test_store_panel() -> void:
 	_check(not panel.is_owned("x") and panel.owned().is_empty(), "empty before a read")
 	var res: DotResult = await panel.refresh(StoreClient.new(), "p1")
 	_check(res.ok and res.value == 2, "refresh returns the distinct owned count", str(res.value))
-	_check(panel.is_owned("arena_gold_skin") and panel.is_owned("launcher_pack") and not panel.is_owned("dup"), "owned by key")
+	_check(panel.is_owned("fc_gold_skin") and panel.is_owned("launcher_pack") and not panel.is_owned("dup"), "owned by key")
 	_check((panel.owned()[0] as Dictionary)["name"] == "Gold skin", "the first entry for a key wins")
 	_check(not (await panel.refresh(null, "p1")).ok, "no client fails, list kept")
 	_check(panel.owned().size() == 2, "a failed read leaves the list as it was")

@@ -4,7 +4,7 @@
 #   exec bash "$(dirname "$0")/../addons/dot_game/tools/dot_game_phone_shot.sh" "$@"
 #
 #   tools/phone_shot.sh                              main scene, touch on
-#   tools/phone_shot.sh --scene=res://game/arena.tscn --out=res://screenshots/a.png --set=map=dm_box
+#   tools/phone_shot.sh --scene=res://game/fc.tscn --out=res://screenshots/a.png --set=map=dm_box
 #   tools/phone_shot.sh --size=667x375               also 932x430; --size sets the window too
 #   tools/phone_shot.sh --call=Hud:shout:Run!        call Hud.shout("Run!") before the frame (NodePath:method:args)
 #   MOVIE=1 tools/phone_shot.sh                      under --write-movie, as the filmstrip tools run
