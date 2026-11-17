@@ -311,50 +311,7 @@ func _build_services() -> DotResult:
 
 ## Wires the roster to the bridge and to whatever else wants to know.
 func _build_roster() -> void:
-	roster = DotGameRoster.new()
-	roster.server = server
-	roster.load_timeout_sec = load_timeout_sec
-	roster.reload_grace_sec = reload_grace_sec
-	roster.loading_changed.connect(_on_loading_changed)
-	_handle_cover_reports()
-
-	if game != null and PEER_LOADING_PROPERTY in game:
-		game.set(PEER_LOADING_PROPERTY, Callable(self, "is_peer_loading"))
-		_set_peer_loading = true
-
-	if bridge != null:
-		roster.add_fn = func(session: DotClientSession) -> Variant:
-			if bridge == null or not bridge.has_method("add_player"):
-				return null
-			return bridge.call(
-				"add_player",
-				session.peer_id,
-				session.userid,
-				session.display_name
-			)
-
-		roster.remove_fn = func(session: DotClientSession) -> void:
-			if bridge != null and bridge.has_method("remove_peer"):
-				bridge.call("remove_peer", session.peer_id)
-			if noblock != null:
-				noblock.rules.call(&"forget", session.userid)
-
-	roster.follow(services)
-	_follow_avatar_loadouts()
-	# Any dot-loadout manager the game built gets the site store's entitlements; idempotent per manager.
-	roster.seated.connect(func(_s: DotClientSession) -> void:
-		if is_inside_tree():
-			DotGameStoreEntitlements.attach_tree(get_tree().root))
-	stats_feed = DotGameStatsFeed.new()
-	stats_feed.map_fn = func() -> String: return _reported_map
-	stats_feed.follow(roster)
-	stats_board = DotGameStatsBoard.attach(stats_feed, roster)
-
-		# Through the module's helper, so it is unhooked on unload; a stale hook crashes the next spawn.
-	hook_post("client_spawn", _on_client_spawn)
-
-	if server != null:
-		server.client_disconnected.connect(roster.on_client_disconnected)
+	_wiring().build_roster(self)
 
 
 ## Puts this module's handler for [constant DotGameRoster.COVER_KIND] on the server's envelope.

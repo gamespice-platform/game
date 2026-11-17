@@ -79,6 +79,56 @@ static func bind_surf_sounds(m: DotGameModule) -> void:
 			cv.call(&"with_range", float(spec["min"]), float(spec["max"]))
 
 
+## Wires the roster to the bridge and to whatever else wants to know.
+static func build_roster(m: DotGameModule) -> void:
+	var roster := DotGameRoster.new()
+	m.roster = roster
+	roster.server = m.server
+	roster.load_timeout_sec = m.load_timeout_sec
+	roster.reload_grace_sec = m.reload_grace_sec
+	roster.loading_changed.connect(m._on_loading_changed)
+	m._handle_cover_reports()
+
+	if m.game != null and DotGameModule.PEER_LOADING_PROPERTY in m.game:
+		m.game.set(DotGameModule.PEER_LOADING_PROPERTY, Callable(m, "is_peer_loading"))
+		m._set_peer_loading = true
+
+	if m.bridge != null:
+		roster.add_fn = func(session: DotClientSession) -> Variant:
+			if m.bridge == null or not m.bridge.has_method("add_player"):
+				return null
+			return m.bridge.call(
+				"add_player",
+				session.peer_id,
+				session.userid,
+				session.display_name
+			)
+
+		roster.remove_fn = func(session: DotClientSession) -> void:
+			if m.bridge != null and m.bridge.has_method("remove_peer"):
+				m.bridge.call("remove_peer", session.peer_id)
+			if m.noblock != null:
+				m.noblock.rules.call(&"forget", session.userid)
+
+	roster.follow(m.services)
+	m._follow_avatar_loadouts()
+	# Any dot-loadout manager the game built gets the site store's entitlements; idempotent per manager.
+	roster.seated.connect(func(_s: DotClientSession) -> void:
+		if m.is_inside_tree():
+			DotGameStoreEntitlements.attach_tree(m.get_tree().root))
+	var feed := DotGameStatsFeed.new()
+	m.stats_feed = feed
+	feed.map_fn = func() -> String: return m._reported_map
+	feed.follow(roster)
+	m.stats_board = DotGameStatsBoard.attach(feed, roster)
+
+	# Through the module's helper, so it is unhooked on unload; a stale hook crashes the next spawn.
+	m.hook_post("client_spawn", m._on_client_spawn)
+
+	if m.server != null:
+		m.server.client_disconnected.connect(roster.on_client_disconnected)
+
+
 ## Builds the block rules when the game has a `body_rules`; null in the result when off.
 static func build_noblock(m: DotGameModule) -> DotResult:
 	if not m._noblock_enabled():
