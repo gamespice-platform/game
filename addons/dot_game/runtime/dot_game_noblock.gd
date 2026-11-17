@@ -90,7 +90,7 @@ func _on_field(key: String, _value: Variant, source: String) -> void:
 
 
 ## Follows the server's block rules from a client: see [method DotGameClient.add_noblock].
-static func add_to_client(c: DotGameClient, game: Object, side_fn: Callable) -> DotResult:
+static func add_to_client(c: Node, game: Object, side_fn: Callable) -> DotResult:
 	if game == null or not ("body_rules" in game) or game.get("body_rules") == null:
 		return DotResult.fail(DotError.CODE_INVALID, "add_noblock needs a game with body_rules.")
 	var made := DotGameNoblock.create(c.map_config_game if c.map_config_game != "" else "game", side_fn)

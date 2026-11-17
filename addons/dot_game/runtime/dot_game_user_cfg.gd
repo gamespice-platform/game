@@ -9,7 +9,7 @@ const EDITOR_SCRIPT := "res://addons/dot_menu/ui/dot_addon_config_editor_screen.
 const USER_CFG_PAGE := &"advanced"
 
 
-static func add_entry(c: DotGameClient) -> void:
+static func add_entry(c: Node) -> void:
 	if not c.user_tier_on or c.user_cfg_files.is_empty() or c.menu == null or not c.menu.has_method(&"page"):
 		return
 	if not ResourceLoader.exists(ROW_SCRIPT) or not ResourceLoader.exists(EDITOR_SCRIPT):
@@ -26,7 +26,7 @@ static func add_entry(c: DotGameClient) -> void:
 
 
 ## Opens the cfg editor over the menu. False without the tier, files, menu or editor.
-static func open(c: DotGameClient) -> bool:
+static func open(c: Node) -> bool:
 	if not c.user_tier_on or c.user_cfg_files.is_empty() or c.menu == null:
 		return false
 	if not ResourceLoader.exists(EDITOR_SCRIPT):

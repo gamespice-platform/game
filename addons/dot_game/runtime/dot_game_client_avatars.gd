@@ -9,7 +9,7 @@ const SERVICE := &"dot_game_client"
 const FIGURE_META := &"dot_game_figure_fn"
 
 
-static func prepare_content(c: DotGameClient, rules: Dictionary, base_url: String, server_id: int, http: DotHttp = null) -> DotResult:
+static func prepare_content(c: Node, rules: Dictionary, base_url: String, server_id: int, http: DotHttp = null) -> DotResult:
 	var ids := DotGameAvatarContent.ids_from_rules(rules)
 	if server_id <= 0:
 		server_id = DotGameAvatarContent.server_id_from_rules(rules)
@@ -24,7 +24,7 @@ static func prepare_content(c: DotGameClient, rules: Dictionary, base_url: Strin
 	return res
 
 
-static func add_actions(c: DotGameClient, net: DotNetManager, figure_fn: Callable, backbone_actions: Variant = null) -> DotResult:
+static func add_actions(c: Node, net: DotNetManager, figure_fn: Callable, backbone_actions: Variant = null) -> DotResult:
 	publish_figures(c, figure_fn)
 	var path := "res://addons/dot_user_avatar/actions/dot_avatar_action_input.gd"
 	if not ResourceLoader.exists(path):
@@ -50,17 +50,17 @@ static func add_actions(c: DotGameClient, net: DotNetManager, figure_fn: Callabl
 		return (c._avatar_library.get("rows", {}) as Dictionary).get(id, {})
 	c.add_child(client)
 	client.attach(net, input, figure_fn)
-	if c.console != null and is_instance_valid(c.console) and ResourceLoader.exists(DotGameClient.LOCAL_SCRIPT):
-		var local: Object = (load(DotGameClient.LOCAL_SCRIPT) as GDScript).new()
+	if c.console != null and is_instance_valid(c.console) and ResourceLoader.exists(c.LOCAL_SCRIPT):
+		var local: Object = (load(c.LOCAL_SCRIPT) as GDScript).new()
 		input.call(&"register_console", local)
 		c.console.call(&"add_source", local)
 	return DotResult.success(client)
 
 
-static func server(c: DotGameClient) -> int:
+static func server(c: Node) -> int:
 	if c.avatar_server_id > 0:
 		return c.avatar_server_id
-	var source: Object = c.link if c.link != null else DotRegistry.get_service(DotGameClient.LINK_SERVICE)
+	var source: Object = c.link if c.link != null else DotRegistry.get_service(c.LINK_SERVICE)
 	var cvars: Variant = source.get(&"replicated_cvars") if source != null and is_instance_valid(source) else null
 	return DotGameAvatarContent.server_id_from_rules(cvars) if cvars is Dictionary else 0
 
@@ -73,7 +73,7 @@ static func read_actions(http: DotHttp, user_key: String, headers: Dictionary) -
 
 
 ## Publishes [param c] as [constant SERVICE] with [param figure_fn] (peer id -> figure); add_avatar_actions does it.
-static func publish_figures(c: DotGameClient, figure_fn: Callable) -> void:
+static func publish_figures(c: Node, figure_fn: Callable) -> void:
 	c.set_meta(FIGURE_META, figure_fn)
 	DotRegistry.register(SERVICE, c)
 

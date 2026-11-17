@@ -9,7 +9,7 @@ const SCRIPT := "res://addons/dot_fx/runtime/dot_fx_render_quality.gd"
 
 
 ## Adds the node and follows the settings, or returns null when dot-fx is not in this build or a game already has one.
-static func add(c: DotGameClient, store: Object) -> Node:
+static func add(c: Node, store: Object) -> Node:
 	if not ResourceLoader.exists(SCRIPT) or c.get_node_or_null("RenderQuality") != null:
 		return null
 	var script: Variant = load(SCRIPT)

@@ -440,7 +440,7 @@ func describe_lines() -> PackedStringArray:
 
 
 ## Hosts [param wb] on [param c]: its window is a menu overlay and the console gets `workbench`.
-static func host_on(c: DotGameClient, wb: Node) -> void:
+static func host_on(c: Node, wb: Node) -> void:
 	if wb.get_parent() == null:
 		c.add_child(wb)
 	var mount := func(panel: Variant) -> void:
@@ -460,7 +460,7 @@ static func host_on(c: DotGameClient, wb: Node) -> void:
 	wb.connect(&"open_changed", func(open: bool) -> void:
 		if open and c.menu != null and is_instance_valid(c.menu) and c.menu.has_method(&"overlay_opened"):
 			c.menu.call(&"overlay_opened"))
-	if c.console != null and is_instance_valid(c.console) and ResourceLoader.exists(DotGameClient.LOCAL_SCRIPT):
-		var local: Object = (load(DotGameClient.LOCAL_SCRIPT) as GDScript).new()
+	if c.console != null and is_instance_valid(c.console) and ResourceLoader.exists(c.LOCAL_SCRIPT):
+		var local: Object = (load(c.LOCAL_SCRIPT) as GDScript).new()
 		local.call(&"add_command", &"workbench", "Tuning panel: workbench [open|close|toggle|export|http]", Callable(wb, &"console_command"))
 		c.console.call(&"add_source", local)

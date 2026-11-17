@@ -5,7 +5,7 @@ extends RefCounted
 const CHANNEL := "game.client"
 
 
-static func build(c: DotGameClient) -> void:
+static func build(c: Node) -> void:
 	if c.settings == null:
 		c.settings = c._make_settings()
 	if c.settings == null:
@@ -34,13 +34,13 @@ static func build(c: DotGameClient) -> void:
 
 
 ## The stock dot-menu settings node, or null when dot-menu is not in the build.
-static func make(c: DotGameClient) -> Node:
-	if not ResourceLoader.exists(DotGameClient.SETTINGS_SCRIPT):
+static func make(c: Node) -> Node:
+	if not ResourceLoader.exists(c.SETTINGS_SCRIPT):
 		DotLog.info(CHANNEL, "dot-menu is not in this build: no settings or Escape menu")
 		return null
-	var script: Variant = load(DotGameClient.SETTINGS_SCRIPT)
+	var script: Variant = load(c.SETTINGS_SCRIPT)
 	if not (script is GDScript):
-		DotLog.warn(CHANNEL, "dot-menu's settings would not load", {"path": DotGameClient.SETTINGS_SCRIPT})
+		DotLog.warn(CHANNEL, "dot-menu's settings would not load", {"path": c.SETTINGS_SCRIPT})
 		return null
 	var made: Node = (script as GDScript).new()
 	made.set(&"app_namespace", c.app_namespace)

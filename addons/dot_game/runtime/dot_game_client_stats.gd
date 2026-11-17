@@ -10,7 +10,7 @@ const _Vis := preload("res://addons/dot_game/runtime/dot_game_client_vis.gd")
 
 
 ## Installs the columns on [member DotGameClient.board] and builds the card beside it; idempotent.
-static func wire(c: DotGameClient) -> void:
+static func wire(c: Node) -> void:
 	var board: Object = c.board
 	if board == null or not (board is Node) or not ResourceLoader.exists(COLUMNS_SCRIPT):
 		return
@@ -31,7 +31,7 @@ static func wire(c: DotGameClient) -> void:
 
 
 ## Pushes [member DotGameClient.stats_ui] to the columns and the card.
-static func apply(c: DotGameClient) -> void:
+static func apply(c: Node) -> void:
 	if c.stats_columns != null:
 		c.stats_columns.set(&"enabled", c.stats_ui)
 	if c.stats_panel != null:
@@ -39,7 +39,7 @@ static func apply(c: DotGameClient) -> void:
 
 
 ## Makes `cl_stats_ui` typable in the console unless the game defines it.
-static func add_console_var(c: DotGameClient) -> void:
+static func add_console_var(c: Node) -> void:
 	var local: Object = _Vis.local_source(c, StringName(CVAR))
 	if local == null:
 		return
@@ -52,6 +52,6 @@ static func add_console_var(c: DotGameClient) -> void:
 
 
 ## Opens the card for [param seconds] (0 until closed): an end-of-round screen calls this.
-static func show(c: DotGameClient, seconds: float) -> void:
+static func show(c: Node, seconds: float) -> void:
 	if c.stats_panel != null and is_instance_valid(c.stats_panel):
 		c.stats_panel.call(&"show_for", seconds)

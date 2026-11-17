@@ -12,7 +12,7 @@ const AUTH_SERVICE := &"dot_auth_server"
 
 
 ## Admits tickets through [param resolver] on [param wb]'s api, beside the actors it already permits. [param admin_permit] is `(uid, flag) -> bool`. Value: the gate, or null when it cannot be built.
-static func attach(wb: DotGameWorkbench, resolver: Callable, admin_permit: Callable) -> RefCounted:
+static func attach(wb: Node, resolver: Callable, admin_permit: Callable) -> RefCounted:
 	if wb.api == null or not resolver.is_valid() or not ResourceLoader.exists(IDENTITY_SCRIPT):
 		return null
 	var gate: RefCounted = (load(IDENTITY_SCRIPT) as GDScript).new()

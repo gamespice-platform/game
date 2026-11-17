@@ -4,7 +4,7 @@ extends RefCounted
 ## The combat-feel driver of [DotGameClient]; the client keeps the state.
 
 
-static func add(c: DotGameClient, feel: DotGameCombatFeel, crosshair: Control, arsenal_fn: Callable, camera_fn: Callable) -> void:
+static func add(c: Node, feel: DotGameCombatFeel, crosshair: Control, arsenal_fn: Callable, camera_fn: Callable) -> void:
 	c._feel = feel
 	c._feel_crosshair = crosshair
 	c._feel_arsenal_fn = arsenal_fn
@@ -15,7 +15,7 @@ static func add(c: DotGameClient, feel: DotGameCombatFeel, crosshair: Control, a
 		var _bound := feel.bind_console(c.console, crosshair)
 
 
-static func drive(c: DotGameClient) -> void:
+static func drive(c: Node) -> void:
 	if c._feel == null or not c._feel_arsenal_fn.is_valid():
 		return
 	if not c._feel_console_bound and c.console != null:

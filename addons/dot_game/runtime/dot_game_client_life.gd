@@ -5,7 +5,7 @@ extends RefCounted
 const _Profiler := preload("res://addons/dot_game/runtime/dot_game_profiler.gd")
 
 
-static func wire_gate(c: DotGameClient) -> void:
+static func wire_gate(c: Node) -> void:
 	c.gate = c._make_gate()
 	if c.gate == null:
 		return
@@ -16,7 +16,7 @@ static func wire_gate(c: DotGameClient) -> void:
 		c.gate.closed.connect(c._on_gate_cover.bind(true))
 
 
-static func make_gate(c: DotGameClient) -> DotLoadGate:
+static func make_gate(c: Node) -> DotLoadGate:
 	var made := DotLoadGate.new()
 	made.require_camera = c.require_camera
 	made.warm_up_on_open = c.warm_up and DisplayServer.get_name() != "headless"
@@ -25,7 +25,7 @@ static func make_gate(c: DotGameClient) -> DotLoadGate:
 	elif c.cover_scene != null:
 		made.cover_scene = c.cover_scene
 	if c.spawned_fn.is_valid():
-		made.require(DotGameClient.REASON_SPAWNED, c.spawned_fn, c.spawned_text)
+		made.require(c.REASON_SPAWNED, c.spawned_fn, c.spawned_text)
 	# Under the host: the gate marks its parent for DotLoadGate.of. A host still readying refuses a child, so wait a frame.
 	if c.host.is_node_ready():
 		c.host.add_child(made)
@@ -34,17 +34,17 @@ static func make_gate(c: DotGameClient) -> DotLoadGate:
 	return made
 
 
-static func stepped(c: DotGameClient, between: Callable) -> DotResult:
-	var pieces := c._setup_pieces()
+static func stepped(c: Node, between: Callable) -> DotResult:
+	var pieces: Array[StringName] = c._setup_pieces()
 	var stepping := between.is_valid() or (DisplayServer.get_name() != "headless" and c.is_inside_tree())
 	# dot-profiler is the costly piece: its script compiles on a loader thread (from _ready) while the pieces before it run.
-	var profiler_loading := stepping and c.use_profiler and c.is_inside_tree() and &"profiler" in pieces and _Profiler.request_script()
+	var profiler_loading: bool = stepping and c.use_profiler and c.is_inside_tree() and &"profiler" in pieces and _Profiler.request_script()
 	var profiler_script: Resource = null
 	for i in pieces.size():
 		if pieces[i] == &"profiler" and profiler_loading:
 			# With between, every frame boundary is the game's (it may hold the multiplayer poll across them): never end one here.
 			profiler_script = await _Profiler.await_script(c.get_tree(), between.is_valid())
-			DotLog.debug(DotGameClient.CHANNEL, "profiler script loaded off the main thread", {"ok": profiler_script != null})
+			DotLog.debug(c.CHANNEL, "profiler script loaded off the main thread", {"ok": profiler_script != null})
 		c._run_setup_piece(pieces[i])
 		if i == pieces.size() - 1:
 			break
@@ -55,7 +55,7 @@ static func stepped(c: DotGameClient, between: Callable) -> DotResult:
 	return c._finish_setup()
 
 
-static func run_piece(c: DotGameClient, piece: StringName) -> void:
+static func run_piece(c: Node, piece: StringName) -> void:
 	var started := Time.get_ticks_usec()
 	match piece:
 		&"chat":
@@ -84,7 +84,7 @@ static func run_piece(c: DotGameClient, piece: StringName) -> void:
 	c.setup_usec[piece] = Time.get_ticks_usec() - started
 
 
-static func unwire_chat(c: DotGameClient) -> void:
+static func unwire_chat(c: Node) -> void:
 	if c.chat == null or not is_instance_valid(c.chat):
 		return
 	for signal_name: StringName in [&"typing_changed", &"opened", &"closed"]:
@@ -102,7 +102,7 @@ static func chat_typing(chat: Node) -> bool:
 	return false
 
 
-static func touch_board(c: DotGameClient, down: bool) -> void:
+static func touch_board(c: Node, down: bool) -> void:
 	var board_node: Object = c.board
 	if board_node == null or not is_instance_valid(board_node):
 		return
@@ -112,7 +112,7 @@ static func touch_board(c: DotGameClient, down: bool) -> void:
 		board_node.call(&"open")
 
 
-static func touch_maps(c: DotGameClient) -> bool:
+static func touch_maps(c: Node) -> bool:
 	var maps: Object = c.maps
 	if maps == null or not is_instance_valid(maps) or c.is_input_blocked() or c.is_menu_open():
 		return false
@@ -122,14 +122,14 @@ static func touch_maps(c: DotGameClient) -> bool:
 	return true
 
 
-static func hold_pointer(c: DotGameClient, key: Variant) -> void:
+static func hold_pointer(c: Node, key: Variant) -> void:
 	c._pointer_holds[key] = true
 	if c.capture_pointer and c._set_up and not c.gate_only:
 		c._free_pointer()
 	c._refresh_blocked()
 
 
-static func release_pointer(c: DotGameClient, key: Variant) -> void:
+static func release_pointer(c: Node, key: Variant) -> void:
 	if not c._pointer_holds.erase(key):
 		return
 	c._refresh_blocked()
@@ -147,7 +147,7 @@ static func hit_flinch(sampler_fn: Callable, camera_fn: Callable, aim_fn: Callab
 	return made
 
 
-static func exit_tree(c: DotGameClient) -> void:
+static func exit_tree(c: Node) -> void:
 	c.restore_map_config()
 	DotGameClientExtras.disconnect_registry_bus(c)
 	if c.user_tier_on:

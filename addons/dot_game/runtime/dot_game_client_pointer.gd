@@ -4,7 +4,7 @@ extends RefCounted
 ## Holds [DotGameClient]'s pointer for nodes in the [code]dot_pointer_modal[/code] group (dot-ui's ballot) while their [code]pointer_mode_changed(on)[/code] says they freed the mouse. Duck-typed by group and signal, so this names nothing in dot-ui.
 
 
-static func wire(c: DotGameClient) -> void:
+static func wire(c: Node) -> void:
 	if not c.is_inside_tree():
 		return
 	var tree := c.get_tree()
@@ -37,7 +37,7 @@ static func on_mode_changed(on: bool, c, node: Node) -> void:
 		c.release_pointer(node)
 
 
-static func escape_frees(c: DotGameClient, event: InputEvent) -> bool:
+static func escape_frees(c: Node, event: InputEvent) -> bool:
 	if not c.escape_releases_pointer or not c.capture_pointer or not c._set_up or c.gate_only:
 		return false
 	var key := event as InputEventKey
@@ -49,7 +49,7 @@ static func escape_frees(c: DotGameClient, event: InputEvent) -> bool:
 	return true
 
 
-static func click_captures(c: DotGameClient, event: InputEvent) -> void:
+static func click_captures(c: Node, event: InputEvent) -> void:
 	if not c.capture_pointer or not c._set_up or c.gate_only:
 		return
 	var click := event as InputEventMouseButton
@@ -61,7 +61,7 @@ static func click_captures(c: DotGameClient, event: InputEvent) -> void:
 
 
 ## The menu opened or closed: frees the mouse, or captures it again where a browser allows.
-static func menu_state(c: DotGameClient, any_open: bool) -> void:
+static func menu_state(c: Node, any_open: bool) -> void:
 	c._menu_open = any_open
 	if c.capture_pointer:
 		if any_open:

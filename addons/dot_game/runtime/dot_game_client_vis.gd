@@ -10,7 +10,7 @@ const _Threads := preload("res://addons/dot_game/runtime/dot_game_map_threads.gd
 
 
 ## Remembers [param world] and [param drawn] and builds the culling when the mode is not off. Null when off, without dot-map, or when the map has no visibility data.
-static func attach(c: DotGameClient, world: RefCounted, drawn: Node3D, parent: Node) -> Node:
+static func attach(c: Node, world: RefCounted, drawn: Node3D, parent: Node) -> Node:
 	detach(c)
 	c._vis_world = world
 	c._vis_drawn = weakref(drawn)
@@ -21,7 +21,7 @@ static func attach(c: DotGameClient, world: RefCounted, drawn: Node3D, parent: N
 
 
 ## Frees the culling and forgets the map: call when the map is unloaded.
-static func detach(c: DotGameClient) -> void:
+static func detach(c: Node) -> void:
 	if c.visibility != null and is_instance_valid(c.visibility):
 		c.visibility.queue_free()
 	c.visibility = null
@@ -31,7 +31,7 @@ static func detach(c: DotGameClient) -> void:
 
 
 ## Sets the mode and follows it on the attached map. False for an unknown name.
-static func set_mode(c: DotGameClient, text: String) -> bool:
+static func set_mode(c: Node, text: String) -> bool:
 	var mode := text.strip_edges().to_lower()
 	if not MODES.has(mode):
 		return false
@@ -43,7 +43,7 @@ static func set_mode(c: DotGameClient, text: String) -> bool:
 	return true
 
 
-static func _build(c: DotGameClient) -> void:
+static func _build(c: Node) -> void:
 	var drawn: Node3D = c._vis_drawn.get_ref() if c._vis_drawn != null else null
 	var parent: Node = c._vis_parent.get_ref() if c._vis_parent != null else null
 	if drawn == null or parent == null:
@@ -65,7 +65,7 @@ static func _build(c: DotGameClient) -> void:
 
 
 ## The client console's own variable source that does not already claim [param name], or null.
-static func local_source(c: DotGameClient, name: StringName) -> Object:
+static func local_source(c: Node, name: StringName) -> Object:
 	if c.console == null or not c.console.has_method(&"sources"):
 		return null
 	var local: Object = null
@@ -78,7 +78,7 @@ static func local_source(c: DotGameClient, name: StringName) -> Object:
 
 
 ## Adds `vis_mode` and `map_load_threads` to the client console's own variables unless the game already has one there. True when `vis_mode` was added.
-static func add_console_var(c: DotGameClient) -> bool:
+static func add_console_var(c: Node) -> bool:
 	var threads := local_source(c, StringName(_Threads.CVAR))
 	if threads != null:
 		_Threads.add_client_var(threads)
@@ -95,7 +95,7 @@ static func add_console_var(c: DotGameClient) -> bool:
 
 
 ## Applies a [code]--vis_mode=[/code] user argument.
-static func apply_cmdline(c: DotGameClient) -> void:
+static func apply_cmdline(c: Node) -> void:
 	_Threads.apply_cmdline()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--vis_mode="):

@@ -4,7 +4,7 @@ extends RefCounted
 ## The board and map-vote wiring of [DotGameClient]'s adopted menu; the client keeps the state.
 
 
-static func wire_board(c: DotGameClient) -> void:
+static func wire_board(c: Node) -> void:
 	var board: Object = c.board
 	if board == null:
 		return
@@ -17,7 +17,7 @@ static func wire_board(c: DotGameClient) -> void:
 		board.set(&"source", c.board_snapshot_fn)
 
 
-static func wire_maps(c: DotGameClient) -> void:
+static func wire_maps(c: Node) -> void:
 	var owner: Object = c.settings if c.settings != null and c.settings.has_method(&"use_maps") else c.menu
 	if not (c.maps_rows_fn.is_valid() and c.maps_change_fn.is_valid() and owner != null \
 			and owner.has_method(&"use_maps")):
@@ -35,7 +35,7 @@ static func wire_maps(c: DotGameClient) -> void:
 		c.maps.set(&"link_service", &"")
 
 
-static func connect_state(c: DotGameClient) -> void:
+static func connect_state(c: Node) -> void:
 	var settings: Node = c.settings
 	if settings != null and settings.has_signal(&"menu_state_changed") \
 			and not settings.is_connected(&"menu_state_changed", c._on_menu_state):
@@ -51,7 +51,7 @@ static func connect_state(c: DotGameClient) -> void:
 		c._wired_signal = &"overlays_changed"
 
 
-static func unwire(c: DotGameClient) -> void:
+static func unwire(c: Node) -> void:
 	var old: Object = c.menu
 	if old == null or not is_instance_valid(old):
 		c._wired_menu = null
@@ -67,7 +67,7 @@ static func unwire(c: DotGameClient) -> void:
 	c._menu_open = false
 
 
-static func is_open(c: DotGameClient) -> bool:
+static func is_open(c: Node) -> bool:
 	var settings: Node = c.settings
 	var menu: Object = c.menu
 	if settings != null and is_instance_valid(settings) and settings.has_method(&"is_open"):
@@ -90,9 +90,9 @@ static func _menu_answer(menu: Object, fallback: bool) -> bool:
 	return fallback
 
 
-static func ensure_scoreboard_action(c: DotGameClient) -> void:
+static func ensure_scoreboard_action(c: Node) -> void:
 	var action: StringName = c.scoreboard_action
-	if action != DotGameClient.SCOREBOARD_ACTION or InputMap.has_action(action):
+	if action != c.SCOREBOARD_ACTION or InputMap.has_action(action):
 		return
 	InputMap.add_action(action)
 	var tab := InputEventKey.new()

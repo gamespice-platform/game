@@ -8,7 +8,7 @@ const _RenderQuality := preload("res://addons/dot_game/runtime/dot_game_render_q
 const _Profiler := preload("res://addons/dot_game/runtime/dot_game_profiler.gd")
 
 
-static func add_profiler(c: DotGameClient) -> void:
+static func add_profiler(c: Node) -> void:
 	if not c.use_profiler:
 		return
 	c.profiler = _Profiler.add(c)
@@ -23,7 +23,7 @@ static func add_profiler(c: DotGameClient) -> void:
 
 
 ## Drops the client's connections to the registry's static bus, which outlives it; called on exit tree.
-static func disconnect_registry_bus(c: DotGameClient) -> void:
+static func disconnect_registry_bus(c: Node) -> void:
 	var bus := DotRegistry.signals()
 	if bus.service_registered.is_connected(c._on_console_service):
 		bus.service_registered.disconnect(c._on_console_service)
@@ -35,17 +35,17 @@ static func disconnect_registry_bus(c: DotGameClient) -> void:
 
 ## The registry outlives a client, so a deferred bind holds its instance id: a freed object as an argument errors.
 static func _bind_if_alive(id: int) -> void:
-	var c := instance_from_id(id) as DotGameClient
+	var c := instance_from_id(id) as Node
 	if c != null:
 		bind_profiler_console(c)
 
 
-static func on_console_service(service: StringName, c: DotGameClient) -> void:
+static func on_console_service(service: StringName, c: Node) -> void:
 	if service == &"dot_console":
 		_bind_if_alive.call_deferred(c.get_instance_id())
 
 
-static func bind_profiler_console(c: DotGameClient) -> bool:
+static func bind_profiler_console(c: Node) -> bool:
 	if c._profiler_bound or c.profiler == null or not is_instance_valid(c.profiler):
 		return c._profiler_bound
 	var con: Object = c.console if c.console != null and is_instance_valid(c.console) else DotRegistry.get_service(&"dot_console")
@@ -65,7 +65,7 @@ static func bind_profiler_console(c: DotGameClient) -> bool:
 	return true
 
 
-static func add_render_quality(c: DotGameClient) -> void:
+static func add_render_quality(c: Node) -> void:
 	if not c.use_render_quality or c.gate_only:
 		return
 	var store: Object = null
@@ -93,13 +93,13 @@ static func request_audio_scripts() -> void:
 
 
 ## Collects what [method request_audio_scripts] started (waits only for a load still running) and holds it on the client.
-static func collect_audio_scripts(c: DotGameClient) -> void:
+static func collect_audio_scripts(c: Node) -> void:
 	for path in AUDIO_SCRIPTS:
 		if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
 			c._audio_scripts.append(ResourceLoader.load_threaded_get(path))
 
 
-static func add_landing(c: DotGameClient) -> void:
+static func add_landing(c: Node) -> void:
 	if not c.use_landing:
 		return
 	var node: Node = preload("res://addons/dot_game/runtime/dot_game_landing.gd").new()
@@ -114,7 +114,7 @@ static func add_landing(c: DotGameClient) -> void:
 		node.queue_free()
 
 
-static func add_slide_sounds(c: DotGameClient) -> void:
+static func add_slide_sounds(c: Node) -> void:
 	if not c.use_slide_sounds:
 		return
 	var node: Node = preload("res://addons/dot_game/runtime/dot_game_slide_sounds.gd").new()
@@ -132,7 +132,7 @@ static func add_slide_sounds(c: DotGameClient) -> void:
 
 
 ## Finds the client's DotNetManager in the registry now or when it registers (a server's is skipped).
-static func watch_latency_net(c: DotGameClient) -> void:
+static func watch_latency_net(c: Node) -> void:
 	var bus := DotRegistry.signals()
 	if not bus.service_registered.is_connected(c._on_latency_service):
 		bus.service_registered.connect(c._on_latency_service)
@@ -140,7 +140,7 @@ static func watch_latency_net(c: DotGameClient) -> void:
 		on_latency_service(service_name, DotRegistry.get_service(service_name), c)
 
 
-static func on_latency_service(service_name: StringName, instance: Object, client: DotGameClient) -> void:
+static func on_latency_service(service_name: StringName, instance: Object, client: Node) -> void:
 	if not String(service_name).begins_with(String(DotNetManager.SERVICE)) or not (instance is DotNetManager):
 		return
 	if (instance as DotNetManager).is_server:
@@ -149,7 +149,7 @@ static func on_latency_service(service_name: StringName, instance: Object, clien
 
 
 ## Tunes the client's replay settings from _ready, so a client that never calls setup() (a game with its own menu and console) gets them too.
-static func watch_replay_tuning(c: DotGameClient) -> void:
+static func watch_replay_tuning(c: Node) -> void:
 	var bus := DotRegistry.signals()
 	if not bus.service_registered.is_connected(c._on_replay_service):
 		bus.service_registered.connect(c._on_replay_service)
@@ -157,7 +157,7 @@ static func watch_replay_tuning(c: DotGameClient) -> void:
 		on_replay_service(service_name, DotRegistry.get_service(service_name), c)
 
 
-static func on_replay_service(service_name: StringName, instance: Object, client: DotGameClient) -> void:
+static func on_replay_service(service_name: StringName, instance: Object, client: Node) -> void:
 	if not client.tune_replay or not String(service_name).begins_with(String(DotNetManager.SERVICE)) or not (instance is DotNetManager):
 		return
 	var m := instance as DotNetManager
@@ -166,11 +166,11 @@ static func on_replay_service(service_name: StringName, instance: Object, client
 		m.config.skip_matching_replays = true
 
 
-static func bind_latency(c: DotGameClient) -> void:
+static func bind_latency(c: Node) -> void:
 	if c._latency_net == null or c._latency_net.latency == null or c._latency_bound == c._latency_net:
 		return
-	var latency := c._latency_net.latency
-	var source: Object = c.link if c.link != null else DotRegistry.get_service(DotGameClient.LINK_SERVICE)
+	var latency: DotNetLatency = c._latency_net.latency
+	var source: Object = c.link if c.link != null else DotRegistry.get_service(c.LINK_SERVICE)
 	var _followed := latency.follow_cvars(source)
 	var local := _Vis.local_source(c, StringName(latency.CVAR_BASELINE))
 	if local == null:
@@ -186,7 +186,7 @@ static func bind_latency(c: DotGameClient) -> void:
 		return null)
 
 
-static func wire_chat(c: DotGameClient) -> void:
+static func wire_chat(c: Node) -> void:
 	if c.chat == null:
 		return
 	if not c.chat.is_inside_tree():
@@ -197,7 +197,7 @@ static func wire_chat(c: DotGameClient) -> void:
 			c.chat.connect(signal_name, c._refresh_blocked)
 
 
-static func wire_team_menu(c: DotGameClient) -> void:
+static func wire_team_menu(c: Node) -> void:
 	# By name and only when unset: an older dot-menu has no team menu, and a game's own offer stays.
 	if not c.use_team_menu or c.menu == null or not c.menu.has_method(&"use_teams"):
 		return
@@ -209,13 +209,13 @@ static func wire_team_menu(c: DotGameClient) -> void:
 
 
 ## The body of [method DotGameClient.add_console]: the kit's console, then the client's own vars on it.
-static func build_console(c: DotGameClient, manager: Object) -> Node:
+static func build_console(c: Node, manager: Object) -> Node:
 	if not ResourceLoader.exists(c.console_kit_path):
-		DotLog.info(DotGameClient.CHANNEL, "dot-console is not in this build: no console")
+		DotLog.info(c.CHANNEL, "dot-console is not in this build: no console")
 		return null
 	var kit: Variant = load(c.console_kit_path)
 	if not (kit is GDScript):
-		DotLog.warn(DotGameClient.CHANNEL, "dot-console's kit would not load", {"path": c.console_kit_path})
+		DotLog.warn(c.CHANNEL, "dot-console's kit would not load", {"path": c.console_kit_path})
 		return null
 	if manager == null and c.settings != null:
 		var got: Variant = c.settings.get(&"settings")
@@ -232,7 +232,7 @@ static func build_console(c: DotGameClient, manager: Object) -> Node:
 	return c.console
 
 
-static func map_changed(c: DotGameClient, map_id: String) -> void:
+static func map_changed(c: Node, map_id: String) -> void:
 	if c.map_config == null:
 		if (c.map_config_keys.is_empty() and c.map_config_defaults.is_empty()) \
 				or not c.map_config_get_fn.is_valid() or not c.map_config_set_fn.is_valid():
@@ -247,7 +247,7 @@ static func map_changed(c: DotGameClient, map_id: String) -> void:
 
 
 ## The sound, landing, render-quality and latency parts a client adds after its menu.
-static func add_late_parts(c: DotGameClient) -> void:
+static func add_late_parts(c: Node) -> void:
 	add_slide_sounds(c)
 	add_landing(c)
 	add_render_quality(c)

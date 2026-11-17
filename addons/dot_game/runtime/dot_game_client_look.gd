@@ -6,29 +6,29 @@ extends RefCounted
 const CHANNEL := "game.client"
 
 
-static func voice(c: DotGameClient) -> Node:
+static func voice(c: Node) -> Node:
 	if c.look_voice != null:
 		return c.look_voice
 	return c.chat.get(&"voice") as Node if c.chat != null and c.chat.get(&"voice") is Node else null
 
 
-static func chat_of(c: DotGameClient) -> Node:
+static func chat_of(c: Node) -> Node:
 	return c.look_chat if c.look_chat != null else c.chat
 
 
-static func wanted(c: DotGameClient) -> bool:
+static func wanted(c: Node) -> bool:
 	return c.use_look_mute and voice(c) != null
 
 
 ## Rows in the game's key table (so the Controls page and help list them), unless it has its own.
-static func add_rows(c: DotGameClient) -> void:
+static func add_rows(c: Node) -> void:
 	if not wanted(c) or not ("bindings" in c.settings):
 		return
 	var table: Object = c.settings.get(&"bindings")
 	if table == null:
-		if not ResourceLoader.exists(DotGameClient.BINDINGS_SCRIPT):
+		if not ResourceLoader.exists(c.BINDINGS_SCRIPT):
 			return
-		var script: Variant = load(DotGameClient.BINDINGS_SCRIPT)
+		var script: Variant = load(c.BINDINGS_SCRIPT)
 		if not (script is GDScript):
 			return
 		table = (script as GDScript).new()
@@ -47,7 +47,7 @@ static func add_rows(c: DotGameClient) -> void:
 			free_key(c, ["K", "J", "N", "L"], table), "Communication")
 
 
-static func free_key(c: DotGameClient, candidates: Array, table: Object = null) -> String:
+static func free_key(c: Node, candidates: Array, table: Object = null) -> String:
 	for cand in candidates:
 		var code := OS.find_keycode_from_string(str(cand))
 		if code == KEY_NONE or not holders(c, code).is_empty():
@@ -65,7 +65,7 @@ static func _default_taken(table: Object, key: String) -> bool:
 	return false
 
 
-static func holders(c: DotGameClient, keycode: int) -> PackedStringArray:
+static func holders(c: Node, keycode: int) -> PackedStringArray:
 	var out := PackedStringArray()
 	for action: StringName in InputMap.get_actions():
 		if action == c.look_gag_action or action == c.look_mute_action or str(action).begins_with("ui_") \
@@ -80,7 +80,7 @@ static func holders(c: DotGameClient, keycode: int) -> PackedStringArray:
 
 
 ## Without a menu table the actions are made here, on a key nobody holds.
-static func ensure_actions(c: DotGameClient) -> void:
+static func ensure_actions(c: Node) -> void:
 	var pairs: Array = [[c.look_gag_action, ["G", "Y", "U"]]]
 	if c.look_separate_keys:
 		pairs.append([c.look_mute_action, ["K", "J", "N", "L"]])
@@ -93,7 +93,7 @@ static func ensure_actions(c: DotGameClient) -> void:
 		InputMap.action_add_event(pair[0], key)
 
 
-static func build(c: DotGameClient) -> void:
+static func build(c: Node) -> void:
 	if not wanted(c) or c.look_mute != null:
 		return
 	if not ResourceLoader.exists(c.look_mute_script):
@@ -114,7 +114,7 @@ static func build(c: DotGameClient) -> void:
 	node.set(&"target_fn", c.look_target_fn if c.look_target_fn.is_valid() else Callable(c, "_look_target"))
 	node.set(&"chat_mute_fn", c.look_chat_mute_fn if c.look_chat_mute_fn.is_valid() else Callable(c, "_look_chat_mute"))
 	c.add_child(node)
-	var source: Object = c.link if c.link != null else DotRegistry.get_service(DotGameClient.LINK_SERVICE)
+	var source: Object = c.link if c.link != null else DotRegistry.get_service(c.LINK_SERVICE)
 	if source != null and node.has_method(&"follow_cvars"):
 		var _f: Variant = node.call(&"follow_cvars", source)
 	c.look_conflicts = conflicts(c)
@@ -124,14 +124,14 @@ static func build(c: DotGameClient) -> void:
 
 
 ## One touch on the gag (or mute) button: what the key press does. False without the look keys.
-static func tap(c: DotGameClient, mute: bool) -> bool:
+static func tap(c: Node, mute: bool) -> bool:
 	if c.look_mute == null or not is_instance_valid(c.look_mute) or not c.look_mute.has_method(&"tap"):
 		return false
 	c.look_mute.call(&"tap", Time.get_ticks_msec(), mute and c.look_separate_keys)
 	return true
 
 
-static func conflicts(c: DotGameClient) -> Array[Dictionary]:
+static func conflicts(c: Node) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var actions: Array = [c.look_gag_action]
 	if c.look_separate_keys:
@@ -150,7 +150,7 @@ static func conflicts(c: DotGameClient) -> Array[Dictionary]:
 	return out
 
 
-static func roster(c: DotGameClient) -> Array[Dictionary]:
+static func roster(c: Node) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var holder := chat_of(c)
 	var list: Object = holder.get(&"self_mute") if holder != null else null
@@ -163,7 +163,7 @@ static func roster(c: DotGameClient) -> Array[Dictionary]:
 	return out
 
 
-static func chat_mute(c: DotGameClient, peer: int, muted: bool) -> void:
+static func chat_mute(c: Node, peer: int, muted: bool) -> void:
 	var holder := chat_of(c)
 	var list: Object = holder.get(&"self_mute") if holder != null else null
 	if list == null or not list.has_method(&"set_muted"):
@@ -174,7 +174,7 @@ static func chat_mute(c: DotGameClient, peer: int, muted: bool) -> void:
 
 
 ## The other player nearest the view axis, from the game's positions or the chat's speaker positions.
-static func target(c: DotGameClient) -> int:
+static func target(c: Node) -> int:
 	var cam := c.get_viewport().get_camera_3d() if c.is_inside_tree() else null
 	if cam == null:
 		return 0

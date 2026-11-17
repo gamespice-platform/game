@@ -45,7 +45,7 @@ static func owned_from(body: Dictionary) -> Array:
 static func add_to_menu(menu: Object, player_key_fn: Callable, client_fn: Callable = Callable(), before: StringName = &"") -> Object:
 	if menu == null or not menu.has_method(&"add_page"):
 		return null
-	var page_script: Script = DotGameStoreEntitlements._class_script("DotMenuPage")
+	var page_script: Script = (load("uid://bihmsrfo1d7x7") as GDScript)._class_script("DotMenuPage")  # DotGameStoreEntitlements, loaded so the two parsers do not hold each other
 	if page_script == null:
 		return null
 	var cache: Array = []

@@ -4,7 +4,7 @@ extends RefCounted
 ## The state dump of [DotGameClient].
 
 
-static func describe(c: DotGameClient) -> Dictionary:
+static func describe(c: Node) -> Dictionary:
 	return {
 		"host": str(c.host.name) if c.host != null else "",
 		"offline": c.offline,
@@ -32,7 +32,7 @@ static func describe(c: DotGameClient) -> Dictionary:
 	}
 
 
-static func lines(c: DotGameClient) -> PackedStringArray:
+static func lines(c: Node) -> PackedStringArray:
 	var d := describe(c)
 	var out := PackedStringArray()
 	out.append("client %s, %s" % [d["host"], "offline" if c.offline else "connected"])
