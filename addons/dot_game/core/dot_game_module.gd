@@ -25,6 +25,10 @@ signal loading_changed(seat: int, loading: bool)
 ## The property a game object may declare to be handed [method is_peer_loading]: `var peer_loading_fn: Callable`. Assigned before [method _game_load], cleared at unload.
 const PEER_LOADING_PROPERTY := &"peer_loading_fn"
 const _Profiler := preload("res://addons/dot_game/runtime/dot_game_profiler.gd")
+# DotGameModuleWiring and DotGameStatsReport take the module typed, so they are loaded by uid at use:
+# naming them here would put the three in one script loop, which Godot 4.7 never frees.
+const _WIRING_UID := "uid://d1wk1ddon2tyq"
+const _STATS_REPORT_UID := "uid://b0alyooc3qid7"
 
 ## Seconds a seat may stay loading before it counts as loaded anyway, with a warning.
 @export var load_timeout_sec: float = 30.0
@@ -169,12 +173,12 @@ func _movement_targets() -> Array:
 
 ## Binds dot-player-controller's movement cvars over [param targets] (default [method _movement_targets]) so a game's movement is server-tunable without per-game code. Skips with a log line when dot-player-controller is absent or nothing is offered. Returns the cvars made.
 func bind_movement_cvars(targets: Array = []) -> Array:
-	return DotGameModuleWiring.bind_movement_cvars(self, targets if not targets.is_empty() else _movement_targets())
+	return _wiring().bind_movement_cvars(self, targets if not targets.is_empty() else _movement_targets())
 
 
 ## Registers the family's `stats_report` cvar (default 0) and aliases for a game's old names; see [DotGameStatsReport].
 func bind_stats_report(apply: Callable = Callable(), legacy: PackedStringArray = PackedStringArray()) -> DotConVar:
-	return DotGameStatsReport.bind(self, apply, legacy)
+	return (load(_STATS_REPORT_UID) as GDScript).bind(self, apply, legacy)
 
 
 ## Wires a DotNpcSpawner to `sv_threads_npc` and the `npc_lod*` / `npc_sense_quiet` cvars (all off by default; see [DotGameNpcLod]). Call it once the spawner is in the tree; [param players] returns the positions NPCs measure distance from (default: the spawner's candidates).
@@ -217,7 +221,7 @@ func _module_load() -> DotResult:
 				"module": String(_module_name()), "changes": "; ".join(capped),
 			})
 
-		DotGameModuleWiring.adapt_snapshot_rate(self, config)
+		_wiring().adapt_snapshot_rate(self, config)
 
 		DotGameNetcode.follow_server_threads(config, server.config if server != null else null)
 		DotGameNetcode.follow_map_threads(console)
@@ -250,8 +254,8 @@ func _module_load() -> DotResult:
 		return loaded
 
 	var _movement := bind_movement_cvars()
-	DotGameModuleWiring.bind_slide_sounds(self)
-	DotGameModuleWiring.bind_surf_sounds(self)
+	_wiring().bind_slide_sounds(self)
+	_wiring().bind_surf_sounds(self)
 	var blocked := _build_noblock()
 	if not blocked.ok:
 		_teardown()
@@ -297,12 +301,12 @@ func _detach_board() -> void:
 
 ## Builds the identity layer and loads dot-platform beside it.
 func _build_identity() -> DotResult:
-	return await DotGameModuleWiring.build_identity(self)
+	return await _wiring().build_identity(self)
 
 
 ## Builds the services layer over whatever link the bridge opened.
 func _build_services() -> DotResult:
-	return await DotGameModuleWiring.build_services(self)
+	return await _wiring().build_services(self)
 
 
 ## Wires the roster to the bridge and to whatever else wants to know.
@@ -583,7 +587,7 @@ func _map_config_set(key: String, value: Variant) -> bool:
 
 
 func _apply_map_config(map_id: String) -> void:
-	DotGameModuleWiring.apply_map_config(self, map_id)
+	_wiring().apply_map_config(self, map_id)
 
 
 func _module_unload() -> void:
@@ -596,12 +600,12 @@ func _module_unload() -> void:
 
 ## Starts dot-cloud's auto-update once per headless server process, under the server. No-op without dot-cloud, on a listen server and in a browser.
 static func start_auto_update(host: DotServer) -> Node:
-	return DotGameModuleWiring.start_auto_update(host)
+	return _wiring().start_auto_update(host)
 
 
 ## Every delivered pack the server's games run, as `{id, version}` (games, dependencies, maps).
 static func watched_packs(host: Object) -> Array:
-	return DotGameModuleWiring.watched_packs(host)
+	return _wiring().watched_packs(host)
 
 
 ## The block rules (teammates pass, enemies stop) when the game has a `body_rules`; null when off.
@@ -610,11 +614,11 @@ var noblock: DotGameNoblock = null
 
 ## Has the roster tell the relay's loadouts who joins and leaves.
 func _follow_avatar_loadouts() -> void:
-	DotGameModuleWiring.follow_loadouts(self)
+	_wiring().follow_loadouts(self)
 
 
 func _bind_avatar_hooks() -> void:
-	DotGameModuleWiring.bind_hooks(self)
+	_wiring().bind_hooks(self)
 
 
 ## The avatar actions [param peer_id] may play as ids, or null for what the server read from the backbone. Default asks the game object.
@@ -645,7 +649,7 @@ var site_server_retries: int = 24
 
 
 func _advertise_site_server() -> void:
-	DotGameModuleWiring.advertise_site_server(self)
+	_wiring().advertise_site_server(self)
 
 
 ## Content ids a client must download before it connects, published as `sv_avatar_content`. Default none.
@@ -654,7 +658,7 @@ func _avatar_content_required() -> Array:
 
 
 func _advertise_avatar_content() -> void:
-	DotGameModuleWiring.advertise_content(self)
+	_wiring().advertise_content(self)
 
 
 ## Whether to wire dot-team's block rules. A game with its own `block_rules` wired by hand is left alone.
@@ -679,7 +683,7 @@ func _noblock_runtime() -> Object:
 
 
 func _build_noblock() -> DotResult:
-	return DotGameModuleWiring.build_noblock(self)
+	return _wiring().build_noblock(self)
 
 
 ## Everything the sequence built, in the reverse order it was built in: the netcode is what the rest attached to, so freeing it first leaves them calling a freed object.
@@ -792,3 +796,8 @@ func describe_lines() -> PackedStringArray:
 		lines.append_array(roster.describe_lines())
 
 	return lines
+
+
+## DotGameModuleWiring, loaded (see [constant _WIRING_UID]).
+static func _wiring() -> GDScript:
+	return load(_WIRING_UID) as GDScript
