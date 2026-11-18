@@ -168,11 +168,32 @@ func _test_store_entitlements_absent() -> void:
 
 class StoreClient:
 	extends RefCounted
-	func get_integration(_path: String, query: Dictionary) -> DotResult:
-		return DotResult.success({"ok": true, "player": query.get("player"), "items": [
+	var fail := false
+	var refuse := false
+	var query: Dictionary = {}
+	var bought: Array = []
+	func get_integration(path: String, p_query: Dictionary) -> DotResult:
+		if fail:
+			return DotResult.fail(DotError.CODE_NETWORK, "site unreachable")
+		if path == DotGameStorePanel.ITEMS_PATH:
+			return DotResult.success({"ok": true, "items": [{"id": "i1", "key": "fc_gold_skin", "name": "Gold skin", "price": 50, "owned": true},
+				{"id": "i2", "key": "new_hat", "name": "Hat", "price": 50, "owned": false}, {"name": "no id"}]})
+		query = p_query
+		return DotResult.success(_answer(str(p_query.get("player")), 120))
+	func post_integration(_path: String, body: Dictionary) -> DotResult:
+		if refuse:
+			return DotResult.fail(DotError.CODE_FORBIDDEN, "insufficient_points")
+		bought.append(body)
+		var answer := _answer(str(body.get("player")), 70)
+		(answer["items"] as Array).append({"key": "new_hat", "name": "Hat", "kind": "AVATAR"})
+		answer["status"] = "purchased"
+		return DotResult.success(answer)
+	func _answer(player: String, balance: int) -> Dictionary:
+		var token := DotHash.base64url_encode_text(JSON.stringify({"v": 2, "aud": "app:7", "sub": player})) + ".sig"
+		return {"ok": true, "player": player, "points": {"enabled": true, "balance": balance, "label": "Gems"}, "token": token, "items": [
 			{"key": "fc_gold_skin", "name": "Gold skin", "kind": "AVATAR"},
 			{"key": "fc_gold_skin", "name": "dup"},
-			{"key": "launcher_pack", "name": "Launcher", "kind": "ITEM"}, 5, {"name": "no key"}]})
+			{"key": "launcher_pack", "name": "Launcher", "kind": "ITEM"}, 5, {"name": "no key"}]}
 
 
 func _test_store_panel() -> void:
@@ -180,12 +201,40 @@ func _test_store_panel() -> void:
 	var panel := DotGameStorePanel.new()
 	add_child(panel)
 	_check(not panel.is_owned("x") and panel.owned().is_empty(), "empty before a read")
-	var res: DotResult = await panel.refresh(StoreClient.new(), "p1")
+	var store := StoreClient.new()
+	var res: DotResult = await panel.refresh(store, "p1")
 	_check(res.ok and res.value == 2, "refresh returns the distinct owned count", str(res.value))
 	_check(panel.is_owned("fc_gold_skin") and panel.is_owned("launcher_pack") and not panel.is_owned("dup"), "owned by key")
 	_check((panel.owned()[0] as Dictionary)["name"] == "Gold skin", "the first entry for a key wins")
-	_check(not (await panel.refresh(null, "p1")).ok, "no client fails, list kept")
-	_check(panel.owned().size() == 2, "a failed read leaves the list as it was")
+	_check(store.query.get("include") == "points", "the read asks for the points balance", str(store.query))
+	var balance := panel.find_child("Balance", true, false) as Label
+	_check(panel.points().get("balance") == 120 and balance.visible and balance.text == "Balance: 120 Gems", "the balance is shown", balance.text)
+	_check(panel.offers().size() == 2 and panel.find_child("Buy_i2", true, false) != null and panel.find_child("Buy_i1", true, false) == null, "what is not owned gets a Buy button", str(panel.offers()))
+	_check(DotGameStorePanel.audience_of(str(store._answer("p1", 0)["token"])) == "app:7", "the token's audience names the store")
+	_check(DotGameStorePanel.store_url_for("https://x.test", "app:7") == "https://x.test/dashboard/store/app/7"
+		and DotGameStorePanel.store_url_for("https://x.test", "server:3") == "https://x.test/dashboard/store/server/3"
+		and DotGameStorePanel.store_url_for("https://x.test", "") == "https://x.test/dashboard/store"
+		and DotGameStorePanel.store_url_for("", "app:7") == "", "Get more opens the app's or server's own store page")
+	var bought: Array = []
+	panel.purchased.connect(func(id: String, _a: Dictionary) -> void: bought.append(id))
+	res = await panel.buy("i2")
+	_check(res.ok and bought == ["i2"] and panel.is_owned("new_hat") and panel.points().get("balance") == 70
+		and (store.bought[0] as Dictionary).get("itemId") == "i2" and str((store.bought[0] as Dictionary).get("idemKey", "")) != "",
+		"a purchase posts the item with an idempotency key, then shows it owned and the new balance", str(res))
+	_check(panel.find_child("Buy_i2", true, false) == null, "a bought item loses its Buy button")
+	store.refuse = true
+	res = await panel.buy("i2")
+	_check(not res.ok and panel.error_text().begins_with("Could not buy") and panel.is_owned("new_hat"), "a refused purchase is shown and changes nothing", panel.error_text())
+	store.refuse = false
+	store.fail = true
+	res = await panel.refresh(store, "p1")
+	var retry := panel.find_child("Retry", true, false) as Button
+	_check(not res.ok and panel.error_text().contains("site unreachable") and retry.visible, "a failed read shows the error and a Retry button", panel.error_text())
+	_check(panel.owned().size() == 3, "a failed read leaves the list as it was")
+	store.fail = false
+	await panel.retry()
+	_check(panel.error_text() == "" and not retry.visible, "Retry reads again and clears the error")
+	_check(not (await panel.refresh(null, "p1")).ok and panel.error_text() != "" and not retry.visible, "no client fails with the error shown and nothing to retry")
 	panel.store_url = "https://example.test/dashboard/store"
 	var got: Array = []
 	panel.store_requested.connect(func(url: String) -> void: got.append(url))
