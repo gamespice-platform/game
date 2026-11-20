@@ -217,16 +217,20 @@ filed = 0
 for it in j["items"]:
     for d in it.get("defects", []):
         if d.get("severity") not in ("blocker", "major") or d.get("nightly"): continue
-        key = re.sub(r"[^a-z0-9-]+", "-", ("vj-%s-%s-%s-%s-%s" % (game, it["item"], it["clip"], d.get("category", "x"), day)).lower())
-        body = "Unresolved after %d judge rounds (dot_game_visual_judge.sh).\n\n%s %s, %s camera, frames %s: %s\n\nFix hint: %s\n\nPack: %s" % (
-            j.get("round", 0), d.get("severity"), d.get("category"), d.get("camera", "?"), ", ".join(d.get("frames", [])),
+        # One item per game and defect category (not per clip): each clip's defect is a note on it.
+        cat = d.get("category", "x")
+        key = re.sub(r"[^a-z0-9-]+", "-", ("vj-%s-%s-%s" % (game, cat, day)).lower())
+        line = "[%s] %s %s, %s camera, frames %s: %s\nFix hint: %s\nPack: %s" % (
+            d.get("severity"), it["item"], it["clip"], d.get("camera", "?"), ", ".join(d.get("frames", [])),
             d.get("what", ""), d.get("fix_hint", ""), it.get("pack", ""))
         if subprocess.run(cmd + ["show", key], capture_output=True).returncode == 0:
-            subprocess.run(cmd + ["note", key, "--by", "session", "still open: " + d.get("what", "")], capture_output=True)
+            r = subprocess.run(cmd + ["note", key, "--by", "session", line], capture_output=True, text=True)
         else:
-            r = subprocess.run(cmd + ["add", "--title", "%s %s %s: %s" % (game, it["item"], it["clip"], d.get("what", "")[:90]),
+            body = ("Unresolved %s defects after %d judge rounds (dot_game_visual_judge.sh); one per line here and in the notes. "
+                    "Done when a fresh judge finds no %s defect in these clips.\n\n%s" % (cat, j.get("round", 0), cat, line))
+            r = subprocess.run(cmd + ["add", "--title", "%s visual: %s defects (judge)" % (game, cat),
                                       "--key", key, "--kind", "issue", "--repos", repos, "--by", "session", "--body", body], capture_output=True, text=True)
-            if r.returncode != 0: print("could not file %s: %s" % (key, r.stderr.strip()), file=sys.stderr); continue
+        if r.returncode != 0: print("could not file %s: %s" % (key, r.stderr.strip()), file=sys.stderr); continue
         d["nightly"] = key; filed += 1
         print("filed %s" % key)
 json.dump(j, open(v, "w"), indent=2)

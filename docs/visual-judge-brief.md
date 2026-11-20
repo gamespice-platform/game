@@ -14,7 +14,7 @@ camera, and runs a fresh judge (docs/visual-judge-rubric.md) that writes verdict
 Exit 1 = read verdict.json defects, fix them at the source (the model, the art row, the rig; never by moving the
 camera or cropping), and run it again. Loop until it passes; there is no round cap unless VISUAL_JUDGE_MAX_ROUNDS
 is set (0 = unlimited). If you must stop with defects open, run it with --give-up: it files one nightly item per
-unresolved defect and fails loudly. Never post, close an item or report "done" on a metric PASS or your own
+defect category (each defect a line on it) and fails loudly. Never post, close an item or report "done" on a metric PASS or your own
 reading of the frames. The post tools refuse anything without a verdict.
 ```
 
