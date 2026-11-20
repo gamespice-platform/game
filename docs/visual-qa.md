@@ -1,6 +1,6 @@
 # Visual QA: does it look like a real game?
 
-The family's loop for weapons, avatars and NPCs: one test scene per item, a first-person camera and two outside cameras (a teammate behind-right, an opponent in front), every frame captured at 60 fps, contact sheets small enough for an agent to read cheaply, a clip per animation that plays every frame in the nightly viewer, a numeric verdict per clip, and the checklist below. Findings go to nightly notes and items; re-capture until the sheets are clean. FC (Fatal Contact) ran the pilot (game-fatal-contact `docs/anim-review.md`) and now runs on this harness.
+The family's loop for weapons, avatars and NPCs: one test scene per item, a first-person camera and two outside cameras (a teammate behind-right, an opponent in front), every frame captured at 60 fps, contact sheets, a clip per animation that plays every frame in the nightly viewer, a numeric pre-filter per clip, and a fresh judge (below) whose verdict is the only thing that says a clip is done. Findings go to nightly notes and items; re-capture until the judge says production_ready. FC (Fatal Contact) ran the pilot (game-fatal-contact `docs/anim-review.md`) and now runs on this harness.
 
 Nothing here ships in a pack, so none of it bumps the API level.
 
@@ -94,7 +94,25 @@ A game that already has its own capture scene (FC's `tools/anim_review.gd`) can 
 
 Per clip: `<item>/<clip>_fp_sheet.png`, `_tp_sheet.png`, `_op_sheet.png` (15 cells a second, every fourth frame at 60 fps, eight to a row, 240 px cells labelled `#frame seconds`; `--sheet-rate`, `--cell`, `--cols` on the shot tool) and `<item>/<clip>.mp4`: the three views side by side at the window height, every frame, at the capture rate, frame index burnt in. The frames are deleted. `report.md` has one row per clip: verdict, why, the sheet and clip paths, and an `fps:` line.
 
-Save tokens: read `report.md` before any image; read a sheet, not a clip; FAIL rows first, then the clips that matter (reloads, draws, fires, movement) even when they pass; crop to the cells you need (`ffmpeg -i sheet.png -vf crop=w:h:x:y crop.png`); after a fix, re-capture and read only the clips you touched (`--only`, `--clips`, `--fresh`).
+The metric verdict in `report.md` is a pre-filter: it catches foot slide, pops and T-poses cheaply, and says nothing about whether the clip looks shipped. Never close, post or report a clip as done on it.
+
+## The judge loop
+
+A visual change is done only when a **fresh** judge says `production_ready: true`. The author never judges their own frames: it took a weeks-long run of metric PASSes on a magazine three times the gun's size to learn that ([visual-qa-root-cause.md](visual-qa-root-cause.md)).
+
+```
+bash addons/dot_game/tools/dot_game_visual_judge.sh --clips screenshots/visual_qa [--capture '<GPU capture cmd>'] \
+     [--only item,item] [--anims clip,clip] [--out DIR] [--give-up] [--fix-cmd CMD]
+```
+
+- It refuses software frames: a capture log naming llvmpipe, softpipe, lavapipe or SwiftShader exits 4. Capture on staging02/staging (gpu.sh) only.
+- Per clip it builds a pack: full-resolution stills (start, quarter, mid, three-quarter, end and the top motion peaks, every camera side by side), a frame-delta strip and the clip's sheets. It has no metrics and no author notes.
+- It runs a fresh `claude -p` judge (`VISUAL_JUDGE_MODEL`, default opus; haiku, sonnet or opus, never Fable) on the pack with [visual-judge-rubric.md](visual-judge-rubric.md). The judge writes `verdict.json`: per-frame findings, defects (category, severity, camera, frames, what, fix hint), `production_ready` and a justification. An invalid verdict (frames not all read, true with a blocker or major, a thin justification) is rejected and judged again.
+- Exit 0 means production ready. Exit 1 means fix the defects at their source and run it again. With `--capture` and `--fix-cmd` it loops by itself. There is no round cap unless `VISUAL_JUDGE_MAX_ROUNDS` is set (0 = unlimited).
+- To stop with defects open, run `--give-up` (or hit the round cap): it files one nightly item per open blocker/major defect (`vj-<game>-<item>-<clip>-<category>-<date>`), writes the keys into `verdict.json` and exits 3. It fails loudly; it never passes.
+- The post tools (`dot_game_visual_qa_post.sh`, the games' wrappers, `tools/capture_reviews.sh`) read `verdict.json` through `dot_game_visual_verdict.py`. They refuse a clip unless the judge passed it or every blocker/major defect has a filed nightly key (a `--variant before` post needs only a verdict). The post's look text is the verdict and its defects, and the item's review verdict is the judge's.
+
+The snippet for briefs, nightly prompts and CLAUDE.md files is [visual-judge-brief.md](visual-judge-brief.md).
 
 ## 60 fps in the nightly viewer
 

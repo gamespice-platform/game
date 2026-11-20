@@ -15,6 +15,11 @@
 #   tools/capture_reviews.sh --no-post       capture into .godot/review-clips/ only
 # State (the last posted clips, which become the next "before", and the fingerprints) is in $REVIEW_STATE
 # (default ~/.local/state/dot-reviews/<game>). Key of the review: <game>-anim-<date>. Exit 1 if a clip is missing.
+# Before anything is posted, a fresh judge (addons/dot_game/tools/dot_game_visual_judge.sh, docs/visual-judge-rubric.md)
+# reads every clip and writes .godot/review-clips/judge/verdict.json. A clip is posted only when the judge says
+# production_ready, or when each blocker/major defect has a filed nightly item; its look text is the verdict and the
+# item's review verdict is the judge's. VISUAL_JUDGE_GIVE_UP=1 files the open defects (one nightly item each) so they
+# can be posted as open.
 set -uo pipefail
 SHARED=$(cd "$(dirname "$0")" && pwd)
 ROOT=$PWD
@@ -63,16 +68,39 @@ for it in "${want[@]}"; do
 done
 [ "$post" = 1 ] || { echo "reviews: clips in $work (not posted)"; exit 0; }
 
+# The fresh judge: never post on the capture's own reading.
+judge=addons/dot_game/tools/dot_game_visual_judge.sh
+[ -f "$judge" ] || judge=$SHARED/../addons/dot_game/tools/dot_game_visual_judge.sh
+gate=$(dirname "$judge")/dot_game_visual_verdict.py
+judge_args=(--clips "$work" --out "$work/judge" --subject "$GAME" --only "$(IFS=,; echo "${want[*]}")")
+[ "${VISUAL_JUDGE_GIVE_UP:-0}" = 1 ] && judge_args+=(--give-up)
+bash "$judge" "${judge_args[@]}"; jrc=$?
+case $jrc in
+    0 | 1 | 3) ;;
+    *) echo "reviews: the judge failed (exit $jrc): nothing posted" >&2; exit 1 ;;
+esac
+
 poster=$(mktemp); trap 'rm -f "$poster"' EXIT
-ssh -o BatchMode=yes dev01 'cat ~/stack/nightly/scripts/review-post.sh' > "$poster" && chmod +x "$poster" || { echo "reviews: cannot fetch review-post.sh" >&2; exit 1; }
+if [ -f /home/core/stack/nightly/scripts/review-post.sh ]; then
+    cat /home/core/stack/nightly/scripts/review-post.sh > "$poster"
+else
+    ssh -o BatchMode=yes dev01 'cat ~/stack/nightly/scripts/review-post.sh' > "$poster"
+fi && chmod +x "$poster" || { echo "reviews: cannot fetch review-post.sh" >&2; exit 1; }
 key="$GAME-anim-$(date +%F)"
 commit=$(git rev-parse --short HEAD 2>/dev/null || echo "?")
 "$poster" new "$key" "$GAME animation clips $(date +%F) (changed items, before/after)" >/dev/null || exit 1
-fail=0
+fail=0 refused=0
 for it in "${want[@]}"; do
-    posted=0
+    posted=0 item_says=good item_note=
     for clip in "$work/${it}__"*.mp4; do
         kind=${clip##*__}; kind=${kind%.mp4}
+        if ! judged=$(python3 "$gate" "$work/judge/verdict.json" "$it" "$kind"); then
+            echo "reviews: refusing $it $kind: $judged" >&2
+            refused=$((refused + 1)); continue
+        fi
+        IFS=$'\t' read -r _ says look <<< "$judged"
+        [ "$says" = good ] || item_says=wrong
+        item_note="$item_note$kind: ${look:0:600} "
         note="${reason[$it]}; $GAME@$commit"
         extra=()
         if grep -q -- --look "$poster"; then
@@ -80,7 +108,7 @@ for it in "${want[@]}"; do
             m=$(ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames,duration,width,height,r_frame_rate -of csv=p=0 "$clip" 2>/dev/null)
             IFS=, read -r w h rate dur nf <<< "$m"
             fps=$(awk -F/ '$2 > 0 {printf "%g", $1 / $2}' <<< "$rate")
-            extra=(--look "$(review_look "$kind" 2>/dev/null || echo "Check the motion reads cleanly: no pops, no sliding, loops back to the start pose.")"
+            extra=(--look "$look"
                    --metrics "{\"fps\":\"${fps:-?}\",\"frames\":\"$nf\",\"seconds\":\"$(printf "%.1f" "${dur:-0}")\",\"size\":\"${w}x${h}\"}")
         fi
         if [ -f "$state/${it}__$kind.mp4" ]; then
@@ -92,9 +120,12 @@ for it in "${want[@]}"; do
     done
     [ -f "$work/${it}_sheet.png" ] && { "$poster" media "$key" "$it" "$work/${it}_sheet.png" --slot filmstrip --variant after --label "reload" >/dev/null || fail=1; }
     if [ "$posted" = 1 ]; then
+        sudo -u core /home/core/stack/nightly/bin/nightly review verdict "$key" "$it" "$item_says" --note "${item_note:0:1500}" >/dev/null 2>&1 ||
+            /home/core/stack/nightly/bin/nightly review verdict "$key" "$it" "$item_says" --note "${item_note:0:1500}" >/dev/null || fail=1
         for clip in "$work/${it}__"*.mp4; do cp "$clip" "$state/"; done
         echo "${sha[$it]}" > "$state/$it.sha"
     fi
 done
-echo "reviews: posted to $key ($([ $fail = 0 ] && echo ok || echo "with failures")): ${QA_URL:-http://x-tmc-dev01:3010}/reviews"
+echo "reviews: posted to $key ($([ $fail = 0 ] && echo ok || echo "with failures"); $refused clips refused without a passing or filed verdict): ${QA_URL:-http://x-tmc-dev01:3010}/reviews"
+[ "$refused" = 0 ] || fail=1
 exit $fail
