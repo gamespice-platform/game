@@ -12,13 +12,18 @@
 #   recapture under SHOT_VQA_VARIANT=k-1 (DotGameVisualQaViews moves the outside cameras and turns/dims the lights).
 #   The first pass with a defect ends the round (the streak resets); later passes are not run, so a bad clip costs one judge.
 # Evidence: each judge runs with --output-format stream-json; the pack's evidence.json records the judge's session id,
-#   every image it Read, the sha256 of every image and of the verdict it Wrote. A verdict whose judge did not Read every
-#   image, or whose file differs from what the judge wrote, is invalid. dot_game_visual_verdict.py re-checks all of it,
-#   so a hand-written or edited verdict.json never posts.
+#   every image it Read, the sha256 of every image, of the clip and of the verdict it Wrote, the pass, variant, round,
+#   source and the GPU renderer. dot_game_visual_verdict.py --pack then checks the pack against the judge's own Claude
+#   transcript (in the judge account, not writable by the author), and --audit derives production_ready from the packs
+#   alone: this script exits 0 only when that audit says sound. A hand-written, edited or copied verdict never posts.
+# One run per --out at a time (a lock); a round clears the run's old packs and verdict first, so a stale pass never counts.
+# --timeout (env VISUAL_JUDGE_TIMEOUT, default 1800 s, 0 = none): a judge that runs longer is killed and counts as invalid.
 # --clips: the capture's clips, <item>/<clip>.mp4 (dot_game_visual_qa.sh, anim_review.sh) or <item>__<clip>.mp4
-#   (capture_reviews.sh). Each mp4 is the clip's cameras side by side at the capture fps.
-# --capture: the GPU capture to run first (it must log the renderer; an llvmpipe log is refused). Without it the
-#   clips already in --clips are judged.
+#   (capture_reviews.sh). Each mp4 is the clip's cameras side by side at the capture fps. Every --only item and --anims
+#   clip must have an mp4 (exit 4 otherwise), and with --capture every clip must be newer than that pass's capture.
+# --capture: the GPU capture to run first. Without it the clips already in --clips are judged. Either way a capture log
+#   (the capture's output, or a *.log beside the clips) must name the GPU: a "gpu.sh: the ... takes this frame" line or
+#   Godot's "Using Device" line for a hardware device; no such line, or any llvmpipe/software line, exits 4.
 # --fix-cmd: run between rounds with VERDICT=<out>/verdict.json in its environment (for example a fresh claude -p
 #   fixer); without it each call is one round and the author fixes and calls again (the round count is kept in --out).
 # --max-rounds (env VISUAL_JUDGE_MAX_ROUNDS, default 0 = unlimited): at that round, or with --give-up, every
@@ -36,6 +41,7 @@ cameras=${VISUAL_JUDGE_CAMERAS:-3}
 peaks=${VISUAL_JUDGE_PEAKS:-3}
 strip=${VISUAL_JUDGE_STRIP:-48}
 passes=${VISUAL_JUDGE_PASSES:-3}
+judge_timeout=${VISUAL_JUDGE_TIMEOUT:-1800}
 while (($#)); do
   case $1 in
     --clips) clips=$2; shift 2 ;;
@@ -53,13 +59,14 @@ while (($#)); do
     --peaks) peaks=$2; shift 2 ;;
     --strip) strip=$2; shift 2 ;;
     --passes) passes=$2; shift 2 ;;
+    --timeout) judge_timeout=$2; shift 2 ;;
     --no-judge) judge=0; shift ;;
     *) echo "dot_game_visual_judge.sh: unknown argument $1" >&2; exit 2 ;;
   esac
 done
 die() { echo "dot_game_visual_judge.sh: $*" >&2; exit "${code:-2}"; }
 [[ -n $clips ]] || die "--clips DIR is required"
-for n in max_rounds cameras peaks strip passes; do [[ ${!n} =~ ^[0-9]+$ ]] || die "--${n//_/-} must be a whole number (0 = unlimited for --max-rounds), not ${!n}"; done
+for n in max_rounds cameras peaks strip passes judge_timeout; do [[ ${!n} =~ ^[0-9]+$ ]] || die "--${n//_/-} must be a whole number (0 = unlimited for --max-rounds), not ${!n}"; done
 ((passes >= 3)) || die "--passes $passes: production_ready needs at least 3 consecutive clean fresh judge passes (VISUAL_JUDGE_PASSES >= 3)"
 [[ $model != *fable* ]] || die "the judge runs on opus, sonnet or haiku, never $model"
 [[ -d $clips ]] || mkdir -p "$clips"
@@ -69,6 +76,10 @@ out=$(readlink -m "${out:-$clips/judge}")
 game=$(basename "$(git remote get-url origin 2> /dev/null || echo "$PWD")" .git)
 repos=${repos:-$game}
 mkdir -p "$out"
+exec 9> "$out/.lock"
+flock -n 9 || die "another judge run holds $out/.lock: wait for it (one run per --out)"
+gate=$(dirname "$self")/dot_game_visual_verdict.py
+[[ -f $gate ]] || die "no dot_game_visual_verdict.py beside $self"
 # The rubric lives in dot-game's docs; the addon is a symlink into a dot-game checkout.
 rubric=$(dirname "$self")/../../../docs/visual-judge-rubric.md
 [[ -f $rubric ]] || rubric=/home/gamedev/projects/godot/dot-game/docs/visual-judge-rubric.md
@@ -77,28 +88,32 @@ rubric=$(readlink -f "$rubric")
 command -v ffmpeg > /dev/null || die "no ffmpeg"
 # The judge is a fresh claude -p. The fleet's Claude accounts live under christian (nightly account env picks one
 # under its limits), so gamedev runs it there; VISUAL_JUDGE_CLAUDE overrides the whole command prefix.
-judge_claude() {
-  if [[ -n ${VISUAL_JUDGE_CLAUDE:-} ]]; then $VISUAL_JUDGE_CLAUDE "$@"; return; fi
+# Sets jc to the judge command (with the timeout in front).
+judge_cmd() {
+  jc=()
+  ((judge_timeout > 0)) && jc=(timeout -k 30 "$judge_timeout")
+  if [[ -n ${VISUAL_JUDGE_CLAUDE:-} ]]; then read -r -a extra <<< "$VISUAL_JUDGE_CLAUDE"; jc+=("${extra[@]}"); return; fi
   local cfg
   cfg=$(run_nightly account env 2> /dev/null | sed -n "s/^export CLAUDE_CONFIG_DIR='\\(.*\\)'$/\\1/p")
-  if [[ $(id -un) == christian ]]; then CLAUDE_CONFIG_DIR=${cfg:-$HOME/.claude} /home/christian/.local/bin/claude "$@"
-  elif [[ -n $cfg ]] && sudo -n -u christian true 2> /dev/null; then sudo -n -u christian env CLAUDE_CONFIG_DIR="$cfg" /home/christian/.local/bin/claude "$@"
-  else claude "$@"; fi
+  if [[ $(id -un) == christian ]]; then jc+=(env CLAUDE_CONFIG_DIR="${cfg:-$HOME/.claude}" /home/christian/.local/bin/claude)
+  elif [[ -n $cfg ]] && sudo -n -u christian true 2> /dev/null; then jc+=(sudo -n -u christian env CLAUDE_CONFIG_DIR="$cfg" /home/christian/.local/bin/claude)
+  else jc+=(claude); fi
 }
 nightly=${NIGHTLY:-/home/core/stack/nightly/bin/nightly}
-run_nightly() { if [[ $(id -un) == core ]]; then "$nightly" "$@"; else sudo -u core "$nightly" "$@"; fi; }
+# NIGHTLY (another nightly CLI, the self-test's stub) runs as is; the real one runs as core.
+run_nightly() { if [[ $(id -un) == core || -n ${NIGHTLY:-} ]]; then "$nightly" "$@"; else sudo -u core "$nightly" "$@"; fi; }
 
 # Refuse software rendering: every capture log under --clips (and the capture's own output) is checked.
+# Sets renderer to the line that proves a GPU rendered the clips; exits 4 without one or on any software line.
+software='llvmpipe|softpipe|lavapipe|SwiftShader|software rasterizer'
 check_gpu() {
-  local logs=("$@") hit
-  if ((${#logs[@]} == 0)); then
-    echo "dot_game_visual_judge.sh: WARNING no capture log next to the clips; check they were rendered on a GPU box" >&2
-    return 0
-  fi
-  hit=$(grep -lisE 'llvmpipe|softpipe|lavapipe|SwiftShader|software rasterizer' "${logs[@]}" 2> /dev/null | head -3)
+  local logs=() l hit
+  for l in "$@"; do [[ -f $l ]] && logs+=("$l"); done
+  ((${#logs[@]})) || code=4 die "no capture log beside the clips in $clips (capture.log, or --capture): nothing proves they were rendered on a GPU; capture with gpu.sh shot on staging02/staging"
+  hit=$(grep -lisE "$software" "${logs[@]}" 2> /dev/null | head -3)
   [[ -z $hit ]] || code=4 die "the capture rendered on software ($hit): never judge llvmpipe frames; rerun it on staging02/staging (gpu.sh shot)"
-  grep -qisE 'NVIDIA|GeForce|RTX|Radeon|AMD|Intel\(R\) (Arc|UHD|Iris)|Vulkan [0-9.]+ - Forward|gpu.sh: the .*\(staging[0-9]*\) takes this frame' "${logs[@]}" 2> /dev/null ||
-    echo "dot_game_visual_judge.sh: WARNING no GPU line in the capture log (${logs[*]:-none}); check it ran on a GPU box" >&2
+  renderer=$(grep -hiE 'gpu\.sh: the .* takes this frame|Using Device' "${logs[@]}" 2> /dev/null | grep -viE "$software" | head -1 | tr -d '\r' | cut -c1-200)
+  [[ -n $renderer ]] || code=4 die "no GPU line in the capture log (${logs[*]}): it must log gpu.sh's 'the <box> takes this frame' or Godot's 'Using Device' line; rerun it on staging02/staging"
 }
 
 # One clip's judge pack: full-resolution stills (start, quarter, mid, three-quarter, end and the motion peaks) and
@@ -208,23 +223,32 @@ check_verdict() {
   python3 - "$1" "$2" << 'PY'
 import json, os, sys
 v, d = sys.argv[1], sys.argv[2]
-try: j = json.load(open(v))
+try:
+    with open(v) as f: j = json.load(f)
 except Exception as e: print("unreadable: %s" % e); sys.exit(1)
+if not isinstance(j, dict): print("verdict.json is not a JSON object"); sys.exit(1)
+def lst(k):
+    x = j.get(k)
+    return x if isinstance(x, list) else []
 imgs = sorted(f for f in os.listdir(d) if f.endswith((".jpg", ".png")))
-seen = " ".join(str(fr.get("file", "")) for fr in j.get("frames", []))
-missing = [f for f in imgs if f not in seen]
+frames = [fr for fr in lst("frames") if isinstance(fr, dict)]
+seen = set(os.path.basename(str(fr.get("file", ""))) for fr in frames)
+defects = lst("defects")
 bad = []
+if not isinstance(j.get("frames"), list) or len(frames) != len(lst("frames")): bad.append("frames is not a list of objects")
+if not isinstance(j.get("defects", []), list): bad.append("defects is not a list")
+if [x for x in defects if not isinstance(x, dict)]: bad.append("a defect is not an object")
+missing = [f for f in imgs if f not in seen]
 if missing: bad.append("frames does not cover %s" % ", ".join(missing))
 if not isinstance(j.get("production_ready"), bool): bad.append("production_ready is not true/false")
 if len(str(j.get("justification", "")).strip()) < 40: bad.append("justification missing or thin")
-blocking = [x for x in j.get("defects", []) if x.get("severity") in ("blocker", "major")]
-if j.get("production_ready") is True and j.get("defects"): bad.append("production_ready true with %d defects (a pass needs zero; %d blocker/major)" % (len(j["defects"]), len(blocking)))
-looked = [str(x) for x in j.get("looked_at", [])]
+if j.get("production_ready") is True and defects: bad.append("production_ready true with %d defects (a pass needs zero)" % len(defects))
+looked = set(os.path.basename(str(x)) for x in lst("looked_at"))
 if not looked: bad.append("no looked_at list")
 elif [f for f in imgs if f not in looked]: bad.append("looked_at misses %s" % ", ".join(f for f in imgs if f not in looked))
-thin = [str(fr.get("file")) for fr in j.get("frames", []) if len(str(fr.get("findings", "")).strip()) < 20]
+thin = [str(fr.get("file")) for fr in frames if len(str(fr.get("findings", "")).strip()) < 20]
 if thin: bad.append("no real findings for %s" % ", ".join(thin[:5]))
-if j.get("production_ready") is False and not j.get("defects"): bad.append("production_ready false with no defects")
+if j.get("production_ready") is False and not defects: bad.append("production_ready false with no defects")
 if bad: print("; ".join(bad)); sys.exit(1)
 PY
 }
@@ -232,17 +256,20 @@ PY
 # The judge's own transcript (stream-json) is the evidence: its session id, every image it Read, the verdict it Wrote.
 # Writes evidence.json; fails (printing why) when the judge did not Read an image or verdict.json is not what it wrote.
 evidence() {
-  python3 - "$1" "$model" << 'PY'
+  python3 - "$1" "$model" "$2" "$3" "$4" "$pass" "$variant" "$round" "$source" "$renderer" "$out" "$passes" << 'PY'
 import hashlib, json, os, sys
 d, model = sys.argv[1], sys.argv[2]
+item, clip, mp4, pas, variant, rnd, source, renderer, out, need = sys.argv[3:13]
 sid, reads, wrote = None, [], None
 for line in open(os.path.join(d, "judge.jsonl"), errors="replace"):
     try: e = json.loads(line)
     except ValueError: continue
+    if not isinstance(e, dict): continue
     sid = sid or e.get("session_id")
-    for c in (e.get("message") or {}).get("content") or []:
+    msg = e.get("message") if isinstance(e.get("message"), dict) else {}
+    for c in msg.get("content") if isinstance(msg.get("content"), list) else []:
         if not isinstance(c, dict) or c.get("type") != "tool_use": continue
-        inp = c.get("input") or {}
+        inp = c.get("input") if isinstance(c.get("input"), dict) else {}
         if c.get("name") == "Read": reads.append(os.path.basename(str(inp.get("file_path", ""))))
         if c.get("name") == "Write" and os.path.basename(str(inp.get("file_path", ""))) == "verdict.json":
             wrote = hashlib.sha256(str(inp.get("content", "")).encode()).hexdigest()
@@ -254,20 +281,27 @@ unread = sorted(f for f in hashes if f not in reads)
 if unread: bad.append("the judge never Read %s" % ", ".join(unread))
 have = hashlib.sha256(open(os.path.join(d, "verdict.json"), "rb").read()).hexdigest()
 if wrote != have: bad.append("verdict.json is not the file the judge wrote")
-json.dump({"judge_session": sid, "judge_model": model, "reads": reads, "images": hashes, "verdict_sha256": have},
-          open(os.path.join(d, "evidence.json"), "w"), indent=2)
+json.dump({"judge_session": sid, "judge_model": model, "reads": reads, "images": hashes, "verdict_sha256": have,
+           "item": item, "clip": clip, "mp4": mp4, "mp4_sha256": hashlib.sha256(open(mp4, "rb").read()).hexdigest(),
+           "pass": int(pas), "variant": int(variant), "round": int(rnd), "source": source, "renderer": renderer,
+           "out": out, "passes_required": int(need)}, open(os.path.join(d, "evidence.json"), "w"), indent=2)
 if bad: print("; ".join(bad)); sys.exit(1)
 PY
 }
 
 run_judge() {
-  local dir=$1 subj=$2 item=$3 why
-  rm -f "$dir/verdict.json"
+  local dir=$1 subj=$2 item=$3 clip=$4 mp4=$5 why rc
   for attempt in 1 2; do
-    (cd "$dir" && judge_claude -p "$(judge_prompt "$subj" "$item" "$(ls "$dir"/*sheet* 2> /dev/null)")" --model "$model" \
+    rm -f "$dir/verdict.json" "$dir/evidence.json"
+    judge_cmd
+    (cd "$dir" && "${jc[@]}" -p "$(judge_prompt "$subj" "$item" "$(ls "$dir"/*sheet* 2> /dev/null)")" --model "$model" \
       --allowedTools "Read,Write" --permission-mode acceptEdits --add-dir "$(dirname "$rubric")" \
       --output-format stream-json --verbose > "$dir/judge.jsonl" 2> "$dir/judge.log")
-    why=$(check_verdict "$dir/verdict.json" "$dir") && why=$(evidence "$dir") && return 0
+    rc=$?
+    if ((rc == 124 || rc == 137)); then why="the judge ran past ${judge_timeout}s and was killed"
+    elif ! why=$(check_verdict "$dir/verdict.json" "$dir"); then why="$why (judge exit $rc: $(tail -c 300 "$dir/judge.log" | tr '\n' ' '))"
+    elif why=$(evidence "$dir" "$item" "$clip" "$mp4") && why=$(python3 "$gate" --pack "$dir"); then return 0
+    fi
     echo "dot_game_visual_judge.sh: judge $attempt for $subj wrote an invalid verdict ($why)" >&2
     echo "INVALID: $why" >> "$dir/judge.log"
   done
@@ -288,43 +322,62 @@ list_clips() {
   done < <(find "$clips" -maxdepth 2 -name '*.mp4' -not -path "*/judge/*" | sort)
 }
 
+# Files every open defect of the last pass: one nightly item per game and category (vj-<game>-<category>, reopened when
+# it was done), each defect a note naming its clip, pack, round and judge session (the gate checks that the key names
+# the session). Writes the keys back into verdict.json after each one. Exit 1 when any defect could not be filed.
 file_defects() {
   python3 - "$out/verdict.json" "$game" "$repos" "$nightly" << 'PY'
-import json, re, subprocess, sys, datetime, getpass
+import json, re, subprocess, sys, getpass
 v, game, repos, nightly = sys.argv[1:5]
-j = json.load(open(v))
-cmd = [nightly] if getpass.getuser() == "core" else ["sudo", "-u", "core", nightly]
-day = datetime.date.today().strftime("%Y%m%d")
-filed = 0
-for it in j["items"]:
-    for d in it.get("defects", []):
-        if d.get("nightly"): continue  # every severity: a pass needs zero defects, so a minor one is open work too
-        # One item per game and defect category (not per clip): each clip's defect is a note on it.
-        cat = d.get("category", "x")
-        key = re.sub(r"[^a-z0-9-]+", "-", ("vj-%s-%s-%s" % (game, cat, day)).lower())
-        line = "[%s] %s %s, %s camera, frames %s: %s\nFix hint: %s\nPack: %s" % (
-            d.get("severity"), it["item"], it["clip"], d.get("camera", "?"), ", ".join(d.get("frames", [])),
-            d.get("what", ""), d.get("fix_hint", ""), it.get("pack", ""))
-        if subprocess.run(cmd + ["show", key], capture_output=True).returncode == 0:
-            r = subprocess.run(cmd + ["note", key, "--by", "session", line], capture_output=True, text=True)
+with open(v) as f: j = json.load(f)
+cmd = [nightly] if getpass.getuser() == "core" or nightly != "/home/core/stack/nightly/bin/nightly" else ["sudo", "-n", "-u", "core", nightly]
+def run(*a):
+    try: return subprocess.run(cmd + list(a), capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as e: return subprocess.CompletedProcess(cmd, 1, "", str(e))
+def save():
+    with open(v + ".tmp", "w") as f: json.dump(j, f, indent=2)
+    import os; os.replace(v + ".tmp", v)
+filed = failed = 0
+for it in j.get("items") or []:
+    if not isinstance(it, dict): continue
+    for d in it.get("defects") or []:
+        if not isinstance(d, dict) or d.get("nightly"): continue  # every severity: a pass needs zero defects
+        cat = str(d.get("category") or "other")
+        key = re.sub(r"-+", "-", re.sub(r"[^a-z0-9-]+", "-", ("vj-%s-%s" % (game, cat)).lower())).strip("-")
+        frames = d.get("frames")
+        frames = ", ".join(map(str, frames)) if isinstance(frames, list) else str(frames or "?")
+        line = "[%s] %s %s, %s camera, frames %s: %s\nFix hint: %s\nPack: %s round %s judge session %s" % (
+            d.get("severity"), it.get("item"), it.get("clip"), d.get("camera", "?"), frames, d.get("what", ""),
+            d.get("fix_hint", ""), it.get("pack", ""), j.get("round", "?"), it.get("judge_session", "?"))
+        shown = run("show", key)
+        if shown.returncode == 0:
+            if re.search(r"^status: (done|dropped|wontfix)", shown.stdout, re.M):
+                run("set", key, "--status", "queue")
+            r = run("note", key, "--by", "session", line)
         else:
-            body = ("Unresolved %s defects after %d judge rounds (dot_game_visual_judge.sh); one per line here and in the notes. "
-                    "Done when a fresh judge finds no %s defect in these clips.\n\n%s" % (cat, j.get("round", 0), cat, line))
-            r = subprocess.run(cmd + ["add", "--title", "%s visual: %s defects (judge)" % (game, cat),
-                                      "--key", key, "--kind", "issue", "--repos", repos, "--by", "session", "--body", body], capture_output=True, text=True)
-        if r.returncode != 0: print("could not file %s: %s" % (key, r.stderr.strip()), file=sys.stderr); continue
+            body = ("Unresolved %s defects from the fresh visual judge (dot_game_visual_judge.sh); one per note. "
+                    "Done when a fresh judge finds no %s defect in these clips.\n\n%s" % (cat, cat, line))
+            r = run("add", "--title", "%s visual: %s defects (judge)" % (game, cat), "--key", key, "--kind", "issue",
+                    "--repos", repos, "--by", "session", "--body", body)
+        if r.returncode != 0:
+            print("could not file %s: %s" % (key, (r.stderr or r.stdout).strip()[:300]), file=sys.stderr); failed += 1; continue
         d["nightly"] = key; filed += 1
+        save()
         print("filed %s" % key)
-json.dump(j, open(v, "w"), indent=2)
-print("%d defects filed" % filed)
+print("%d defects filed, %d failed" % (filed, failed))
+sys.exit(1 if failed else 0)
 PY
 }
 
 round_file=$out/round
 round=$(cat "$round_file" 2> /dev/null || echo 0)
+[[ $round =~ ^[0-9]+$ ]] || round=0
+renderer=
 while :; do
   round=$((round + 1))
   echo "$round" > "$round_file"
+  # A round starts clean: the old run verdict and every old pack go, so nothing from an earlier round can count.
+  rm -rf "$out/verdict.json" "$out/results.tsv" "$out"/pass[0-9]*
   # The source state the streak is about: the checkout's HEAD, its uncommitted diff and the capture command. Any change
   # (a fix between rounds) starts a new streak; the streak never carries across rounds.
   source=$( { git rev-parse HEAD 2> /dev/null; git diff HEAD 2> /dev/null; echo "$capture"; } | sha256sum | cut -c1-16)
@@ -338,79 +391,94 @@ while :; do
         echo "dot_game_visual_judge.sh: the capture exited non-zero (see $out/capture_round${round}_pass$pass.log); judging what it made" >&2
       mapfile -t logs < <(find "$clips" -maxdepth 2 -name '*.log' -newer "$out/.pass_start" 2> /dev/null; echo "$out/capture_round${round}_pass$pass.log")
     else
-      mapfile -t logs < <(find "$clips" -maxdepth 2 \( -name capture.log -o -name run.log -o -name '*.log' \) 2> /dev/null | head -20)
+      mapfile -t logs < <(find "$clips" -maxdepth 2 -name '*.log' -not -path "$out/*" 2> /dev/null | head -20)
     fi
     check_gpu "${logs[@]}"
     mapfile -t rows < <(list_clips)
     ((${#rows[@]})) || code=4 die "no clips under $clips${only:+ for $only}${anims:+ / $anims}"
+    # Every requested item and clip must be there: a missing clip is never silently left unjudged.
+    have=$(printf '%s\n' "${rows[@]}" | cut -f1,2)
+    for w in ${only//,/ }; do cut -f1 <<< "$have" | grep -qxF -- "$w" || code=4 die "--only $w: no clip for it under $clips"; done
+    for w in ${anims//,/ }; do cut -f2 <<< "$have" | grep -qxF -- "$w" || code=4 die "--anims $w: no clip by that name under $clips"; done
     results=()
     for row in "${rows[@]}"; do
       IFS=$'\t' read -r item clip mp4 <<< "$row"
       dir=$out/pass$pass/$item/$clip
-      make_pack "$mp4" "$dir" "$variant" || continue
+      if [[ -n $capture && ! $mp4 -nt $out/.pass_start ]]; then
+        code=4 die "$mp4 is older than this pass's capture: the capture did not write it (stale clip); fix the capture"
+      fi
+      make_pack "$mp4" "$dir" "$variant" || code=4 die "could not build the judge pack for $mp4 (see above): no clip is skipped"
       for s in "$(dirname "$mp4")/${clip}"*sheet*.png "$(dirname "$mp4")/${item}_sheet.png"; do [[ -f $s ]] && cp "$s" "$dir/"; done
       # Every pack image is hashed after the sheets are in (the judge must Read each one).
       (cd "$dir" && sha256sum -- *.jpg *.png 2> /dev/null > images.sha256)
       if ((judge == 0)); then echo "pack: $dir"; continue; fi
       subj="${subject:-$game} $item $clip"
-      if run_judge "$dir" "$subj" "$item"; then results+=("$item"$'\t'"$clip"$'\t'"$dir")
+      if run_judge "$dir" "$subj" "$item" "$clip" "$mp4"; then results+=("$item"$'\t'"$clip"$'\t'"$dir")
       else code=5 die "no valid verdict for $subj after two fresh judges (see $dir/judge.log)"; fi
     done
     ((judge == 1)) || { echo "dot_game_visual_judge.sh: packs only (--no-judge): this is not a verdict"; exit 1; }
     printf '%s\n' "${results[@]}" > "$out/results.tsv"
+    cp "$out/results.tsv" "$out/pass$pass/results.tsv"
     printf '%s\t%s\t%s\n' "$pass" "$variant" "$out/pass$pass" >> "$out/passes.tsv"
     # A pass is clean when every clip's fresh verdict is production_ready with zero defects; the first unclean pass
     # ends the streak and the round (later passes would only spend judges on a known failure).
     python3 -c 'import json,sys; sys.exit(0 if all(json.load(open(l.split("\t")[2].strip()+"/verdict.json")).get("production_ready") is True and not json.load(open(l.split("\t")[2].strip()+"/verdict.json")).get("defects") for l in open(sys.argv[1]) if l.strip()) else 1)' "$out/results.tsv" || break
     echo "dot_game_visual_judge.sh: round $round pass $pass/$passes clean"
   done
-  # The run's verdict: the last pass's clips (the failing one, or pass N), with the streak; production_ready only when
-  # all N passes were clean.
+  # The run's verdict: the last pass's clips (the failing one, or pass N) with the streak. The streak comes from this
+  # round's passes only (pass1..N were cleared at the round start); the gate's audit, which re-derives everything from
+  # the packs and the judges' transcripts, decides the exit.
   python3 - "$out/verdict.json" "$round" "$model" "$out/results.tsv" "$out/passes.tsv" "$passes" "$source" "${capture:+1}" << 'PY'
 import json, os, sys
 out, rnd, model, res, ptsv, need, source, captured = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4], sys.argv[5], int(sys.argv[6]), sys.argv[7], sys.argv[8] == "1"
 def load(d):
-    v = json.load(open(d + "/verdict.json"))
-    ev = json.load(open(d + "/evidence.json"))
+    with open(d + "/verdict.json") as f: v = json.load(f)
+    with open(d + "/evidence.json") as f: ev = json.load(f)
     return v, ev
+def rows(path):
+    with open(path) as f: return [l.rstrip("\n").split("\t") for l in f if l.strip()]
 items = []
-for line in open(res):
-    if not line.strip(): continue
-    item, clip, d = line.rstrip("\n").split("\t")
+for item, clip, d in rows(res):
     v, ev = load(d)
     v.update({"item": item, "clip": clip, "pack": d, "judge_session": ev.get("judge_session")})
     items.append(v)
 streak = []
-for line in open(ptsv):
-    p, variant, pdir = line.rstrip("\n").split("\t")
-    clips, clean = [], True
-    for root, dirs, files in os.walk(pdir):
-        if "verdict.json" in files and "evidence.json" in files:
-            v, ev = load(root)
-            ok = v.get("production_ready") is True and not v.get("defects")
-            clean = clean and ok
-            clips.append({"pack": root, "clean": ok, "defects": len(v.get("defects", [])), "judge_session": ev.get("judge_session"),
-                          "verdict_sha256": ev.get("verdict_sha256"), "images": len(ev.get("images", {}))})
-    streak.append({"pass": int(p), "variant": int(variant), "capture_variant": captured, "clean": clean and bool(clips), "clips": clips})
+for p, variant, pdir in rows(ptsv):
+    clips = []
+    for item, clip, d in rows(os.path.join(pdir, "results.tsv")):
+        v, ev = load(d)
+        ok = v.get("production_ready") is True and not v.get("defects")
+        clips.append({"item": item, "clip": clip, "pack": d, "clean": ok, "defects": len(v.get("defects") or []),
+                      "judge_session": ev.get("judge_session"), "verdict_sha256": ev.get("verdict_sha256"), "images": len(ev.get("images") or {})})
+    streak.append({"pass": int(p), "variant": int(variant), "capture_variant": captured, "clean": bool(clips) and all(c["clean"] for c in clips), "clips": clips})
 clean_run = 0
 for s in streak:
     if not s["clean"]: break
     clean_run += 1
 ready = bool(items) and clean_run >= need
-json.dump({"round": rnd, "judge_model": model, "production_ready": ready, "passes_required": need,
-           "passes_clean": clean_run, "source": source, "streak": streak, "items": items}, open(out, "w"), indent=2)
+tmp = out + ".tmp"
+with open(tmp, "w") as f:
+    json.dump({"round": rnd, "judge_model": model, "production_ready": ready, "passes_required": need,
+               "passes_clean": clean_run, "source": source, "streak": streak, "items": items}, f, indent=2)
+os.replace(tmp, out)
 print("streak: %d/%d consecutive clean passes%s" % (clean_run, need, "" if captured else " (no --capture: phase/burst/close-up variants only, no new camera angles or light)"))
 for v in items:
-    print("%-6s %s %s: %s" % ("CLEAN" if v["production_ready"] and not v.get("defects") else "NOT", v["item"], v["clip"], v["justification"][:200]))
-    for d in v.get("defects", []):
-        print("   %s %-8s %-10s %s" % (d.get("id", "-"), d.get("severity"), d.get("category"), d.get("what", "")[:160]))
+    print("%-6s %s %s: %s" % ("CLEAN" if v.get("production_ready") is True and not v.get("defects") else "NOT", v["item"], v["clip"], str(v.get("justification", ""))[:200]))
+    for d in v.get("defects") or []:
+        print("   %s %-8s %-10s %s" % (d.get("id", "-"), d.get("severity"), d.get("category"), str(d.get("what", ""))[:160]))
 PY
-  if python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))["production_ready"] else 1)' "$out/verdict.json"; then
-    echo "dot_game_visual_judge.sh: PRODUCTION READY ($passes consecutive clean fresh judges) after $round round(s): $out/verdict.json"
-    exit 0
+  [[ -f $out/verdict.json ]] || code=5 die "could not write $out/verdict.json"
+  if python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("production_ready") is True else 1)' "$out/verdict.json"; then
+    if audit=$(python3 "$gate" --audit "$out/verdict.json"); then
+      echo "$audit"
+      echo "dot_game_visual_judge.sh: PRODUCTION READY ($passes consecutive clean fresh judges) after $round round(s): $out/verdict.json"
+      exit 0
+    fi
+    echo "$audit" >&2
+    code=5 die "the streak looked clean but the audit of its packs is not sound (above): nothing is ready"
   fi
   if ((give_up == 1)) || ((max_rounds > 0 && round >= max_rounds)); then
-    file_defects
+    file_defects || code=1 die "NOT production ready after $round round(s), and some defects could not be filed (above): file them, or fix and judge again"
     echo "dot_game_visual_judge.sh: NOT production ready after $round round(s); every open defect is filed in nightly (see $out/verdict.json)" >&2
     exit 3
   fi

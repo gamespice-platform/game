@@ -12,12 +12,15 @@ other camera angles and light). Run it as gamedev from the game checkout or your
        --clips <dir of <item>/<clip>.mp4> --only <items> [--anims <clips>] --out <dir>/judge
 Capture commands: FC weapons/arms  tools/anim_review.sh . <weapon> --anim <clips> [--avatar]
                   other games      bash addons/dot_game/tools/dot_game_visual_qa.sh <args>   (docs/visual-qa.md)
-GPU only (staging02/staging via gpu.sh; llvmpipe is refused). Never --soft for a verdict.
+GPU only (staging02/staging via gpu.sh): the capture log must name the GPU box; llvmpipe or no log exits 4.
+Never --soft for a verdict. One run per --out (a second exits 2); a judge is killed after --timeout (1800 s).
 Exit 1: read <out>/verdict.json "defects", fix at the SOURCE (model, art row, rig, material; never by moving the
 camera, cropping or shortening the clip) and run it again. Exit 0 is the only "done".
 Never write or edit verdict.json/evidence.json/judge.jsonl, never judge frames yourself, never report done on a
-metric PASS. The post tools re-check the judge's transcript evidence and refuse anything else.
-Stopping with defects open: run once more with --give-up (files one nightly item per category, exits 3) and say so.
+metric PASS. The post tools re-check the judge's transcript evidence and refuse anything else
+(they look up the judge's own Claude transcript, so a hand-made pack is refused).
+Stopping with defects open: run once more with --give-up (files vj-<game>-<category>, exits 3) and say so.
+Check before reporting: python3 addons/dot_game/tools/dot_game_visual_verdict.py --audit <out>/verdict.json
 Cost: a failing pass stops the round, so a bad clip costs one judge; judge only the clips you changed (--only/--anims).
 ```
 

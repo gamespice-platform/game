@@ -59,7 +59,9 @@ echo "reviews: ${#want[@]} of ${#items[@]} items to capture: ${want[*]:-none}"
 [ ${#want[@]} -eq 0 ] || [ "$dry" = 1 ] && exit 0
 
 rm -rf "${work:?}"/*
-review_capture "$work" "${want[@]}" || echo "reviews: capture reported a failure, posting what exists" >&2
+# The capture's own output is the GPU proof the judge requires (gpu.sh's "takes this frame" or Godot's "Using Device").
+review_capture "$work" "${want[@]}" 2>&1 | tee "$work/capture.log"
+[ "${PIPESTATUS[0]}" = 0 ] || echo "reviews: capture reported a failure, judging what exists" >&2
 shopt -s nullglob
 [ -n "$(echo "$work"/*.mp4)" ] || { echo "reviews: no clips produced" >&2; exit 1; }
 for it in "${want[@]}"; do
@@ -72,6 +74,13 @@ done
 judge=addons/dot_game/tools/dot_game_visual_judge.sh
 [ -f "$judge" ] || judge=$SHARED/../addons/dot_game/tools/dot_game_visual_judge.sh
 gate=$(dirname "$judge")/dot_game_visual_verdict.py
+# Items the capture made no clip for are reported (and fail the run); the judge must see every clip it is asked about.
+made=() missing=0
+for it in "${want[@]}"; do
+    f=("$work/${it}__"*.mp4)
+    if [ -f "${f[0]:-}" ]; then made+=("$it"); else echo "reviews: no clip for $it" >&2; missing=1; fi
+done
+want=("${made[@]}")
 judge_args=(--clips "$work" --out "$work/judge" --subject "$GAME" --only "$(IFS=,; echo "${want[*]}")")
 [ "${VISUAL_JUDGE_GIVE_UP:-0}" = 1 ] && judge_args+=(--give-up)
 bash "$judge" "${judge_args[@]}"; jrc=$?
@@ -91,10 +100,10 @@ commit=$(git rev-parse --short HEAD 2>/dev/null || echo "?")
 "$poster" new "$key" "$GAME animation clips $(date +%F) (changed items, before/after)" >/dev/null || exit 1
 fail=0 refused=0
 for it in "${want[@]}"; do
-    posted=0 item_says=good item_note=
+    posted=0 item_says=good item_note= sent=()
     for clip in "$work/${it}__"*.mp4; do
         kind=${clip##*__}; kind=${kind%.mp4}
-        if ! judged=$(python3 "$gate" "$work/judge/verdict.json" "$it" "$kind"); then
+        if ! judged=$(env -u VISUAL_JUDGE_TRANSCRIPTS python3 "$gate" "$work/judge/verdict.json" "$it" "$kind" --mp4 "$clip"); then
             echo "reviews: refusing $it $kind: $judged" >&2
             refused=$((refused + 1)); continue
         fi
@@ -116,16 +125,19 @@ for it in "${want[@]}"; do
         else
             note="$note; no earlier clip to compare"
         fi
-        "$poster" media "$key" "$it" "$clip" --slot clip --variant after --label "$kind" --title "$kind after" --note "$note" "${extra[@]}" >/dev/null && posted=1 || fail=1
+        "$poster" media "$key" "$it" "$clip" --slot clip --variant after --label "$kind" --title "$kind after" --note "$note" "${extra[@]}" >/dev/null && { posted=1; sent+=("$clip"); } || fail=1
     done
     [ -f "$work/${it}_sheet.png" ] && { "$poster" media "$key" "$it" "$work/${it}_sheet.png" --slot filmstrip --variant after --label "reload" >/dev/null || fail=1; }
     if [ "$posted" = 1 ]; then
         sudo -u core /home/core/stack/nightly/bin/nightly review verdict "$key" "$it" "$item_says" --note "${item_note:0:1500}" >/dev/null 2>&1 ||
             /home/core/stack/nightly/bin/nightly review verdict "$key" "$it" "$item_says" --note "${item_note:0:1500}" >/dev/null || fail=1
-        for clip in "$work/${it}__"*.mp4; do cp "$clip" "$state/"; done
-        echo "${sha[$it]}" > "$state/$it.sha"
+        # Only the clips that were posted become the next "before"; the fingerprint is kept only when all were.
+        for clip in "${sent[@]}"; do cp "$clip" "$state/"; done
+        all_clips=("$work/${it}__"*.mp4)
+        [ "${#sent[@]}" = "${#all_clips[@]}" ] && echo "${sha[$it]}" > "$state/$it.sha"
     fi
 done
 echo "reviews: posted to $key ($([ $fail = 0 ] && echo ok || echo "with failures"); $refused clips refused without a passing or filed verdict): ${QA_URL:-http://x-tmc-dev01:3010}/reviews"
 [ "$refused" = 0 ] || fail=1
+[ "$missing" = 0 ] || fail=1
 exit $fail

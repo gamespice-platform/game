@@ -34,7 +34,7 @@ verdict=${verdict:-$out/judge/verdict.json}
 gate=addons/dot_game/tools/dot_game_visual_verdict.py
 declare -A item_good=() item_note=()
 nightly=${NIGHTLY:-/home/core/stack/nightly/bin/nightly}
-run_nightly() { if [[ $(id -un) == core ]]; then "$nightly" "$@"; else sudo -u core "$nightly" "$@"; fi; }
+run_nightly() { if [[ $(id -un) == core || -n ${NIGHTLY:-} ]]; then "$nightly" "$@"; else sudo -u core "$nightly" "$@"; fi; }
 # The nightly runs as core, which cannot read a gamedev worktree: hand it copies in a world-readable scratch dir.
 stage=$(mktemp -d /tmp/visual-qa-post.XXXXXX)
 trap 'rm -rf "$stage"' EXIT
@@ -42,16 +42,16 @@ chmod 755 "$stage"
 report_fps=$(sed -n 's/^fps: *\([0-9]*\).*/\1/p' "$out/report.md" | head -1)
 posted=0 failed=0 refused=0
 # report.md rows: | item | clip | verdict | why | ... |
-while IFS='|' read -r _ item clip verdict why _; do
-  item=$(xargs <<< "$item"); clip=$(xargs <<< "$clip"); verdict=$(xargs <<< "$verdict")
-  [[ $verdict == PASS || $verdict == FAIL ]] || continue
+while IFS='|' read -r _ item clip metric why _; do
+  item=$(xargs <<< "$item"); clip=$(xargs <<< "$clip"); metric=$(xargs <<< "$metric")
+  [[ $metric == PASS || $metric == FAIL ]] || continue
   [[ -z $only || $only == *",$item,"* ]] || continue
   [[ -z $clips || $clips == *",$clip,"* ]] || continue
   mp4=$out/$item/$clip.mp4 sheet=$out/$item/${clip}_fp_sheet.png
   [[ -f $mp4 ]] || { echo "dot_game_visual_qa_post.sh: no $mp4" >&2; failed=$((failed + 1)); continue; }
-  gate_args=("$verdict" "$item" "$clip")
+  gate_args=("$verdict" "$item" "$clip" --mp4 "$mp4")
   [[ $variant == before ]] && gate_args+=(--before)
-  if ! judged=$(python3 "$gate" "${gate_args[@]}"); then
+  if ! judged=$(env -u VISUAL_JUDGE_TRANSCRIPTS python3 "$gate" "${gate_args[@]}"); then
     echo "dot_game_visual_qa_post.sh: refusing $item $clip: $judged" >&2
     refused=$((refused + 1)); continue
   fi
@@ -62,7 +62,7 @@ while IFS='|' read -r _ item clip verdict why _; do
   fps=$(ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate -of csv=p=0 "$mp4" 2>/dev/null | awk -F/ '$2 > 0 {printf "%g", $1 / $2}')
   fps=${fps:-${report_fps:-60}}
   why=$(xargs <<< "${why//\"/\'}" 2>/dev/null || true)
-  metrics=$(printf '{"fps":"%s","frames":"%s","seconds":"%s","judge":"%s","metric_prefilter":"%s"}' "$fps" "$frames" "$(awk -v f="$frames" -v r="$fps" 'BEGIN{printf "%.2f", f/r}')" "$([[ $judge_says == good ]] && echo READY || echo NOT_READY)" "$verdict")
+  metrics=$(printf '{"fps":"%s","frames":"%s","seconds":"%s","judge":"%s","metric_prefilter":"%s"}' "$fps" "$frames" "$(awk -v f="$frames" -v r="$fps" 'BEGIN{printf "%.2f", f/r}')" "$([[ $judge_says == good ]] && echo READY || echo NOT_READY)" "$metric")
   cp "$mp4" "$stage/${item}__$clip.mp4"; chmod 644 "$stage/${item}__$clip.mp4"
   args=(--label "$clip" --metrics "$metrics" --by "$by" --look "$look")
   [[ -z $variant ]] || args+=(--variant "$variant")
