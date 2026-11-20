@@ -20,6 +20,9 @@ static func make_gate(c: Node) -> DotLoadGate:
 	var made := DotLoadGate.new()
 	made.require_camera = c.require_camera
 	made.warm_up_on_open = c.warm_up and DisplayServer.get_name() != "headless"
+	# Content downloads and quota errors show a bottom-right bar even when a shell skips its cover (dot-core 39).
+	if &"content_service" in made:
+		made.content_service = &"dot_cloud_client"
 	if c.cover != null:
 		made.cover = c.cover
 	elif c.cover_scene != null:

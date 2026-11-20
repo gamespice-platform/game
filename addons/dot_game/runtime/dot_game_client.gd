@@ -20,6 +20,8 @@ const LOOK_MUTE_SCRIPT := "res://addons/dot_voice/runtime/dot_voice_look_mute.gd
 const BINDINGS_SCRIPT := "res://addons/dot_menu/core/dot_menu_bindings.gd"
 ## The gate's requirement for the local player.
 const REASON_SPAWNED := &"spawned"
+## The gate reason [method begin_map_change] holds.
+const REASON_MAP := &"map"
 const _Settings := preload("res://addons/dot_game/runtime/dot_game_client_settings.gd")
 const _Vis := preload("res://addons/dot_game/runtime/dot_game_client_vis.gd")
 const _RenderQuality := preload("res://addons/dot_game/runtime/dot_game_render_quality.gd")
@@ -361,6 +363,19 @@ func _resolve_host() -> Node:
 
 
 ## Builds the gate under [member host]. Override for a gate of your own; null is no gate.
+## Covers the screen for a map change and waits until it is drawn, so the unload and install that follow (synchronous, seconds long) do not delay it: [code]await client.begin_map_change("Loading map")[/code], then do the work, then [method end_map_change]. Without a gate it returns at once.
+func begin_map_change(text: String = "Loading map") -> void:
+	if gate != null and is_instance_valid(gate) and gate.has_method(&"hold_shown"):
+		await gate.hold_shown(REASON_MAP, text)
+	elif gate != null and is_instance_valid(gate):
+		gate.hold(REASON_MAP, text)
+
+
+func end_map_change() -> void:
+	if gate != null and is_instance_valid(gate):
+		gate.release(REASON_MAP)
+
+
 func _make_gate() -> DotLoadGate:
 	return _Life.make_gate(self)
 
