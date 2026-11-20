@@ -1,15 +1,15 @@
 class_name DotGameStatsFeed
 extends RefCounted
 
-## Opens and closes a dot-stats session for each seat, when a tracker exists. Duck-typed: dot-stats is never named.
+## Opens and closes a GameSpice Stats session for each seat, when a tracker exists. Duck-typed: GameSpice Stats is never named.
 
 const CHANNEL := "game.stats"
 const SERVICE := &"dot_stats_tracker"
-## dot-user's scope, by path: dot-user is not a dependency. Without it a key falls back to the seat's.
+## GameSpice User's scope, by path: GameSpice User is not a dependency. Without it a key falls back to the seat's.
 const SCOPE_SCRIPT := "res://addons/dot_user/core/dot_user_scope.gd"
 ## The scope name the local derivation uses; the key file, not the name, is what makes it per-server.
 const SCOPE_NAME := "dot_game.stats"
-## The shape of a key the backbone issued (dot-auth's `scoped_key` claim), as dot-user checks it.
+## The shape of a key the backbone issued (GameSpice Auth's `scoped_key` claim), as GameSpice User checks it.
 const ISSUED_KEY_RE := "^[A-Za-z0-9_-]{8,64}$"
 
 ## The tracker to feed. Unset, it is looked up as the registry service [constant SERVICE] at each join.
@@ -41,7 +41,7 @@ var _issued_re: RegEx = RegEx.create_from_string(ISSUED_KEY_RE)
 
 
 ## The key [param session]'s stats are filed under: stable across restarts, per server, never an account id.
-## In order: [member player_key_fn], dot-platform's profile key, the backbone's issued key, a keyed
+## In order: [member player_key_fn], GameSpice Platform's profile key, the backbone's issued key, a keyed
 ## derivation of the uid (guests too); a bot or a session with no identity gets "u" + userid.
 func key_for(session: DotClientSession) -> StringName:
 	if player_key_fn.is_valid():
@@ -110,7 +110,7 @@ func _given_key(session: DotClientSession) -> StringName:
 	return &""
 
 
-## Loads this server's scope key, or makes and keeps one; null without dot-user or a usable key.
+## Loads this server's scope key, or makes and keeps one; null without GameSpice User or a usable key.
 func _scope_or_null() -> Object:
 	if _scope != null or not ResourceLoader.exists(SCOPE_SCRIPT):
 		return _scope

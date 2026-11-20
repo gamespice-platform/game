@@ -1,8 +1,8 @@
 extends Node
 
-## A stand-in for dot-menu's DotMenuSettings, in the shape DotGameClient duck-types: setup(),
+## A stand-in for GameSpice Menu's DotMenuSettings, in the shape DotGameClient duck-types: setup(),
 ## menu, settings, is_open(), use_maps() and menu_state_changed. The suite runs without
-## dot-menu, so this is how the wiring is asserted at all; the real menu is in each game's.
+## GameSpice Menu, so this is how the wiring is asserted at all; the real menu is in each game's.
 
 signal menu_state_changed(any_open: bool)
 

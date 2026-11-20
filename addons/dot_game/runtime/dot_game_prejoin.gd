@@ -6,7 +6,7 @@ extends RefCounted
 
 const CHANNEL := "game.prejoin"
 
-## The query that reads the server's advertised rules (dot-browser, by path; absent is no ids).
+## The query that reads the server's advertised rules (GameSpice Browser, by path; absent is no ids).
 const BROWSER_SCRIPT := "res://addons/dot_browser/runtime/dot_browser.gd"
 const TARGET_SCRIPT := "res://addons/dot_browser/core/dot_browser_target.gd"
 

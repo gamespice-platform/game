@@ -12,10 +12,10 @@ const LINK_SERVICE := &"dot_client_link"
 const WINDOW_SCRIPT := "res://addons/dot_ui/hud/dot_chat_window.gd"
 const VOICE_SCRIPT := "res://addons/dot_voice/runtime/dot_voice_manager.gd"
 
-## dot-voice's talk action (`DotVoiceManager.TALK_ACTION`), as text: dot-voice is loaded by path.
+## GameSpice Voice's talk action (`DotVoiceManager.TALK_ACTION`), as text: GameSpice Voice is loaded by path.
 const TALK_ACTION := &"dot_voice_talk"
 
-## The player's own block list (`sm`), dot-chat's `DotChatSelfMute`: its registry name and
+## The player's own block list (`sm`), GameSpice Chat's `DotChatSelfMute`: its registry name and
 ## its script, for a build that has not made it yet.
 const SELF_MUTE_SERVICE := &"dot_self_mute"
 const SELF_MUTE_SCRIPT := "res://addons/dot_chat/runtime/dot_chat_self_mute.gd"
@@ -61,12 +61,12 @@ var window_settings: Dictionary = {}
 ## is already the server's `(peer_id, bytes)` names its client half here.
 var voice_method: StringName = &"send_voice"
 
-## The voice format, a `DotVoiceConfig`. Null leaves dot-voice's own default, which is only
+## The voice format, a `DotVoiceConfig`. Null leaves GameSpice Voice's own default, which is only
 ## right if the server's router uses the same default.
 var voice_config: Resource = null
 
-## The key the talk action (dot-voice's `dot_voice_talk`) is created on when nothing has bound
-## it; dot-menu's key table binds it first in every game that has the menu. Physical, because
+## The key the talk action (GameSpice Voice's `dot_voice_talk`) is created on when nothing has bound
+## it; GameSpice Menu's key table binds it first in every game that has the menu. Physical, because
 ## the letter on it differs across layouts. KEY_NONE for no push-to-talk.
 var talk_key: Key = KEY_V
 
@@ -86,7 +86,7 @@ var layer: int = 2
 ## would draw every line.
 var server_lines: bool = true
 
-## The colour of a line dot-server's chat manager sent: a system line, an admin's.
+## The colour of a line GameSpice Server's chat manager sent: a system line, an admin's.
 var server_colour: Color = Color(0.98, 0.84, 0.40)
 
 ## The client link whose `chat_received` carries the server's own lines. Null looks it up in
@@ -98,10 +98,10 @@ var link: Object = null
 var local_colour: Color = Color(0.86, 0.88, 0.92)
 var notice_colour: Color = Color(0.98, 0.72, 0.35)
 
-## The box, a `DotChatWindow`, or null without dot-ui.
+## The box, a `DotChatWindow`, or null without GameSpice UI.
 var window: Control = null
 
-## The microphone and the speakers, a `DotVoiceManager`, or null without dot-voice.
+## The microphone and the speakers, a `DotVoiceManager`, or null without GameSpice Voice.
 var voice: Node = null
 
 ## The bridge this box sends through, or null offline.
@@ -112,12 +112,12 @@ var local_player_id: int = 0
 
 ## Whether the player's own block list (`sm`) is honoured: a muted player's line is not
 ## drawn and their voice is not played. `!sm` / `/sm` typed in the box never reach the
-## bridge; the box (dot-ui's `DotChatWindow`) runs them before it emits anything.
+## bridge; the box (GameSpice UI's `DotChatWindow`) runs them before it emits anything.
 var self_mute_enabled: bool = true
 
 ## The block list, or null: anything with `is_muted_line(wire)` and `attach_voice(manager)`.
-## Found as the registry's `dot_self_mute`, else made by dot-chat's script, as the box is
-## built. Null without dot-chat, and then nothing is muted.
+## Found as the registry's `dot_self_mute`, else made by GameSpice Chat's script, as the box is
+## built. Null without GameSpice Chat, and then nothing is muted.
 var self_mute: Object = null
 
 var _talking: bool = false
@@ -196,7 +196,7 @@ func _build_voice() -> void:
 		voice.set(&"speaker_position_fn", voice_position_fn)
 	add_child(voice)
 
-	# This player's own voice: what the menu's voice rows bind to (dot-menu finds it by this
+	# This player's own voice: what the menu's voice rows bind to (GameSpice Menu finds it by this
 	# name). Only the client's, never a server's router, so one per player at the keyboard.
 	if voice.has_method(&"publish_as_client"):
 		voice.call(&"publish_as_client")
@@ -206,7 +206,7 @@ func _build_voice() -> void:
 	_ensure_talk_action()
 
 	# The block list mutes a player's peer on this manager whenever the list or the roster
-	# changes. dot-voice's manager also asks for it itself; attaching twice is one attachment.
+	# changes. GameSpice Voice's manager also asks for it itself; attaching twice is one attachment.
 	if self_mute != null and self_mute.has_method(&"attach_voice"):
 		self_mute.call(&"attach_voice", voice)
 
@@ -236,7 +236,7 @@ func attach(p_bridge: Object) -> DotResult:
 	if voice == null:
 		return DotResult.success(null)
 
-	# One frame out, one call. dot-voice never touches a transport — which is what lets its
+	# One frame out, one call. GameSpice Voice never touches a transport — which is what lets its
 	# whole path run headless — so this is the seam, and without it a client captures,
 	# encodes, counts a frame and sends it nowhere.
 	voice.set(&"send_fn", func(bytes: PackedByteArray) -> void:
@@ -271,12 +271,12 @@ func _watch_link() -> void:
 		var _c := link.connect(&"chat_received", _on_server_line)
 
 
-## One line from dot-server's chat manager: `{kind, name, text}`.
+## One line from GameSpice Server's chat manager: `{kind, name, text}`.
 func _on_server_line(payload: Dictionary) -> void:
 	var _drawn := draw_server_line(window, payload, server_colour, line_colours.get(&"admin", server_colour))
 
 
-## Draws one of dot-server's own chat payloads in [param box] (a `DotChatWindow`, or anything with `add_text` and `add_said`), and says whether it was a line at all.
+## Draws one of GameSpice Server's own chat payloads in [param box] (a `DotChatWindow`, or anything with `add_text` and `add_said`), and says whether it was a line at all.
 ##
 ## Static, so a game with its own chat box draws them the same way. Only `system` and `admin` are drawn (player lines come over the bridge, so drawing them here shows each twice); `state` and a payload with no `text` return false.
 static func draw_server_line(
@@ -417,7 +417,7 @@ func _talk_held() -> bool:
 
 
 ## Creates the talk action on [member talk_key] if nothing has: a key table that binds it
-## (dot-menu's) wins, because this only fills a gap.
+## (GameSpice Menu's) wins, because this only fills a gap.
 func _ensure_talk_action() -> void:
 	if talk_key == KEY_NONE or InputMap.has_action(TALK_ACTION):
 		return

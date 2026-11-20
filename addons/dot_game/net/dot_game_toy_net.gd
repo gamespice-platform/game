@@ -1,9 +1,9 @@
 class_name DotGameToyNet
 extends DotNetBehaviour
 
-## One of the map's toys on the wire (dot-props' [DotPropToy]): where its moving part is and how it is turned, whether it is on, and how often it has been used. Eleven games had each written this file; the code of all of them is the same.
+## One of the map's toys on the wire (GameSpice Props' [DotPropToy]): where its moving part is and how it is turned, whether it is on, and how often it has been used. Eleven games had each written this file; the code of all of them is the same.
 ## The server's physics, never predicted: rigid-body solvers differ across machines, so the client's toy is frozen and posed from these ([method DotPropToy.show_state]). Paired by index: both ends build the same toys in map order, so a TOYS event carries only net ids; a client registers a toy before its map is built because a snapshot is read no further than its first unknown entity. Use count, not a use event: a honk or bounce moves [member net_count] by one (eight bits, wraps) and the client plays the sound when it moves, so a lost packet costs a late sound.
-## [member toy] is duck-typed (dot-props is not a dependency): it needs [code]state_transform()[/code], [code]on[/code], [code]count[/code] and [code]show_state(position, rotation, on, count)[/code], which [DotPropToy] has.
+## [member toy] is duck-typed (GameSpice Props is not a dependency): it needs [code]state_transform()[/code], [code]on[/code], [code]count[/code] and [code]show_state(position, rotation, on, count)[/code], which [DotPropToy] has.
 
 var toy: Object = null
 

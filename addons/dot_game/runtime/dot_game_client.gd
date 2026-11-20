@@ -3,15 +3,15 @@ extends "dot_game_client_seams.gd"
 
 ## The client's half of [DotGameModule]: the platform layer every game client wires, once (usage in docs/client-migration.md).
 ##
-## A child the client root adds, never a base class. [method _ready] puts the cover up before the game builds; [method setup] builds settings and menu after. dot-menu and dot-console are looked up by path, and each piece has a `use_*` switch; a HUD or chat built later goes through [method set_hud] and [method set_chat].
+## A child the client root adds, never a base class. [method _ready] puts the cover up before the game builds; [method setup] builds settings and menu after. GameSpice Menu and GameSpice Console are looked up by path, and each piece has a `use_*` switch; a HUD or chat built later goes through [method set_hud] and [method set_chat].
 
 const CHANNEL := "game.client"
 
 ## The shell's [code]DotClientLink[/code], by registry name.
 const LINK_SERVICE := &"dot_client_link"
-## dot-menu's settings node, made when a game assigns none. Never named: dot-menu is optional.
+## GameSpice Menu's settings node, made when a game assigns none. Never named: GameSpice Menu is optional.
 const SETTINGS_SCRIPT := "res://addons/dot_menu/runtime/dot_menu_settings.gd"
-## dot-console's one-call console. Never named, for the same reason.
+## GameSpice Console's one-call console. Never named, for the same reason.
 const LOCAL_SCRIPT := "res://addons/dot_console/core/dot_console_local.gd"
 const CONSOLE_KIT_SCRIPT := "res://addons/dot_console/runtime/dot_console_kit.gd"
 ## The Tab action made when the game's own key table has none.
@@ -68,9 +68,9 @@ var spawned_fn: Callable = Callable()
 
 ## Look at a player and press a key to gag or mute them, on every game with a voice chat. The keys are rows in the game's table unless it has them.
 @export var use_look_mute: bool = true
-## The look-mute script, by path (dot-voice's); a suite points it at a stand-in.
+## The look-mute script, by path (GameSpice Voice's); a suite points it at a stand-in.
 var look_mute_script: String = LOOK_MUTE_SCRIPT
-## The two actions. Defaults are G and K (never H: dot-menu's help key); a game binds its own.
+## The two actions. Defaults are G and K (never H: GameSpice Menu's help key); a game binds its own.
 @export var look_gag_action: StringName = &"voice_gag"
 @export var look_mute_action: StringName = &"voice_mute"
 ## Gag and mute on their own keys; off, one key taps gag and double-taps mute.
@@ -88,12 +88,12 @@ var look_chat_mute_fn: Callable = Callable()
 ## For a client whose voice manager or chat is not [member chat]'s: the manager the keys act on and the node holding `self_mute`. Then call [method build_look_mute].
 var look_voice: Node = null
 var look_chat: Node = null
-## The dot-voice look-mute node, once built; null without dot-voice or a voice chat.
+## The GameSpice Voice look-mute node, once built; null without GameSpice Voice or a voice chat.
 var look_mute: Node = null
 ## Keys held by another action at the time of the check: [code]{action, key, other}[/code].
 var look_conflicts: Array[Dictionary] = []
 
-## Turns on dot-core's player cfg tier (and its menu entry) when this process is solo or the listen host.
+## Turns on GameSpice Core's player cfg tier (and its menu entry) when this process is solo or the listen host.
 @export var user_cfg: bool = true
 ## [code]func() -> bool[/code]: this client also hosts the server it is connected to. Unset means a connected client is a guest and gets no tier.
 var listen_host_fn: Callable = Callable()
@@ -102,15 +102,15 @@ var dedicated_fn: Callable = Callable()
 ## Files the player may edit, each `{addon, file, schema, label}`; append before [method setup]. Empty hides the entry.
 var user_cfg_files: Array[Dictionary] = []
 
-## Build the settings and the Escape menu (dot-menu).
+## Build the settings and the Escape menu (GameSpice Menu).
 @export var use_settings: bool = true
 ## Where a stock settings node keeps its document, when [member settings] is unset.
 @export var settings_directory: String = ""
 ## The stock settings node's namespace, when [member settings] is unset.
 @export var app_namespace: StringName = &"game"
-## Build the console (dot-console) on the key under Escape.
+## Build the console (GameSpice Console) on the key under Escape.
 @export var use_console: bool = true
-## The script whose static `build(host, settings, menu)` makes the console; dot-console's kit unless replaced.
+## The script whose static `build(host, settings, menu)` makes the console; GameSpice Console's kit unless replaced.
 var console_kit_path: String = CONSOLE_KIT_SCRIPT
 ## Hold Tab for the board: the menu's `scoreboard_action`, made on Tab when nothing defines it. Empty is no key.
 @export var scoreboard_action: StringName = SCOREBOARD_ACTION
@@ -137,20 +137,20 @@ var screen_fit: DotGameScreenFit = null
 var settings: Node = null
 ## The HUD's root Control: it follows the menu's theme and HUD size.
 var hud: Control = null
-## The game's accent over the theme (dot-menu's [code]follow_hud[/code]); null for none.
+## The game's accent over the theme (GameSpice Menu's [code]follow_hud[/code]); null for none.
 var hud_accent: Theme = null
-## The chat box: a [DotGameChatClient], a dot-ui window, or anything with `is_typing()` or `is_open()`. Typing blocks input and keeps Escape off the menu.
+## The chat box: a [DotGameChatClient], a GameSpice UI window, or anything with `is_typing()` or `is_open()`. Typing blocks input and keeps Escape off the menu.
 var chat: Node = null
 ## [code]func() -> bool[/code]: something else of the game's has the keyboard (a command line). Blocks input and frees the pointer.
 var busy_fn: Callable = Callable()
 var _pointer_holds: Dictionary = {}
 var _fits := DotGameFitRequests.new()
-## [code]func() -> Dictionary[/code]: the Tab board offline (dot-menu's snapshot shape); connected, the link's roster feeds it.
+## [code]func() -> Dictionary[/code]: the Tab board offline (GameSpice Menu's snapshot shape); connected, the link's roster feeds it.
 var board_snapshot_fn: Callable = Callable()
 ## The map menu on M: `func() -> Array` of rows and `func(id) -> DotResult` to change. Both unset leave M doing nothing.
 var maps_rows_fn: Callable = Callable()
 var maps_change_fn: Callable = Callable()
-## The map menu's title and plural noun ("Change house", "houses"); empty keeps dot-menu's.
+## The map menu's title and plural noun ("Change house", "houses"); empty keeps GameSpice Menu's.
 var maps_title: String = ""
 var maps_noun: String = ""
 
@@ -186,34 +186,34 @@ var offline: bool = true
 ## Whether this client turned the cfg tier on ([member user_cfg] and solo or listen host).
 var user_tier_on: bool = false
 var user_cfg_overlay: DotGameUserCfg.Overlay = null
-## dot-core's load gate, under [member host]. Hold more on it: [code]gate.hold(&"map")[/code].
+## GameSpice Core's load gate, under [member host]. Hold more on it: [code]gate.hold(&"map")[/code].
 var gate: DotLoadGate = null
 ## [method DotCloudClient.ensure_locked]'s report once the lock was processed, else null.
 var locked_content: Variant = null
-## Whether `setup()` adds the slide scrape ([DotGameSlideSounds]): the server's `sv_slide_sounds`, the player's `slide_volume`. On by default; it plays only with dot-audio and a `DotAudioManager` in the registry.
+## Whether `setup()` adds the slide scrape ([DotGameSlideSounds]): the server's `sv_slide_sounds`, the player's `slide_volume`. On by default; it plays only with GameSpice Audio and a `DotAudioManager` in the registry.
 var use_slide_sounds: bool = true
-## Whether `setup()` adds dot-fx's `DotFxRenderQuality` (anisotropic filtering, anti-aliasing, mip bias; the menu's `aniso`, `aa`, `mip_bias`, `sharpness`). A no-op without dot-fx, or when a `RenderQuality` child exists.
+## Whether `setup()` adds GameSpice FX's `DotFxRenderQuality` (anisotropic filtering, anti-aliasing, mip bias; the menu's `aniso`, `aa`, `mip_bias`, `sharpness`). A no-op without GameSpice FX, or when a `RenderQuality` child exists.
 var use_render_quality: bool = true
 ## The node [member use_render_quality] added, else null.
 var render_quality: Node = null
-## Place dot-profiler (the menu's Performance tab); `--no-profiler` or GS_GAME_PROFILER=0 turns it off for the run.
+## Place GameSpice Profiler (the menu's Performance tab); `--no-profiler` or GS_GAME_PROFILER=0 turns it off for the run.
 @export var use_profiler: bool = true
 ## The node [member use_profiler] added, else null.
 var profiler: Node = null
 var _profiler_bound: bool = false
-## A settings manager holding `slide_volume` when the game keeps its own (dot-menu's node, if [member settings] is set, finds itself).
+## A settings manager holding `slide_volume` when the game keeps its own (GameSpice Menu's node, if [member settings] is set, finds itself).
 var slide_settings: Object = null
 ## The slide node, once `setup()` has added it.
 var slide_sounds: Node = null
-## The dot-audio scripts [method DotGameClientExtras.request_audio_scripts] compiled on a loader thread; held so the cache keeps them until the sound pieces ran.
+## The GameSpice Audio scripts [method DotGameClientExtras.request_audio_scripts] compiled on a loader thread; held so the cache keeps them until the sound pieces ran.
 var _audio_scripts: Array = []
-## Whether `setup()` adds the landing thump and camera-kick strength ([DotGameLanding]: `cl_landing_volume`, `cl_landing_kick`). Plays only with dot-audio and a `DotAudioManager` in the registry; fall damage is separate and server-side.
+## Whether `setup()` adds the landing thump and camera-kick strength ([DotGameLanding]: `cl_landing_volume`, `cl_landing_kick`). Plays only with GameSpice Audio and a `DotAudioManager` in the registry; fall damage is separate and server-side.
 var use_landing: bool = true
 ## The landing node, once `setup()` has added it.
 var landing: Node = null
 ## Set by [method add_noblock].
 var noblock: DotGameNoblock = null
-## The settings' menu (dot-menu's `DotMenu`), its board and its map menu. A game with its own menu assigns [member menu] before [method setup] (or calls [method adopt_menu]); an assigned [member board] is kept.
+## The settings' menu (GameSpice Menu's `DotMenu`), its board and its map menu. A game with its own menu assigns [member menu] before [method setup] (or calls [method adopt_menu]); an assigned [member board] is kept.
 var menu: Object = null
 var board: Object = null:
 	set(value):
@@ -228,11 +228,11 @@ var stats_columns: Object = null
 ## The card of the local player's figures, or null; [method show_stats] opens it.
 var stats_panel: Object = null
 var maps: Object = null
-## dot-console's controller.
+## GameSpice Console's controller.
 var console: Node = null
 ## Map culling for a converted map ([method attach_visibility]): `off` (the default, nothing is built), `pvs`, `occluders` or `both`. The console's `vis_mode` and `--vis_mode=` on the command line set it.
 @export_enum("off", "pvs", "occluders", "both") var vis_mode: String = "off"
-## dot-map's DotMapVisibility while one is attached and on, else null.
+## GameSpice Map's DotMapVisibility while one is attached and on, else null.
 var visibility: Node = null
 var _vis_world: RefCounted = null
 var _vis_drawn: WeakRef = null
@@ -307,7 +307,7 @@ func _attach_screen_fit() -> void:
 		screen_fit = _fits.attach(get_tree().root, screen_fit)
 
 
-## Sizes dot-ui's DotTouchButtons for [param layout] from the DPI (44 real px at least) and keeps them sized on every resize. Returns the scale; 1 when no fit is attached, and the request is applied when one attaches.
+## Sizes GameSpice UI's DotTouchButtons for [param layout] from the DPI (44 real px at least) and keeps them sized on every resize. Returns the scale; 1 when no fit is attached, and the request is applied when one attaches.
 func fit_touch_buttons(buttons: Variant, layout: Array) -> float:
 	return _fits.request(screen_fit, buttons, layout)
 
@@ -376,7 +376,7 @@ func setup() -> DotResult:
 	return _finish_setup()
 
 
-## [method setup] one piece at a time ([constant SETUP_PIECES]), so no single client frame pays for all of it. [param between] is `func(piece: StringName)`, may await, and runs after each piece; unset waits a process frame, except headless, which runs in one go. When it steps, the dot-profiler script compiles on a loader thread before its piece. Await it.
+## [method setup] one piece at a time ([constant SETUP_PIECES]), so no single client frame pays for all of it. [param between] is `func(piece: StringName)`, may await, and runs after each piece; unset waits a process frame, except headless, which runs in one go. When it steps, the GameSpice Profiler script compiles on a loader thread before its piece. Await it.
 func setup_stepped(between: Callable = Callable()) -> DotResult:
 	if _set_up:
 		return DotResult.fail(DotError.CODE_STATE, "This game client's platform is already set up.")
@@ -402,7 +402,7 @@ func _finish_setup() -> DotResult:
 	return DotResult.success(self)
 
 
-## Adds `slide_volume` to a settings schema a game builds itself (a game on dot-menu's node through `setup()` gets it without this).
+## Adds `slide_volume` to a settings schema a game builds itself (a game on GameSpice Menu's node through `setup()` gets it without this).
 static func declare_slide_setting(schema: Object) -> void:
 	preload("res://addons/dot_game/runtime/dot_game_slide_sounds.gd").declare(schema)
 
@@ -419,7 +419,7 @@ func set_hud(root: Control, accent: Theme = null) -> void:
 
 
 func _follow_hud() -> void:
-	# By name: a game delivered to an older client shell finds a dot-menu without it.
+	# By name: a game delivered to an older client shell finds a GameSpice Menu without it.
 	if hud != null and menu != null and menu.has_method(&"follow_hud"):
 		menu.call(&"follow_hud", hud, hud_accent)
 
@@ -510,7 +510,7 @@ func _on_node_added_quality(node: Node) -> void:
 		_RenderQuality.cap_sun.call_deferred(node as DirectionalLight3D)
 
 
-## Culls [param world] (a dot-map DotMapBspMesh) drawn as [param drawn] by [member vis_mode], under [param parent] (default [param drawn]); call on every map load. Null while off, without dot-map, or for a map with no visibility data.
+## Culls [param world] (a GameSpice Map DotMapBspMesh) drawn as [param drawn] by [member vis_mode], under [param parent] (default [param drawn]); call on every map load. Null while off, without GameSpice Map, or for a map with no visibility data.
 func attach_visibility(world: RefCounted, drawn: Node3D, parent: Node = null) -> Node:
 	return _Vis.attach(self, world, drawn, parent)
 
@@ -547,7 +547,7 @@ func _wire_menu() -> void:
 		_connect_menu_state()
 		# The chat line and the game's own keyboard owners keep Escape and the menu's keys.
 		menu.set(&"busy", func() -> bool: return _chat_typing() or _busy())
-		# By name: a game delivered to an older client shell finds a dot-menu without it.
+		# By name: a game delivered to an older client shell finds a GameSpice Menu without it.
 		_follow_hud()
 		if scoreboard_action != &"" and &"scoreboard_action" in menu:
 			_ensure_scoreboard_action()
@@ -694,7 +694,7 @@ func is_input_blocked() -> bool:
 	return not is_shown() or is_menu_open() or _chat_typing() or _busy()
 
 
-## Follows the server's `mp_teamblock` family so this client predicts against the same pairs: the game's `block_rules` feeds `body_rules.pair_fn`. Call after [method setup]; fails when dot-team is absent or the link cannot replicate cvars.
+## Follows the server's `mp_teamblock` family so this client predicts against the same pairs: the game's `block_rules` feeds `body_rules.pair_fn`. Call after [method setup]; fails when GameSpice Team is absent or the link cannot replicate cvars.
 func add_noblock(game: Object, side_fn: Callable) -> DotResult:
 	return DotGameNoblock.add_to_client(self, game, side_fn)
 

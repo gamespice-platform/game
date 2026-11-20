@@ -3,7 +3,7 @@ extends Node3D
 
 ## The admin's view of a map's spawn points and navigation links, and a form to edit a point by looking at it.
 ## Markers are coloured by kind and team, with a disc for the radius, an arrow for the facing and grey when disabled. A point picked by looking opens a form built from the point definition's own schema; its buttons send the [DotGameMapEdit] commands through [member send_fn], so the server validates and logs every edit and the overlay holds no rules.
-## Data comes in as dictionaries (`DotSpawnPointSet.to_dict()` and `links_dict()`), so a client can feed it from a replicated copy and dot-game names no addon. The game places it in the world, supplies [member schema] and [member send_fn], and keeps the mouse free while the panel is open.
+## Data comes in as dictionaries (`DotSpawnPointSet.to_dict()` and `links_dict()`), so a client can feed it from a replicated copy and GameSpice Game names no addon. The game places it in the world, supplies [member schema] and [member send_fn], and keeps the mouse free while the panel is open.
 
 signal picked(id: StringName)
 signal command_sent(line: String)

@@ -2,7 +2,7 @@ class_name DotGameTouchLayout
 extends RefCounted
 
 ## Named touch-button presets (fps, driving, platformer) with canonical ids, places and sizes, so jump, fire, crouch and reload sit in the same spot in every game.
-## A game takes a preset, overrides per button, and hands the result to dot-ui's DotTouchButtons and [method DotGameClient.fit_touch_buttons] through [method apply]:
+## A game takes a preset, overrides per button, and hands the result to GameSpice UI's DotTouchButtons and [method DotGameClient.fit_touch_buttons] through [method apply]:
 ## [code]var res := DotGameTouchLayout.build(DotGameTouchLayout.FPS, {&"alt": null, &"grab": &"inner"})[/code], then [code]if res.ok: res.value.apply(touch_buttons, platform)[/code].
 
 const CHANNEL := "game.touch_layout"
@@ -212,7 +212,7 @@ func validate() -> DotResult:
 	return DotResult.success(self)
 
 
-## The rows dot-ui's DotTouchButtons.set_buttons takes (id, label, offset, radius); fresh copies.
+## The rows GameSpice UI's DotTouchButtons.set_buttons takes (id, label, offset, radius); fresh copies.
 func buttons() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for r in _rows:

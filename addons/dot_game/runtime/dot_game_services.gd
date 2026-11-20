@@ -4,7 +4,7 @@ extends Node
 
 ## Chat, a website relay, moderation and voice, in the one order that works.
 ##
-## Moderation is built FIRST because it publishes `dot_mute_source`, which both routers look up at start (else no gag is ever enforced); the relay follows chat because it wraps the router; voice is last as the optional one. Nothing here names dot-chat, dot-voice or dot-moderation: each is loaded BY PATH and driven through `set()` and `call()`, and a missing addon is a skipped layer.
+## Moderation is built FIRST because it publishes `dot_mute_source`, which both routers look up at start (else no gag is ever enforced); the relay follows chat because it wraps the router; voice is last as the optional one. Nothing here names GameSpice Chat, GameSpice Voice or GameSpice Moderation: each is loaded BY PATH and driven through `set()` and `call()`, and a missing addon is a skipped layer.
 
 const CHANNEL := "game.services"
 
@@ -18,7 +18,7 @@ const MOD_TOOLS_SCRIPT := "res://addons/dot_moderation/tools/dot_mod_tools.gd"
 const MOD_COMMANDS_SCRIPT := "res://addons/dot_moderation/integrations/dot_mod_tool_commands.gd"
 const PUNISHMENT_STORE_SCRIPT := "res://addons/dot_moderation/store/dot_punishment_store_file.gd"
 
-## The registry names dot-chat and dot-moderation agree on. Written out rather than read
+## The registry names GameSpice Chat and GameSpice Moderation agree on. Written out rather than read
 ## off the classes, because naming the classes is the one thing this file may not do.
 const MUTE_SERVICE := &"dot_mute_source"
 const CHAT_SERVICE := &"dot_chat_router"
@@ -42,10 +42,10 @@ signal said(peer_id: int, wire: Dictionary)
 @export_file("*.json") var punishments_file: String = ""
 
 ## The scope a punishment is recorded against. Empty is a single-server community, which
-## is the only case most deployments are in and the one dot-moderation shipped a bug about.
+## is the only case most deployments are in and the one GameSpice Moderation shipped a bug about.
 @export var server_scope: String = ""
 
-## Build dot-moderation's live tools — noclip, god, freeze, slay, bring and the rest — and
+## Build GameSpice Moderation's live tools — noclip, god, freeze, slay, bring and the rest — and
 ## put their commands on the server's console. What each one DOES is the subclass's; see
 ## [method _mod_abilities].
 @export var mod_tools_enabled: bool = true
@@ -81,7 +81,7 @@ var mod_commands: Object = null
 
 ## The backbone client the relay posts through. Assigned by a host BEFORE setup, or found.
 ##
-## An [Object], so neither dot-chat nor this addon depends on dot-auth.
+## An [Object], so neither GameSpice Chat nor this addon depends on GameSpice Auth.
 var backbone: Object = null
 
 ## Distinguishes two of these in one process — a server and a client, or a test.
@@ -319,7 +319,7 @@ func _build_voice() -> DotResult:
 
 ## Joins this server's chat to its room on the website.
 ##
-## Every seam is existing code: dot-auth's backbone client, dot-server's `uid_has_permission`, and `DotServer.run_command_as_uid` (that uid's OWN flags, not RCON's root). A relayed command is checked like the same person typing it in game.
+## Every seam is existing code: GameSpice Auth's backbone client, GameSpice Server's `uid_has_permission`, and `DotServer.run_command_as_uid` (that uid's OWN flags, not RCON's root). A relayed command is checked like the same person typing it in game.
 func _build_relay() -> DotResult:
 	if chat == null:
 		return DotResult.success(null)
@@ -439,7 +439,7 @@ func _chat_channels() -> Array:
 	return []
 
 
-## What a line may be. A `DotChatRules`, or null to take dot-chat's own defaults.
+## What a line may be. A `DotChatRules`, or null to take GameSpice Chat's own defaults.
 func _chat_rules() -> Object:
 	return null
 
@@ -513,7 +513,7 @@ func _mod_configure_commands(_commands: Object) -> void:
 
 ## A last chance to configure the tools themselves (`goto_standoff`, `persist_on_respawn`) before they enter the tree or any command is bound.
 ##
-## An [Object] rather than `DotModTools`, since dot-moderation is loaded by path; a subclass that configures it may cast.
+## An [Object] rather than `DotModTools`, since GameSpice Moderation is loaded by path; a subclass that configures it may cast.
 func _mod_configure_tools(_tools: Object) -> void:
 	pass
 
@@ -539,14 +539,14 @@ func _services_name() -> String:
 
 ## Who a peer is, for a PUNISHMENT: the durable account uid.
 ##
-## Not what [method _key_of] gives dot-chat: a punishment must survive a reconnect, or a gag ends when the player reconnects.
+## Not what [method _key_of] gives GameSpice Chat: a punishment must survive a reconnect, or a gag ends when the player reconnects.
 func _subject_for_peer(peer_id: int) -> String:
 	var session := _session_for(peer_id)
 
 	if session == null:
 		return ""
 
-	# By path, like everything else here: dot-moderation is not a dependency.
+	# By path, like everything else here: GameSpice Moderation is not a dependency.
 	var subject: Variant = load("res://addons/dot_moderation/core/dot_punishment_subject.gd")
 
 	if subject != null and subject.has_method("for_uid"):
@@ -573,7 +573,7 @@ func _is_admin(peer_id: int) -> bool:
 	return session != null and session.is_admin()
 
 
-## Everybody who is actually in the game, which is dot-server's own answer.
+## Everybody who is actually in the game, which is GameSpice Server's own answer.
 func _chat_peers() -> PackedInt32Array:
 	var out := PackedInt32Array()
 
@@ -624,8 +624,8 @@ func _on_message_accepted(message: Object, _recipients: PackedInt32Array) -> voi
 	said.emit(int(message.get("sender_peer")), wire if wire is Dictionary else {})
 
 
-## Whether this person may join at all. dot-server's admission runs first; this is the second gate.
-## Checked HERE, not at connect, because dot-server's mute dies with the session and a muted player would reconnect and talk.
+## Whether this person may join at all. GameSpice Server's admission runs first; this is the second gate.
+## Checked HERE, not at connect, because GameSpice Server's mute dies with the session and a muted player would reconnect and talk.
 func check_admission(session: DotClientSession) -> DotResult:
 	if moderation == null or session == null:
 		return DotResult.success(null)
@@ -645,7 +645,7 @@ func relay_voice(speaker_peer: int, bytes: PackedByteArray) -> void:
 		voice.call("relay", speaker_peer, bytes)
 
 
-## Somebody typed a line. Everything about what it means is dot-chat's.
+## Somebody typed a line. Everything about what it means is GameSpice Chat's.
 func say(peer_id: int, channel_id: StringName, text: String) -> DotResult:
 	if chat == null:
 		return DotResult.fail(DotError.CODE_UNSUPPORTED, "This server has no chat.")
@@ -710,7 +710,7 @@ func _exit_tree() -> void:
 
 ## Loads a script by path and instances it as a [Node], or null with a line.
 ##
-## Absent is a configuration, not a failure: a project without dot-voice has players who do not talk.
+## Absent is a configuration, not a failure: a project without GameSpice Voice has players who do not talk.
 func _instance(path: String, what: String) -> Node:
 	if not ResourceLoader.exists(path):
 		DotLog.info(CHANNEL, "%s is not installed in this build, so it is skipped" % what, {

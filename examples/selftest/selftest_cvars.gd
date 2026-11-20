@@ -458,7 +458,7 @@ func _test_pointer_hold(host: Node, esc_menu: Node, vp: Viewport) -> void:
 	hold.release_pointer(&"loadout")
 	_check(not hold.is_input_blocked(), "released holds unblock input, and a spare release does not underflow")
 
-	# A node in the pointer-modal group (dot-ui's ballot) holds it through its own signal.
+	# A node in the pointer-modal group (GameSpice UI's ballot) holds it through its own signal.
 	var modal := FakePointerModal.new()
 	modal.add_to_group(&"dot_pointer_modal")
 	host.add_child(modal)
@@ -497,7 +497,7 @@ class FakePointerClient extends DotGameClient:
 		captured = false
 
 
-## A menu that opens on a real Escape press, as dot-menu's does in _unhandled_input.
+## A menu that opens on a real Escape press, as GameSpice Menu's does in _unhandled_input.
 class EscMenu extends Node:
 	signal overlays_changed(open: bool)
 	var busy: Callable = Callable()

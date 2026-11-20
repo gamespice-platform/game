@@ -37,7 +37,7 @@ static func make_gate(c: Node) -> DotLoadGate:
 static func stepped(c: Node, between: Callable) -> DotResult:
 	var pieces: Array[StringName] = c._setup_pieces()
 	var stepping := between.is_valid() or (DisplayServer.get_name() != "headless" and c.is_inside_tree())
-	# dot-profiler is the costly piece: its script compiles on a loader thread (from _ready) while the pieces before it run.
+	# GameSpice Profiler is the costly piece: its script compiles on a loader thread (from _ready) while the pieces before it run.
 	var profiler_loading: bool = stepping and c.use_profiler and c.is_inside_tree() and &"profiler" in pieces and _Profiler.request_script()
 	var profiler_script: Resource = null
 	for i in pieces.size():

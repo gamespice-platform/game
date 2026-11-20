@@ -26,7 +26,7 @@ var url_fn: Callable = Callable()
 ## func(id: String) -> Dictionary: the site library's row for a wearable id (slot, bone, offset, sha256, url), empty while unread.
 var wearable_row_fn: Callable = Callable()
 
-## func(rows: Dictionary) -> DotResult of the input's actions; default dot-user-avatar's `from_backbone`, by path.
+## func(rows: Dictionary) -> DotResult of the input's actions; default GameSpice User Avatar's `from_backbone`, by path.
 var actions_fn: Callable = Callable()
 
 ## Seconds between looks at whether a figure has appeared, or been rebuilt, since its wearables were last hung.

@@ -1,6 +1,6 @@
 extends Node
 
-## DotGameMapScripts: the script.* events of a dot-map world handled, refused when forged, restored on a map change.
+## DotGameMapScripts: the script.* events of a GameSpice Map world handled, refused when forged, restored on a map change.
 
 const CHECKS := 21
 const FIXTURE_CFG := "res://examples/fixtures/mapcfg"

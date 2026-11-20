@@ -12,7 +12,7 @@ var forward_action := &"dot_fps_forward"
 var strafe_actions: Array[StringName] = [&"dot_fps_left", &"dot_fps_right"]
 var jump_action := &"dot_fps_jump"
 var fire_action := &""
-## The server game's tick rate (60 is dot-server's sv_tickrate).
+## The server game's tick rate (60 is GameSpice Server's sv_tickrate).
 var tick_rate := 60
 
 var _role := "client"

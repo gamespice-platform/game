@@ -1,7 +1,7 @@
 class_name DotGameWorkbench
 extends Node
 
-## Hosts dot-workbench in a game: the in-game panel (the `;` key, or console `workbench`) and, when asked for,
+## Hosts GameSpice Workbench in a game: the in-game panel (the `;` key, or console `workbench`) and, when asked for,
 ## the loopback HTTP page. The panel is on in the editor, debug builds and listen hosts; HTTP needs
 ## `workbench.enabled: true` in cfg/server.yml. Everything is reached by path. Use: `add_set`, `add_child`, `start`.
 
@@ -21,7 +21,7 @@ signal panel_built(panel: Control)
 
 ## -1 follows [method default_panel], 0 never, 1 always.
 @export_enum("auto", "off", "on") var panel_mode: int = 0
-## The InputMap action that opens and closes the panel. dot-menu's Controls page lists and persists it (`bind_workbench`); [method ensure_action] gives it the semicolon when nothing registered it.
+## The InputMap action that opens and closes the panel. GameSpice Menu's Controls page lists and persists it (`bind_workbench`); [method ensure_action] gives it the semicolon when nothing registered it.
 @export var toggle_action: StringName = TOGGLE_ACTION
 ## Callable() -> bool: the player is typing somewhere the focus owner does not show (the chat box, the console line). The key is ignored while it is true.
 var typing_fn: Callable = Callable()
@@ -43,13 +43,13 @@ var remote_server: DotGameWorkbenchRemote = null
 var permit_fn: Callable = Callable()
 ## Callable() -> {cvar: value} of cvars changed from the shipped default, for the export.
 var cvars_fn: Callable = Callable()
-## On by default: with dot-auth running a ticket key, a connect ticket is also accepted as the bearer ([DotGameWorkbenchAuth]).
+## On by default: with GameSpice Auth running a ticket key, a connect ticket is also accepted as the bearer ([DotGameWorkbenchAuth]).
 var accounts: bool = true
 ## Callable(token) -> identity or null, replacing the ticket check. Unset means dot-auth's offline ticket check.
 var account_resolver: Callable = Callable()
 ## Callable(uid, flag) -> bool for a listed account; unset means [member permit_fn].
 var account_permit_fn: Callable = Callable()
-## The account gate once attached; null without dot-auth, a ticket key or `admin_uids` / `admin_groups` to resolve.
+## The account gate once attached; null without GameSpice Auth, a ticket key or `admin_uids` / `admin_groups` to resolve.
 var account_gate: RefCounted = null
 ## The `workbench:` block; read from cfg/server.yml by [method start] when empty.
 var config: Dictionary = {}
@@ -358,7 +358,7 @@ func handle_key(event: InputEvent, focus_owner: Control = null) -> bool:
 	return true
 
 
-## Gives [constant TOGGLE_ACTION] the semicolon unless something (dot-menu's bindings) already registered it.
+## Gives [constant TOGGLE_ACTION] the semicolon unless something (GameSpice Menu's bindings) already registered it.
 static func ensure_action(action: StringName = TOGGLE_ACTION) -> void:
 	if InputMap.has_action(action):
 		return
@@ -368,7 +368,7 @@ static func ensure_action(action: StringName = TOGGLE_ACTION) -> void:
 	InputMap.action_add_event(action, key)
 
 
-## Whether [param focus] is a text control the player is typing in: a LineEdit, TextEdit or CodeEdit that is editable (the chat and console lines, every dot-menu text field).
+## Whether [param focus] is a text control the player is typing in: a LineEdit, TextEdit or CodeEdit that is editable (the chat and console lines, every GameSpice Menu text field).
 static func text_has_focus(focus: Control) -> bool:
 	if focus is LineEdit:
 		return (focus as LineEdit).editable

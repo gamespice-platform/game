@@ -1,6 +1,6 @@
 extends Node
 
-## The bridge between a game and its netcode, reduced to the interface dot-game uses.
+## The bridge between a game and its netcode, reduced to the interface GameSpice Game uses.
 ##
 ## Duck-typed by [DotGameNetcode] and [DotGameModule]: in a real game this is the game's own class.
 

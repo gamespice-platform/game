@@ -10,7 +10,7 @@ func _ready() -> void:
 	voice = load("res://examples/fixtures/test_voice_state.gd").new()
 	add_child(voice)
 
-## A block list in dot-chat's self-mute shape: a roster and set_muted.
+## A block list in GameSpice Chat's self-mute shape: a roster and set_muted.
 var self_mute: Object = Mute.new()
 
 

@@ -1,6 +1,6 @@
 extends RefCounted
 
-## [DotGameClient]'s opt-in map culling: dot-map's DotMapVisibility over a converted map, by path, and the `vis_mode` console variable. No class_name: the client preloads it.
+## [DotGameClient]'s opt-in map culling: GameSpice Map's DotMapVisibility over a converted map, by path, and the `vis_mode` console variable. No class_name: the client preloads it.
 
 const CHANNEL := "game.client.vis"
 const VIS_SCRIPT := "res://addons/dot_map/bsp/dot_map_visibility.gd"
@@ -9,7 +9,7 @@ const VAR_NAME := &"vis_mode"
 const _Threads := preload("res://addons/dot_game/runtime/dot_game_map_threads.gd")
 
 
-## Remembers [param world] and [param drawn] and builds the culling when the mode is not off. Null when off, without dot-map, or when the map has no visibility data.
+## Remembers [param world] and [param drawn] and builds the culling when the mode is not off. Null when off, without GameSpice Map, or when the map has no visibility data.
 static func attach(c: Node, world: RefCounted, drawn: Node3D, parent: Node) -> Node:
 	detach(c)
 	c._vis_world = world

@@ -1,6 +1,6 @@
 extends Node
 
-## DotGameMapEditBundle with and without dot-map's DotMapDataBundle in the project: the dictionary fallback always, and the native class when its script is present.
+## DotGameMapEditBundle with and without GameSpice Map's DotMapDataBundle in the project: the dictionary fallback always, and the native class when its script is present.
 
 var _passed := 0
 var _failed := 0

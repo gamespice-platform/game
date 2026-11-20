@@ -12,7 +12,7 @@ const NAME := &"game.avatar_loadout"
 static var max_entries: int = 0
 const MAX_ID := 32
 const MAX_CLIP := 64
-## Wearable slots the site has (dot-user-avatar's DotAvatarWearables.SLOT_BONES), one item each.
+## Wearable slots the site has (GameSpice User Avatar's DotAvatarWearables.SLOT_BONES), one item each.
 const MAX_WEARABLES := 7
 
 ## Wire order of [code]kind[/code]: emote, pose, gesture.

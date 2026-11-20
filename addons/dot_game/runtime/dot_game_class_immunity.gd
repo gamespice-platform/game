@@ -1,7 +1,7 @@
 class_name DotGameClassImmunity
 extends RefCounted
 
-## Per-class damage immunity for a game with dot-combat and dot-player-class, both loaded by path
+## Per-class damage immunity for a game with GameSpice Combat and GameSpice Player Class, both loaded by path
 ## and named nowhere. Call [method apply] with (combat, class_def, player_id) at every spawn; a null def clears.
 
 const CHANNEL := "game.class"
@@ -26,7 +26,7 @@ static func apply(combat: Object, def: Object, entity: int) -> int:
 
 
 ## Calls [param script]'s static `to_immunity`, or returns 0 once logged when it has none: a
-## dot-player-class older than v0.1.7 lacks it, and the call would be a script error every spawn.
+## GameSpice Player Class older than v0.1.7 lacks it, and the call would be a script error every spawn.
 static func call_apply(script: Variant, def: Object, immunity: Object, entity: int) -> int:
 	if not (script is GDScript):
 		return 0
@@ -45,7 +45,7 @@ static func clear(combat: Object, entity: int) -> void:
 		immunity.call(&"clear", entity)
 
 
-## The combat's resolver immunity, created when [param create] and absent; null without dot-combat.
+## The combat's resolver immunity, created when [param create] and absent; null without GameSpice Combat.
 static func ensure(combat: Object, create: bool = true) -> Object:
 	if combat == null:
 		return null

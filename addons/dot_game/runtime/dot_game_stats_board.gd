@@ -1,7 +1,7 @@
 class_name DotGameStatsBoard
 extends RefCounted
 
-## Puts the stats a game's dot-stats tracker keeps on the Tab board snapshot: per player, this game's figure (`st_<id>`) and the lifetime total (`lt_<id>`), already formatted, and the list of stats as `stat_columns`. dot-menu's `DotMenuStats` and `DotMenuStatsPanel` draw them. Duck-typed: dot-stats is never named.
+## Puts the stats a game's GameSpice Stats tracker keeps on the Tab board snapshot: per player, this game's figure (`st_<id>`) and the lifetime total (`lt_<id>`), already formatted, and the list of stats as `stat_columns`. GameSpice Menu's `DotMenuStats` and `DotMenuStatsPanel` draw them. Duck-typed: GameSpice Stats is never named.
 ## Lifetime is the tracker store's total when the seat joined plus this game's figure, merged by the schema's rules. Without a store only the game's figure is sent.
 
 const CHANNEL := "game.stats_board"

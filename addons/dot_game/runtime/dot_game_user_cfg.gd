@@ -1,7 +1,7 @@
 class_name DotGameUserCfg
 extends RefCounted
 
-## The "Your mods" row of [DotGameClient] and the cfg editor it opens, both by path so a build without dot-menu's editor has no entry.
+## The "Your mods" row of [DotGameClient] and the cfg editor it opens, both by path so a build without GameSpice Menu's editor has no entry.
 
 const CHANNEL := "game.client"
 const ROW_SCRIPT := "res://addons/dot_menu/core/dot_menu_row.gd"
@@ -54,7 +54,7 @@ static func open(c: Node) -> bool:
 	return true
 
 
-## The editor, full screen, with a Close button; the shape dot-menu's add_overlay wants.
+## The editor, full screen, with a Close button; the shape GameSpice Menu's add_overlay wants.
 class Overlay extends Control:
 	signal closed()
 	var _editor: Control = null

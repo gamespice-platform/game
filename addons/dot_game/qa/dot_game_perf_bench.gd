@@ -1,7 +1,7 @@
 class_name DotGamePerfBench
 extends Node
 
-## A solo-client benchmark any game shares: its real client scene offline on a fixed map, mode, bot count and seed, recorded by the client's own dot-profiler, so the report has the same per-system table as a player's `profiler_record`, plus a sidecar of engine numbers (draw calls, objects, physics, tick rate, renderer, adapter). A game's `tools/perf_bench.gd` extends this and sets `client_scene` in `_configure`; the hooks below cover the rest. Run it windowed on a GPU box with the game's `tools/perf_bench.sh` (which execs dot-game's `tools/perf_bench.sh`), not headless: headless has no renderer, so the render cost reads as zero.
+## A solo-client benchmark any game shares: its real client scene offline on a fixed map, mode, bot count and seed, recorded by the client's own GameSpice Profiler, so the report has the same per-system table as a player's `profiler_record`, plus a sidecar of engine numbers (draw calls, objects, physics, tick rate, renderer, adapter). A game's `tools/perf_bench.gd` extends this and sets `client_scene` in `_configure`; the hooks below cover the rest. Run it windowed on a GPU box with the game's `tools/perf_bench.sh` (which execs GameSpice Game's `tools/perf_bench.sh`), not headless: headless has no renderer, so the render cost reads as zero.
 ## Flags (after `--`): `--map ID --mode ID --bots N --seconds S --warmup S --seed N --out DIR --tag T --profiler record|idle|off`; every `--key value` pair is also in [member args] (without the dashes) for a subclass's own flags. `--first-use 1` runs the game's `_first_use` hook between the selection and the warm-up: it times each first use (first shot of each weapon, first explosion) with `time_first_use`, and the rows land in the sidecar's `first_use` list, which `dot_game_perf_bench_compare.py` prints per name (A/B: `--ab DIR DIR::--prewarm 0 -- --first-use 1`).
 ## Prints `PERF_BENCH_REPORT {json}` (the profiler report without spikes and samples, as the run may be on another box), `PERF_BENCH_SIDECAR {json}` and `PERF_BENCH {json}` (paths and tag).
 
@@ -224,7 +224,7 @@ func _run() -> void:
 		get_tree().quit(1)
 		return
 	# `--script-top N`: the N GDScript functions with the most self time, in the report's script_functions
-	# (dot-profiler's profiler_script_top). Needs Godot run with -d (the .sh's -d), which slows scripts: read shares, not ms.
+	# (GameSpice Profiler's profiler_script_top). Needs Godot run with -d (the .sh's -d), which slows scripts: read shares, not ms.
 	if args.has("script-top") and profiler != null:
 		profiler.config.script_top = int(args["script-top"])
 	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)

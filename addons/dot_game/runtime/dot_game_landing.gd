@@ -1,6 +1,6 @@
 extends Node
 
-## The thump of a landing and the strength of the camera kick, for every first-person game: [DotGameClient] adds one in `setup()`. It follows each dot-player-controller `DotFpsController` that enters the tree, plays dot-audio's landing stock chosen by impact (`DotAudioStock.landing_id`) at the body, scaled by `cl_landing_volume`, and sets the controller view's `landing_strength` from `cl_landing_kick`. dot-audio is loaded by path; without it or a `DotAudioManager` in the registry nothing plays. No class_name: the client preloads it.
+## The thump of a landing and the strength of the camera kick, for every first-person game: [DotGameClient] adds one in `setup()`. It follows each GameSpice Player Controller `DotFpsController` that enters the tree, plays GameSpice Audio's landing stock chosen by impact (`DotAudioStock.landing_id`) at the body, scaled by `cl_landing_volume`, and sets the controller view's `landing_strength` from `cl_landing_kick`. GameSpice Audio is loaded by path; without it or a `DotAudioManager` in the registry nothing plays. No class_name: the client preloads it.
 
 const CHANNEL := "game.client.landing"
 const RULES_SCRIPT := "res://addons/dot_audio/core/dot_audio_landing_rules.gd"
@@ -9,15 +9,15 @@ const AUDIO_SERVICE := &"dot_audio"
 const CVAR_KICK := "cl_landing_kick"
 const CONTROLLER_CLASS := &"DotFpsController"
 
-## `DotAudioLandingRules` (volume, minimum impact); built from dot-audio when unset.
+## `DotAudioLandingRules` (volume, minimum impact); built from GameSpice Audio when unset.
 var rules: RefCounted = null
 ## `func() -> Object`: the audio manager (`play_at`); the registry's by default.
 var manager_fn: Callable = Callable()
-## `func(impact) -> StringName`: the stock id for an impact; dot-audio's `landing_id` by default.
+## `func(impact) -> StringName`: the stock id for an impact; GameSpice Audio's `landing_id` by default.
 var id_fn: Callable = Callable()
 ## `func(node) -> bool`: what counts as a controller; unset is [method is_controller].
 var controller_fn: Callable = Callable()
-## `func() -> Object`: dot-audio's `DotAudioSurfRules`; a landing on a surf ramp is silent when it says so. Unset plays every landing.
+## `func() -> Object`: GameSpice Audio's `DotAudioSurfRules`; a landing on a surf ramp is silent when it says so. Unset plays every landing.
 var surf_rules_fn: Callable = Callable()
 ## Multiplier for the camera kick, from [constant CVAR_KICK].
 var kick: float = 1.0:
@@ -32,7 +32,7 @@ var _controllers: Dictionary = {}
 var _console_bound: bool = false
 
 
-## Builds the rules when unset and follows every controller in the tree. False without dot-audio.
+## Builds the rules when unset and follows every controller in the tree. False without GameSpice Audio.
 func start() -> bool:
 	if rules == null:
 		if not ResourceLoader.exists(RULES_SCRIPT):
@@ -54,7 +54,7 @@ func _exit_tree() -> void:
 		tree.node_added.disconnect(_on_node_added)
 
 
-## Registers `cl_landing_volume` and `cl_landing_kick` on a dot-console local source (`add_var`), or on the console's own sources. True when bound.
+## Registers `cl_landing_volume` and `cl_landing_kick` on a GameSpice Console local source (`add_var`), or on the console's own sources. True when bound.
 func bind_console(console: Object) -> bool:
 	if console == null or rules == null:
 		return false
@@ -93,7 +93,7 @@ func _on_node_added(node: Node) -> void:
 	_apply_kick()
 
 
-## Whether [param node] is a `DotFpsController` or a subclass, by script, so dot-game names no dot-player-controller class.
+## Whether [param node] is a `DotFpsController` or a subclass, by script, so GameSpice Game names no GameSpice Player Controller class.
 static func is_controller(node: Node) -> bool:
 	var script: Script = node.get_script() as Script
 	while script != null:

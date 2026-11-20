@@ -227,7 +227,7 @@ class _FakeManager extends RefCounted:
 	var games: Array = []
 
 
-## What dot-cloud's auto-update is told to watch, and that a build without dot-cloud gets none.
+## What GameSpice Cloud's auto-update is told to watch, and that a build without GameSpice Cloud gets none.
 func _test_auto_update_wiring() -> void:
 	_section("server auto-update wiring")
 	var delivered := DotGameDescriptor.new()
@@ -258,7 +258,7 @@ func _test_auto_update_wiring() -> void:
 	_done()
 
 
-## The profiler placement is optional: with dot-profiler absent it places nothing and parses.
+## The profiler placement is optional: with GameSpice Profiler absent it places nothing and parses.
 func _test_profiler_placement() -> void:
 	_section("profiler placement")
 	var prof := preload("res://addons/dot_game/runtime/dot_game_profiler.gd")
@@ -291,7 +291,7 @@ func _late_console_after_free() -> void:
 
 ## DotGameContent, against a stand-in manager: the keys a server names, where each mounts,
 ## and the directories a game is handed. No content client here, so a pack that is not on
-## the disk is a warning and is left out, which is the path a build without dot-cloud takes.
+## the disk is a warning and is left out, which is the path a build without GameSpice Cloud takes.
 func _test_map_content() -> void:
 	_section("the map packs a server names (DotGameContent)")
 

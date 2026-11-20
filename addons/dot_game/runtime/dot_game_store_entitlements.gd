@@ -1,8 +1,8 @@
 class_name DotGameStoreEntitlements
 extends RefCounted
 
-## Adds what the site store says a player owns to a dot-loadout manager's entitlements, with no per-game code.
-## dot-loadout is optional and reached through the global class list; without it (or a `dot_backbone_client`) nothing changes.
+## Adds what the site store says a player owns to a GameSpice Loadout manager's entitlements, with no per-game code.
+## GameSpice Loadout is optional and reached through the global class list; without it (or a `dot_backbone_client`) nothing changes.
 
 const CHANNEL := "game.store"
 const META := &"dot_game_store_entitlements"
@@ -38,7 +38,7 @@ static func attach(manager: Object) -> bool:
 	return true
 
 
-## Gives a dot-menu loadout menu locked store items on the solo path: [param command_fn] returns the game's dot-loadout command (null before the match exists), [param key_fn] the player's storage key. Connected needs nothing more, the menu already asks `/loadout locked`. Returns false for a menu without the hooks.
+## Gives a GameSpice Menu loadout menu locked store items on the solo path: [param command_fn] returns the game's GameSpice Loadout command (null before the match exists), [param key_fn] the player's storage key. Connected needs nothing more, the menu already asks `/loadout locked`. Returns false for a menu without the hooks.
 static func wire_menu(menu: Object, command_fn: Callable, key_fn: Callable) -> bool:
 	if menu == null or not "offer_fn" in menu or not "store_fn" in menu:
 		return false

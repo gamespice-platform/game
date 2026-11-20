@@ -1,14 +1,14 @@
 class_name DotGameMapScripts
 extends RefCounted
 
-## Handles the events a dot-map [code]DotMapScript[/code] replays: `script.set_player_speed`,
-## `script.kill_players`, `script.cleanup_map`. Every operation is re-validated against dot-map's table, so
+## Handles the events a GameSpice Map [code]DotMapScript[/code] replays: `script.set_player_speed`,
+## `script.kill_players`, `script.cleanup_map`. Every operation is re-validated against GameSpice Map's table, so
 ## a forged event gains nothing. Assign [method handle] as the world's `event_fn`; each operation has a hook Callable.
 
 const CHANNEL := "game.map_scripts"
 const SCRIPT_PATH := "res://addons/dot_map/io/dot_map_script.gd"
 const PREFIX := "script."
-## Source units to metres, as dot-player-controller's [code]sv_runspeed[/code] stores it.
+## Source units to metres, as GameSpice Player Controller's [code]sv_runspeed[/code] stores it.
 const SOURCE_UNIT := 0.01905
 
 ## Per-map yml keys: each is a bool that switches one operation (or all) for that map.
@@ -30,7 +30,7 @@ var op_enabled := {}
 var console: Object = null
 var run_cvar := "sv_runspeed"
 var walk_cvar := "sv_walkspeed"
-## Speeds in source units per second a map may ask for; a value inside dot-map's range but outside this is clamped.
+## Speeds in source units per second a map may ask for; a value inside GameSpice Map's range but outside this is clamped.
 var min_speed := 50.0
 var max_speed := 1000.0
 ## `(kind: String, value: float) -> bool`, replaces the cvar write; return false to refuse. `value` is already clamped.
@@ -174,7 +174,7 @@ func _refuse(kind: String, reason: String) -> bool:
 	return false
 
 
-## Re-checks against dot-map's operation table. Without dot-map nothing is valid.
+## Re-checks against GameSpice Map's operation table. Without GameSpice Map nothing is valid.
 func _valid(op: String, data: Dictionary) -> bool:
 	if not ResourceLoader.exists(SCRIPT_PATH):
 		return false

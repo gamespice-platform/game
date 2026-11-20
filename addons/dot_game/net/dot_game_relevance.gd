@@ -13,7 +13,7 @@ const SEED_KEYS := {"net_interest_radius": "interest_radius", "net_far_every": "
 const META_BOUND := &"relevance_bound_to"
 const META_UNSEEDED := &"relevance_unseeded"
 
-## On/off cvars for dot-net's snapshot cost cuts, seeded from the game's own value (dot-net's default is on): cvar -> property of the manager's config or default interest.
+## On/off cvars for GameSpice Net's snapshot cost cuts, seeded from the game's own value (GameSpice Net's default is on): cvar -> property of the manager's config or default interest.
 const TOGGLES := {"net_skip_idle": "skip_idle_snapshots", "net_visibility": "visibility_enabled"}
 
 ## cvar name -> profile type, for the workbench set.
@@ -50,7 +50,7 @@ static func bind(console: DotConsole, net: Object, ceiling: Dictionary = {}) -> 
 	return true
 
 
-## Registers `net_skip_idle` and `net_visibility` (once) and follows them into [param net]'s config and interest, live. A target without the property (an older dot-net, a game's own strategy) is skipped.
+## Registers `net_skip_idle` and `net_visibility` (once) and follows them into [param net]'s config and interest, live. A target without the property (an older GameSpice Net, a game's own strategy) is skipped.
 static func bind_toggles(console: DotConsole, net: Object) -> void:
 	for name: String in TOGGLES:
 		var prop: String = TOGGLES[name]

@@ -68,7 +68,7 @@ static func available() -> bool:
 	return ResourceLoader.exists(FETCHER)
 
 
-## Fetches [param ids] through dot-user-avatar's fetcher (by path) holding [param gate]. The result is
+## Fetches [param ids] through GameSpice User Avatar's fetcher (by path) holding [param gate]. The result is
 ## the fetcher's: on failure the gate stays held with the reason and the caller must not connect.
 ## Success value is the number of files downloaded; [param fetcher_out] receives the fetcher.
 static func prepare(host: Node, ids: Array, base_url: String, server_id: int, gate: Object, http: DotHttp, fetcher_out: Array = []) -> DotResult:

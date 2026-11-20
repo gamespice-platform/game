@@ -1,6 +1,6 @@
-# Hosting dot-workbench in a game
+# Hosting GameSpice Workbench in a game
 
-`DotGameWorkbench` (`runtime/dot_game_workbench.gd`) mounts dot-workbench's in-game window and, when asked, its loopback HTTP page. dot-workbench, dot-menu and dot-ui are reached by path: a build without them logs one line and has no workbench.
+`DotGameWorkbench` (`runtime/dot_game_workbench.gd`) mounts GameSpice Workbench's in-game window and, when asked, its loopback HTTP page. GameSpice Workbench, GameSpice Menu and GameSpice UI are reached by path: a build without them logs one line and has no workbench.
 
 | | Default |
 | --- | --- |
@@ -21,7 +21,7 @@ wb.start(profile_runtime)        # the game's DotProfileRuntime, so edits replic
 client.add_workbench(wb)         # menu overlay awareness and the `workbench` console command
 ```
 
-Export builds need `*.html` in the preset's `include_filter` for the HTTP page. The round trip (Export changes as defaults, Import) is described in dot-workbench's README.
+Export builds need `*.html` in the preset's `include_filter` for the HTTP page. The round trip (Export changes as defaults, Import) is described in GameSpice Workbench's README.
 
 ## Accounts (API level 20)
 
@@ -29,7 +29,7 @@ Export builds need `*.html` in the preset's `include_filter` for the HTTP page. 
 
 ## The server's thread cvars
 
-`start()` adds a **Server threads** set to every game's panel when a `DotServer` is registered: `sv_worker_threads`, `sv_threads_net`, `sv_threads_npc`, `net_native`, `net_native_interest` and `map_load_threads` (`THREAD_CVARS`), each field built from its cvar (range, description, current value). An edit sets the cvar, which dot-server applies live; Save writes `cfg/server/addon/dot_server/threads/server.yml`, and the next `start()` applies that file to the cvars before anything reads them. Only what an edit moved is pushed, so a cvar changed at the console since is left alone. `thread_cvars = false` leaves the set out. `cvar_set(console, {name: type}, kind, addon)` and `bind_cvar_set(set, runtime, console)` build the same thing over any other cvars.
+`start()` adds a **Server threads** set to every game's panel when a `DotServer` is registered: `sv_worker_threads`, `sv_threads_net`, `sv_threads_npc`, `net_native`, `net_native_interest` and `map_load_threads` (`THREAD_CVARS`), each field built from its cvar (range, description, current value). An edit sets the cvar, which GameSpice Server applies live; Save writes `cfg/server/addon/dot_server/threads/server.yml`, and the next `start()` applies that file to the cvars before anything reads them. Only what an edit moved is pushed, so a cvar changed at the console since is left alone. `thread_cvars = false` leaves the set out. `cvar_set(console, {name: type}, kind, addon)` and `bind_cvar_set(set, runtime, console)` build the same thing over any other cvars.
 
 ## The relevance cvars
 
@@ -37,7 +37,7 @@ Export builds need `*.html` in the preset's `include_filter` for the HTTP page. 
 
 ## NPC level of detail
 
-`DotGameModule.attach_npc_lod(spawner)` (a game calls it once, from its `_follow_npc_threads`) hands the horde spawner to `DotGameNpcLod`, which each tick copies `sv_threads_npc` into `sense_workers`, applies `npc_sense_quiet` to the spawner limits and, when `npc_lod` is 1, advances dot-npc-ai's scheduler. All cvars default off and appear in the workbench as "NPC level of detail". Requires dot-npc and dot-npc-ai in the game.
+`DotGameModule.attach_npc_lod(spawner)` (a game calls it once, from its `_follow_npc_threads`) hands the horde spawner to `DotGameNpcLod`, which each tick copies `sv_threads_npc` into `sense_workers`, applies `npc_sense_quiet` to the spawner limits and, when `npc_lod` is 1, advances GameSpice NPC AI's scheduler. All cvars default off and appear in the workbench as "NPC level of detail". Requires GameSpice NPC and GameSpice NPC AI in the game.
 
 ## Remote admin of a running server (API level 30)
 

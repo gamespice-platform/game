@@ -1,6 +1,6 @@
 extends Node
 
-## Per-map settings through dot-game: report_map and map_changed apply declared keys, the next map restores them.
+## Per-map settings through GameSpice Game: report_map and map_changed apply declared keys, the next map restores them.
 ## The cvars start away from the files' values, so a default cannot show through.
 
 const CHECKS := 16

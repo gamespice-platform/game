@@ -32,7 +32,7 @@ func _test_server_threads_reach_the_netcode() -> void:
 		"a value the game set is kept")
 
 	var nat := DotNetConfig.new()
-	# Both default to true in dot-net; the game's own true would mask the cvar.
+	# Both default to true in GameSpice Net; the game's own true would mask the cvar.
 	nat.native = false
 	nat.native_interest = false
 	sc.net_native = false

@@ -6,7 +6,7 @@ What each `DotGameApi.LEVEL` added. The bump rule is on `DotAddonApi`.
 - 2: DotGameModule _game_board_fields() and _game_board_extra(), the Tab board's columns.
 - 3: DotGameChatClient, the client's chat box and microphone.
 - 4: DotGameContent, the map packs a server names for the running game.
-- 5: DotGameChatClient draws dot-server's own lines (server_lines, server_colour, link), window_settings, voice_method.
+- 5: DotGameChatClient draws GameSpice Server's own lines (server_lines, server_colour, link), window_settings, voice_method.
 - 6: DotGameChatClient honours the player's block list (self_mute, self_mute_enabled).
 - 7: voice: DotGameChatClient opens the microphone on the first press of dot-voice's dot_voice_talk action (not on attach), follows the replicated sv_voice_enable, publishes its manager as dot_voice_client, voice_available_changed, voice_position_fn; DotGameModule binds sv_voice_enable and sv_voice_mode on the services' router.
 - 8: DotGameClient, the platform layer a game client adds: load gate and cover, settings and the Escape menu, console, HUD theme, Tab, M, the chat's keyboard, the pointer, web sync.
@@ -17,11 +17,11 @@ What each `DotGameApi.LEVEL` added. The bump rule is on `DotAddonApi`.
 - 13: DotGameClient user_cfg / listen_host_fn / user_cfg_files / open_user_cfg, the player's cfg tier for solo and listen-host play, and the editor entry on the Advanced page.
 - 14: DotGameClient look-to-gag and look-to-mute (use_look_mute, look_*_action, look_positions_fn, look_target_fn, look_chat_mute_fn, look_mute, look_conflicts), on G and K, default on.
 - 15: DotGameClient.restore_map_config, also run when the server connection drops (not only on EXIT_TREE).
-- 16: DotGameMapScripts, the handler for dot-map's script.* events; DotGameModule.map_scripts.
+- 16: DotGameMapScripts, the handler for GameSpice Map's script.* events; DotGameModule.map_scripts.
 - 17: DotGameConfigBinder / DotGameConfigSchema, a DotConfig as layered load, cvars, `config` profile and yml diff.
 - 18: DotGameWorkbench and DotGameClient.add_workbench, the F9 tuning window.
 - 19: DotGameNoblock, built by DotGameModule for a game with body_rules (_noblock_enabled / _noblock_side / _noblock_runtime, noblock), DotGameClient.add_noblock, DotGameConfigBinder.profile_kind.
-- 20: DotGameWorkbenchAuth, and DotGameWorkbench accounts / account_resolver / account_permit_fn / account_gate: dot-auth tickets admitted by default (admin_uids, admin_groups).
+- 20: DotGameWorkbenchAuth, and DotGameWorkbench accounts / account_resolver / account_permit_fn / account_gate: GameSpice Auth tickets admitted by default (admin_uids, admin_groups).
 - 21: DotGameAvatarActionMessage / Relay / Client, DotGameClient.add_avatar_actions, DotGameModule._avatar_actions_equipped and _avatar_action_veto.
 - 22: DotGameAvatarContent, DotGameModule._avatar_content_required (sv_avatar_content), DotGameClient.prepare_avatar_content / read_avatar_actions.
 - 23: DotGameAvatarLoadouts and DotGameAvatarLoadoutMessage (the server reads and relays every player's loadout), DotGameAvatarActionClient.content_fn / loadouts, DotGameAvatarContent.fetch_clip.
@@ -38,7 +38,7 @@ What each `DotGameApi.LEVEL` added. The bump rule is on `DotAddonApi`.
 - 34: DotGameClientAvatars.publish_figures / figure_of and the dot_game_client service (an addon finds a player's figure).
 - 35: DotGameStatsFeed.upgrade (a late profile key moves a seat's stats key, deliberately).
 - 36: DotGameSlideSounds.surf / surf_rules / surf_cvar_specs, DotGameLanding.surf_rules_fn, DotGameModuleWiring.bind_surf_sounds (the replicated sv_surf_* cvars).
-- 37: DotGameStoreEntitlements.attach / attach_tree (site store entitlements merged into a dot-loadout manager; the module does it on every seat).
+- 37: DotGameStoreEntitlements.attach / attach_tree (site store entitlements merged into a GameSpice Loadout manager; the module does it on every seat).
 - 38: DotGameStatsBoard / DotGameModule.stats_board (st_*, lt_* and stat_columns on the Tab board snapshot), DotGameStatsFeed.active_tracker; DotGameClient.show_stats / stats_ui / stats_panel and the cl_stats_ui cvar (DotGameClientStats).
 - 39: DotGameStorePanel (+ add_to_menu, DotGameClient.add_store_panel).
 - 40: DotGameClient.add_loadout_store / DotGameStoreEntitlements.wire_menu (locked store items in the loadout menu), DotGameStorePanel.default_store_url; attach sets the manager's store_url.
@@ -53,11 +53,11 @@ What each `DotGameApi.LEVEL` added. The bump rule is on `DotAddonApi`.
 - 49: DotGameToyNet (a map toy on the wire, duck-typed toy; replaces the byte-identical `*_toy_net.gd` in eleven games). Suite: `examples/headless_toy_net.tscn`.
 - 50: DotGameRequest (a client request: kind and body, the game subclass names it) and DotGamePaths (root_of, rebase_onto); replace the per-game *_request.gd and *_paths.gd. Suite: `examples/headless_net_plumbing.tscn`.
 - 51: DotGameNetIo (a bridge's _send, receive_event, receive_request, receive_snapshot and the net, link and rtt_source fields; replaces the identical copies in ten games' bridges). Suite: `examples/headless_net_io.tscn`.
-- 52: the net_skip_idle / net_visibility server cvars (DotGameRelevance.bind_toggles), DotGameModule.use_map_visibility (a dot-map's PVS for snapshot interest).
+- 52: the net_skip_idle / net_visibility server cvars (DotGameRelevance.bind_toggles), DotGameModule.use_map_visibility (a GameSpice Map's PVS for snapshot interest).
 - 53: DotGameShardArgs (a sharded suite's `--shard` / `--merge` arguments, the round-robin `slice`, `missing`, `sections_entered`; replaces the per-game copies in FC, zombie-zone and prop-hunt). Tool-only, in `qa/`. Suite: `examples/headless_shard_args.tscn`.
 - 54: DotGameTouchLayout canonical ids `command`, `maps`, `gag`, `mute` (labels `/`, MAPS, GAG, MUTE) for the keys a phone lacks; slots unchanged. Suite: `examples/headless_touch_layout.tscn`.
 - 55: DotGameClient.local_link (a link to this machine's own server, a solo game hosted in a second process, survives `--offline`) and the static `offline_wanted`. Suite: `examples/game_selftest.tscn`.
-- 56: `DotGameModule._map_download_groups(map_id)`: the groups `report_map` passes to dot-server's `set_current_map` (dot-server API 19, per-map download groups); an older server is called with the map alone. Suite: `examples/game_selftest.tscn`.
+- 56: `DotGameModule._map_download_groups(map_id)`: the groups `report_map` passes to GameSpice Server's `set_current_map` (GameSpice Server API 19, per-map download groups); an older server is called with the map alone. Suite: `examples/game_selftest.tscn`.
 - 57: `DotGameClient.setup_stepped(between)`: `setup()` one piece per frame (`SETUP_PIECES`), the caller's `between` awaited after each; `setup_usec` times each piece. Suite: `examples/game_selftest.tscn`.
 - 58: `DotGameCheckSuite.cpu_usec()` / `cpu_is_real()`: the calling thread's CPU time (wall fallback), for tick-budget checks that must not fail on a loaded box. Suite: `examples/game_selftest.tscn`.
 - 59: `DotGameConfigSchemas.binder_of(script)`: a make_binder script's binder as a DotResult, its config from the script's static `make_config()` when it has one (the games' flashlight scripts), refused with the reason when the binder's first parameter would not take it. `schemas_for` and `qa/dot_game_cfg_templates.gd` use it, so the tool no longer stops on a flashlight script and idles. Suite: `examples/headless_config.tscn`.

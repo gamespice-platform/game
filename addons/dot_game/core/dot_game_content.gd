@@ -3,11 +3,11 @@ extends RefCounted
 
 ## The map packs a SERVER names for the running game, fetched and found on the disk.
 ##
-## The server names them, not the game, because a game's `game.yml` is replaced by each release's. Packs are fetched here (via dot-cloud's `ensure`, idempotent) since dot-server does not fetch them; [method ensure_one] fetches one on a map change. Everything is duck-typed, so a missing dot-server or dot-cloud gives an empty list, not a parse error.
+## The server names them, not the game, because a game's `game.yml` is replaced by each release's. Packs are fetched here (via GameSpice Cloud's `ensure`, idempotent) since GameSpice Server does not fetch them; [method ensure_one] fetches one on a map change. Everything is duck-typed, so a missing GameSpice Server or GameSpice Cloud gives an empty list, not a parse error.
 
 const CHANNEL := "game.content"
 
-## The service dot-cloud registers its client under.
+## The service GameSpice Cloud registers its client under.
 const CLOUD_SERVICE := &"dot_cloud_client"
 
 
@@ -38,7 +38,7 @@ static func map_keys(server: Object, with_server_dependencies := true) -> Packed
 
 
 ## Where a pack key mounts: `res://dot_cloud/<id>/<version>`. dot-cloud's mount_prefix_for,
-## spelled out so this file does not need dot-cloud to parse.
+## spelled out so this file does not need GameSpice Cloud to parse.
 static func mount_of(key: String) -> String:
 	var at := key.rfind("@")
 	var id := key.substr(0, at) if at > 0 else key

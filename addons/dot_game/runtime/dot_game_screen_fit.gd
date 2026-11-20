@@ -10,7 +10,7 @@ const MM_PER_INCH := 25.4
 ## Window meta holding the stretch the first fit found and how many fits hold it, so a second fit never saves fitted values as the original.
 const META := &"dot_game_screen_fit"
 
-## Canvas units the short side gets: dot-ui's HUD design height, so its 1280x720 pieces fit unscaled on a landscape phone.
+## Canvas units the short side gets: GameSpice UI's HUD design height, so its 1280x720 pieces fit unscaled on a landscape phone.
 var short_side: float = 720.0
 ## Smallest button diameter wanted, in millimetres at the reported DPI, and the real-pixel floor, which is all a guessed DPI can promise.
 var button_mm: float = 9.0
@@ -48,7 +48,7 @@ static func plan_for(window_px: Vector2, base: Vector2, short: float = 720.0) ->
 	return {"aspect": Window.CONTENT_SCALE_ASPECT_EXPAND, "size": canvas, "stretch": stretch}
 
 
-## The [code]button_scale[/code] that makes the smallest button in [param layout] (dot-ui's DotTouchButtons dictionaries: offset from the bottom-right corner towards the middle, radius) at least [param target_px] real pixels across at [param stretch], capped so the block fits [param limit] canvas units less [param margin], and never below 1.
+## The [code]button_scale[/code] that makes the smallest button in [param layout] (GameSpice UI's DotTouchButtons dictionaries: offset from the bottom-right corner towards the middle, radius) at least [param target_px] real pixels across at [param stretch], capped so the block fits [param limit] canvas units less [param margin], and never below 1.
 ## The block's reach from the corner is offset + radius per axis, which holds for a negative offset too (that button just reaches less far).
 static func button_scale_for(layout: Array, stretch: float, target_px: float, limit: Vector2, margin: float = 28.0) -> float:
 	if layout.is_empty() or stretch <= 0.0:
@@ -184,7 +184,7 @@ func dpi() -> float:
 	return float(DisplayServer.screen_get_dpi(window.current_screen if window != null and is_instance_valid(window) else -1))
 
 
-## Sizes [param buttons] (anything with [code]button_scale[/code] and [code]margin[/code], dot-ui's DotTouchButtons) for [param layout] now and on every refit. Returns the scale set.
+## Sizes [param buttons] (anything with [code]button_scale[/code] and [code]margin[/code], GameSpice UI's DotTouchButtons) for [param layout] now and on every refit. Returns the scale set.
 func fit_buttons(buttons_in: Variant, layout: Array) -> float:
 	# Untyped: the engine refuses a freed node at a typed parameter, before this guard could run.
 	if buttons_in == null or not is_instance_valid(buttons_in):

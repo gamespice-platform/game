@@ -1,7 +1,7 @@
 class_name DotGameMapConfig
 extends RefCounted
 
-## A game's per-map settings: the whitelist and defaults a game declares, applied through dot-map's
+## A game's per-map settings: the whitelist and defaults a game declares, applied through GameSpice Map's
 ## [code]DotMapConfig[/code] (looked up by path; absent applies nothing) on every map change and put back on the next.
 ## [method for_console] builds one for a game not on [DotGameModule]; then call [method apply] and [method restore].
 
@@ -40,7 +40,7 @@ static func for_console(p_game: String, console: Object, p_keys: Dictionary, p_d
 	return out
 
 
-## Applies [param map_id]'s settings after putting the last map's back. Returns the keys applied; empty when nothing is declared or dot-map is absent.
+## Applies [param map_id]'s settings after putting the last map's back. Returns the keys applied; empty when nothing is declared or GameSpice Map is absent.
 func apply(map_id: String) -> PackedStringArray:
 	if keys.is_empty() and defaults.is_empty():
 		return PackedStringArray()
@@ -67,7 +67,7 @@ func describe_lines() -> PackedStringArray:
 	return _cfg.call("describe_lines")
 
 
-## The [code]DotMapConfig[/code] under this, built on first use; null without dot-map.
+## The [code]DotMapConfig[/code] under this, built on first use; null without GameSpice Map.
 func _config() -> Object:
 	if _cfg != null:
 		return _cfg

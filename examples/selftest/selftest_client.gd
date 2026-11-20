@@ -10,7 +10,7 @@ class ClientCover extends Control:
 	func set_progress(_fraction: float) -> void: pass
 
 
-## The client's platform, with dot-menu and dot-console stood in by fixtures in their shape.
+## The client's platform, with GameSpice Menu and GameSpice Console stood in by fixtures in their shape.
 func _test_client_platform() -> void:
 	_section("the client's platform: the cover first, then the menu, the console and the keys")
 
@@ -175,7 +175,7 @@ func _test_client_platform() -> void:
 	_done()
 
 
-## A menu the game built itself, in dot-menu's DotMenu shape (overlays_changed, is_open).
+## A menu the game built itself, in GameSpice Menu's DotMenu shape (overlays_changed, is_open).
 class OwnMenu extends RefCounted:
 	signal overlays_changed(open: bool)
 	var busy: Callable = Callable()
@@ -482,7 +482,7 @@ func _test_client_hooks_rewire(host: Node) -> void:
 	_check(not c3.is_menu_open() and relayed == [true, false], "both closed: open is false")
 
 
-## This suite's project has neither dot-menu nor dot-console, which is a real build.
+## This suite's project has neither GameSpice Menu nor GameSpice Console, which is a real build.
 func _test_client_without_the_addons() -> void:
 	_section("the client's platform, in a build with neither dot-menu nor dot-console")
 	var host := Node.new()

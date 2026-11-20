@@ -1,7 +1,7 @@
 class_name DotGameMapEditForm
 extends VBoxContainer
 
-## A form generated from a settings schema (dot-spawn's `DotSpawnPointDef.schema()`: entries in `DotProfileSet.field` shape), and the `key=value` words that turn an edit into `spawn_set`.
+## A form generated from a settings schema (GameSpice Spawn's `DotSpawnPointDef.schema()`: entries in `DotProfileSet.field` shape), and the `key=value` words that turn an edit into `spawn_set`.
 ##
 ## It names no setting: a new field in the schema is a new row, and only the types `int`, `float`, `string`, `bool`, `vec3` and `list` are editable; `dict` and keys the commands do not take are shown read-only.
 

@@ -9,16 +9,16 @@ const CONTENT_CONFIG := "res://client/content.json"
 const FALLBACK_CONFIG := "res://addons/dot_game/data/content.json"
 const DEFAULT_URL := "https://content.gamespice.net/content"
 const REASON := &"content"
-## What dot-map's `DotMapStore` sets on the gate: bytes the chosen map's slices still need.
+## What GameSpice Map's `DotMapStore` sets on the gate: bytes the chosen map's slices still need.
 const META_DOWNLOAD_BYTES := &"download_bytes"
-## Signed manifests kept for the next offline start, laid out as `{id}/{version}/manifest.json` so dot-cloud reads them as a local source.
+## Signed manifests kept for the next offline start, laid out as `{id}/{version}/manifest.json` so GameSpice Cloud reads them as a local source.
 const MANIFEST_DIR := "user://dot_standalone_manifests"
 ## Seconds the load gate waits for slices; `--standalone_content_wait=` overrides.
 const DEFAULT_WAIT_SEC := 300.0
 
 ## Test seam: replaces [constant CONTENT_CONFIG]'s urls when non-empty.
 static var urls_override: PackedStringArray = PackedStringArray()
-## Test seam: a script used for DotCloudClient and DotCloudConfig when set (dot-cloud is not linked into every project).
+## Test seam: a script used for DotCloudClient and DotCloudConfig when set (GameSpice Cloud is not linked into every project).
 static var client_script_override: GDScript = null
 static var config_script_override: GDScript = null
 
@@ -55,7 +55,7 @@ static func settings() -> Dictionary:
 	return {"urls": urls, "config_file": file if FileAccess.file_exists(file) else ""}
 
 
-## Makes and registers a content client under [param parent] when none is registered. Returns it, or null when one exists, dot-cloud is absent or this was switched off.
+## Makes and registers a content client under [param parent] when none is registered. Returns it, or null when one exists, GameSpice Cloud is absent or this was switched off.
 static func install(parent: Node, gate: DotLoadGate = null) -> Node:
 	if disabled_by_cmdline() or DotRegistry.get_service(CLOUD_SERVICE) != null:
 		return null

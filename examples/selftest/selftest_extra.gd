@@ -2,7 +2,7 @@ extends "selftest_avatar.gd"
 
 ## The chat client, look-mute and workbench sections of game_selftest.gd.
 
-## The client's chat box with neither dot-ui nor dot-voice installed: built, quiet, and a
+## The client's chat box with neither GameSpice UI nor GameSpice Voice installed: built, quiet, and a
 ## bridge it is attached to is listened to rather than crashed on. The line crossing a wire is
 ## mg-prop-hunt's `headless_net`, which has both.
 func _test_chat_client_without_the_addons() -> void:
@@ -35,7 +35,7 @@ func _test_chat_client_without_the_addons() -> void:
 	_done()
 
 
-## dot-server's own lines (a vote between games, a join, an admin's `say`) arrive on the shell's
+## GameSpice Server's own lines (a vote between games, a join, an admin's `say`) arrive on the shell's
 ## client link, not on the game's bridge. Eight games drew only the bridge and never showed one.
 ## The box finds the link in the registry itself; a stub window counts what is drawn.
 func _test_chat_client_server_lines() -> void:
@@ -82,7 +82,7 @@ func _test_chat_client_server_lines() -> void:
 	_check(bool(box.describe().get("server_lines", false)), "describe says the server's lines are read")
 
 	# The player's own block list (`sm`): a muted speaker's routed line is not drawn. A
-	# stand-in list, because this suite links no dot-chat; dot-chat's suite proves the list.
+	# stand-in list, because this suite links no GameSpice Chat; GameSpice Chat's suite proves the list.
 	var mutes := StubSelfMute.new()
 	box.self_mute = mutes
 	window.lines.clear()
@@ -404,7 +404,7 @@ func _test_workbench_hosting() -> void:
 	_check(not DotGameWorkbench.default_panel(false, false, false, false), "a production client does not")
 	_check(not DotGameWorkbench.default_panel(true, true, true, true), "a dedicated server never builds a panel")
 	_check(not DotGameWorkbench.local_allowed(false, false, false), "the panel's actor is untrusted in production")
-	# this project links no dot-workbench: start() says so and builds nothing
+	# this project links no GameSpice Workbench: start() says so and builds nothing
 	var wb := DotGameWorkbench.new()
 	add_child(wb)
 	var res := wb.start()

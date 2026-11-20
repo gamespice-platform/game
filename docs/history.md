@@ -10,7 +10,7 @@ var session := server.session_by_userid(event.get_int("peer_id"))
 
 `client_spawn` carries `userid` and `name`. It does not carry `peer_id`. So that lookup asked for session 0, found null, and returned, and **nobody ever joined those dedicated servers**, silently, for as long as those modules existed. A null session is a legitimate thing to find, so nothing errored; a dedicated-server suite passes without noticing, because it never connects a client. This is why dot-game exists, and why `DotGameRoster.session_fn` is injectable ([design](design.md#session_fn-exists-so-the-bug-above-can-be-asserted)).
 
-## Two bugs in dot-server the first suite found
+## Two bugs in GameSpice Server the first suite found
 
 Neither is in this addon, and both had been there for as long as modules have.
 
@@ -26,4 +26,4 @@ Neither is in this addon, and both had been there for as long as modules have.
 
 ## The platform module outlived the game
 
-Before `_teardown` unloaded the dot-platform module `_build_identity` had loaded, it outlived the game: after `changelevel` away from mg-buses-from-hell, the next player to connect was admitted through the freed hub and the server crashed with signal 11. Found when dot-server-deploy's `live_switch` and `admin_live` suites started booting buses; both crashed without the fix.
+Before `_teardown` unloaded the GameSpice Platform module `_build_identity` had loaded, it outlived the game: after `changelevel` away from mg-buses-from-hell, the next player to connect was admitted through the freed hub and the server crashed with signal 11. Found when GameSpice Server Deploy's `live_switch` and `admin_live` suites started booting buses; both crashed without the fix.

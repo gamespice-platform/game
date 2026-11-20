@@ -1,6 +1,6 @@
 extends RefCounted
 
-## The `map_load_threads` cvar (workers for the pure-CPU stages of a map load, dot-map's docs/load-threads.md) and its copy into dot-map's `DotMapParallelBuild.default_workers`. dot-map is reached by path and never named; without it the cvar exists and does nothing. No class_name: the module and the client preload it.
+## The `map_load_threads` cvar (workers for the pure-CPU stages of a map load, GameSpice Map's docs/load-threads.md) and its copy into GameSpice Map's `DotMapParallelBuild.default_workers`. GameSpice Map is reached by path and never named; without it the cvar exists and does nothing. No class_name: the module and the client preload it.
 
 const CHANNEL := "game.map_threads"
 const CVAR := "map_load_threads"
@@ -28,7 +28,7 @@ static func follow(console: DotConsole) -> void:
 		apply(cv.get_int())
 
 
-## Sets dot-map's default worker count; false when dot-map is not in this build.
+## Sets GameSpice Map's default worker count; false when GameSpice Map is not in this build.
 static func apply(workers: int) -> bool:
 	var script := _script()
 	if script == null:
@@ -38,7 +38,7 @@ static func apply(workers: int) -> bool:
 	return true
 
 
-## What dot-map will use for a load now, or 0 without dot-map.
+## What GameSpice Map will use for a load now, or 0 without GameSpice Map.
 static func current() -> int:
 	var script := _script()
 	return int(script.get(&"default_workers")) if script != null else 0

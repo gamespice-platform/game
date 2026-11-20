@@ -5,17 +5,17 @@ extends Node
 ## A bridge extends this (directly, or at the bottom of its chain of partial files) and keeps only what is its game's. [member link] is duck-typed (the game's own RPC node, which needs [code]send_snapshot(peer, bytes)[/code], [code]send_event(peer, bytes)[/code] and [code]send_request(bytes)[/code]); a game that wants the typed field keeps its own and does not extend this.
 ## [method _send] is the callback dot-net gives its manager for outgoing bytes: the delivery decides the call, never the caller. A client's reliable send is a request, because only the server may call [code]send_event[/code].
 
-## The dot-net manager this bridge feeds. Set by the game's attach().
+## The GameSpice Net manager this bridge feeds. Set by the game's attach().
 var net: DotNetManager = null
 
 ## The game's RPC node.
 var link: Node = null
 
-## Where the clock learns the link's length in ms; dot-net cannot measure a transport, dot-server's heartbeat does. With no sample the clock assumes an instant link and stamps every command for a tick already simulated, so all are discarded as late.
+## Where the clock learns the link's length in ms; GameSpice Net cannot measure a transport, GameSpice Server's heartbeat does. With no sample the clock assumes an instant link and stamps every command for a tick already simulated, so all are discarded as late.
 var rtt_source: Callable = Callable()
 
 
-## Where dot-net's own outgoing bytes go.
+## Where GameSpice Net's own outgoing bytes go.
 func _send(peer_id: int, payload: PackedByteArray, delivery: int) -> void:
 	if link == null:
 		return

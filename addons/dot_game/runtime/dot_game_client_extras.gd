@@ -14,7 +14,7 @@ static func add_profiler(c: Node) -> void:
 	c.profiler = _Profiler.add(c)
 	if c.profiler == null:
 		return
-	# F10 captures profiler_capture_seconds; a dot-profiler older than level 2 has no capture key.
+	# F10 captures profiler_capture_seconds; a GameSpice Profiler older than level 2 has no capture key.
 	if c.profiler.has_method(&"enable_capture_key"):
 		c.profiler.call(&"enable_capture_key")
 	if not bind_profiler_console(c):
@@ -74,7 +74,7 @@ static func add_render_quality(c: Node) -> void:
 	c.render_quality = preload("res://addons/dot_game/runtime/dot_game_client_render.gd").add(c, store)
 
 
-## dot-audio scripts the slide and landing pieces load, by path. Compiling them is most of those pieces' frame cost.
+## GameSpice Audio scripts the slide and landing pieces load, by path. Compiling them is most of those pieces' frame cost.
 const AUDIO_SCRIPTS: Array[String] = [
 	"res://addons/dot_audio/runtime/dot_audio_slide.gd",
 	"res://addons/dot_audio/runtime/dot_audio_surf.gd",
@@ -83,7 +83,7 @@ const AUDIO_SCRIPTS: Array[String] = [
 ]
 
 
-## Starts compiling the [constant AUDIO_SCRIPTS] on loader threads, so the sound pieces find them cached. Nothing without threads (web) or without dot-audio.
+## Starts compiling the [constant AUDIO_SCRIPTS] on loader threads, so the sound pieces find them cached. Nothing without threads (web) or without GameSpice Audio.
 static func request_audio_scripts() -> void:
 	if not DotPlatform.has_threads():
 		return
@@ -191,14 +191,14 @@ static func wire_chat(c: Node) -> void:
 		return
 	if not c.chat.is_inside_tree():
 		c.add_child(c.chat)
-	# typing_changed(bool) on DotGameChatClient, opened(channel) / closed() on dot-ui's box.
+	# typing_changed(bool) on DotGameChatClient, opened(channel) / closed() on GameSpice UI's box.
 	for signal_name: StringName in [&"typing_changed", &"opened", &"closed"]:
 		if c.chat.has_signal(signal_name):
 			c.chat.connect(signal_name, c._refresh_blocked)
 
 
 static func wire_team_menu(c: Node) -> void:
-	# By name and only when unset: an older dot-menu has no team menu, and a game's own offer stays.
+	# By name and only when unset: an older GameSpice Menu has no team menu, and a game's own offer stays.
 	if not c.use_team_menu or c.menu == null or not c.menu.has_method(&"use_teams"):
 		return
 	if &"teams" in c.menu and c.menu.get(&"teams") != null:

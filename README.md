@@ -1,12 +1,12 @@
 [![Game - GameSpice addon](docs/banner.png)](https://moddingcommunity.com/a/60-gs-game)
 
-The shared wiring for a multiplayer Godot 4 game. Every server game in the family needed the same setup code: networking, player identity, services, a roster of who is playing, one authoritative tick, and a clean shutdown. dot-game does that once, so your game only writes what is its own. It also has the client's platform layer (loading cover, menus, console, HUD, chat) and a set of tools shared by every game. Part of TMC's open source [**GameSpice**](https://gamespice.net) collection (MIT licence).
+The shared wiring for a multiplayer Godot 4 game. Every server game in the family needed the same setup code: networking, player identity, services, a roster of who is playing, one authoritative tick, and a clean shutdown. GameSpice Game does that once, so your game only writes what is its own. It also has the client's platform layer (loading cover, menus, console, HUD, chat) and a set of tools shared by every game. Part of TMC's open source [**GameSpice**](https://gamespice.net) collection (MIT licence).
 
 > Built with Claude Code. Every addon has a headless test suite and the suites pass, but little of this has met real players yet. Please report rough edges.
 
 ## Install
 
-Copy `addons/dot_game/` into your project with [dot-core](https://github.com/gamespice-platform/core), [dot-server](https://github.com/gamespice-platform/server) and [dot-net](https://github.com/gamespice-platform/net) (all three are required), and enable dot-game under **Project > Project Settings > Plugins**. [dot-bootstrap](https://github.com/gamespice-platform/bootstrap) does this for a whole project.
+Copy `addons/dot_game/` into your project with [GameSpice Core](https://github.com/gamespice-platform/core), [GameSpice Server](https://github.com/gamespice-platform/server) and [GameSpice Net](https://github.com/gamespice-platform/net) (all three are required), and enable dot-game under **Project > Project Settings > Plugins**. [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap) does this for a whole project.
 
 Optional pieces (a map director, a vote, a services layer, dot-platform) are reached without being named, so you only need them if you use them.
 
@@ -54,12 +54,12 @@ func _game_load() -> DotResult:
 | Per-map settings and map edit commands | [docs/map-config.md](docs/map-config.md), [docs/map-edit.md](docs/map-edit.md) |
 | `DotGameNoblock` | Teammates pass through each other, enemies stop. [docs/noblock.md](docs/noblock.md) |
 | Touch controls | On-screen buttons for phones. [docs/touch-controls.md](docs/touch-controls.md), [docs/touch-layout.md](docs/touch-layout.md) |
-| `DotGameWorkbench` | Hosts dot-workbench inside a game. [docs/workbench.md](docs/workbench.md) |
+| `DotGameWorkbench` | Hosts GameSpice Workbench inside a game. [docs/workbench.md](docs/workbench.md) |
 | QA tools | Perf bench, filmstrip, phone screenshots, netchaos and more, shared by every game. [docs/qa.md](docs/qa.md) |
 
 ## What it leaves out
 
-dot-game has no rules. Whether a round ended, what a team is, what the objective is and who won belong to [dot-match](https://github.com/gamespice-platform/match) and [dot-objective](https://github.com/gamespice-platform/objective). A game can use neither and still use this.
+GameSpice Game has no rules. Whether a round ended, what a team is, what the objective is and who won belong to [GameSpice Match](https://github.com/gamespice-platform/match) and [GameSpice Objective](https://github.com/gamespice-platform/objective). A game can use neither and still use this.
 
 A feature belongs here only if every game would write it the same way with just the class names changed. A map rotation does not qualify, so the roster only tells a rotation that someone left (it calls `follow()` on it) and does not know what a rotation is.
 
@@ -87,7 +87,7 @@ godot --headless --path . --import
 timeout 200 godot --headless --path . res://examples/game_selftest.tscn
 ```
 
-The suite checks the setup sequence in order, the roster driven by real server events, the tick reaching the bridge before the game, an unload that leaves nothing running, every failure path unwinding what it had built, and `DotGameClient` with stand-ins and without dot-menu or dot-console. Other suites are in `examples/`.
+The suite checks the setup sequence in order, the roster driven by real server events, the tick reaching the bridge before the game, an unload that leaves nothing running, every failure path unwinding what it had built, and `DotGameClient` with stand-ins and without GameSpice Menu or GameSpice Console. Other suites are in `examples/`.
 
 ## Licence
 

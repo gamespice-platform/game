@@ -217,7 +217,7 @@ func _panel_phase(client: DotGameWorkbenchRemoteClient) -> void:
 	_check(not wb.is_open(), "F9 does nothing for a non-admin")
 
 
-## Needs dot-workbench linked into this project; skipped (and counted as such) when it is not.
+## Needs GameSpice Workbench linked into this project; skipped (and counted as such) when it is not.
 func _real_api(remote: DotGameWorkbenchRemote, flags: Dictionary, clock: Array, enabled: Array) -> void:
 	if not ResourceLoader.exists(API_SCRIPT):
 		print("   dot-workbench not linked: real-api checks skipped")

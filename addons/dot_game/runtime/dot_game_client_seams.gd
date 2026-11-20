@@ -12,12 +12,12 @@ func _free_pointer() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
-## Adds the site-store page (what the player owns, and a button to the store) to the game's dot-menu. [param player_key_fn] returns the signed-in player's key; empty shows an empty list. Call after the menu is built.
+## Adds the site-store page (what the player owns, and a button to the store) to the game's GameSpice Menu. [param player_key_fn] returns the signed-in player's key; empty shows an empty list. Call after the menu is built.
 func add_store_panel(game_menu: Object, player_key_fn: Callable) -> Object:
 	return DotGameStorePanel.add_to_menu(game_menu, player_key_fn)
 
 
-## Shows the items the player does not own in the loadout menu, greyed with a "Get in store" button, solo and connected. [param loadout_menu] is what dot-menu's `use_loadout` returned; [param command_fn] returns the game's dot-loadout command (null until the match exists); [param key_fn] the player's storage key. Call right after `use_loadout`.
+## Shows the items the player does not own in the loadout menu, greyed with a "Get in store" button, solo and connected. [param loadout_menu] is what GameSpice Menu's `use_loadout` returned; [param command_fn] returns the game's GameSpice Loadout command (null until the match exists); [param key_fn] the player's storage key. Call right after `use_loadout`.
 func add_loadout_store(loadout_menu: Object, command_fn: Callable, key_fn: Callable) -> bool:
 	return DotGameStoreEntitlements.wire_menu(loadout_menu, command_fn, key_fn)
 

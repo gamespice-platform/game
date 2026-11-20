@@ -1,6 +1,6 @@
 extends "selftest/selftest_client.gd"
 
-## dot-game: the sequence, the roster, the tick, and every way it has to unwind.
+## GameSpice Game: the sequence, the roster, the tick, and every way it has to unwind.
 ##
 ## Sections 1-9: refusal without a game, the full sequence, the roster, tick order, reverse teardown, failure unwinding, the services hooks, still-loading seats, DotGameLink and DotGameClient. Deliberate errors: three "module refused to load" lines (sections 1 and 6) and an engine `Attempt to call RPC with unknown peer ID: 3` from section 3's admission refusal, since sessions are built by hand.
 
@@ -561,7 +561,7 @@ func _test_the_teardown() -> void:
 	var on_hibernation := Callable(_module, "_on_hibernation_changed")
 	var was_following := _server.hibernation_changed.is_connected(on_hibernation)
 
-	# The Tab board: the game's columns reach dot-server's roster through the module.
+	# The Tab board: the game's columns reach GameSpice Server's roster through the module.
 	var fields: Callable = _server.scoreboard_fields
 	var row: Dictionary = fields.call(DotClientSession.new(42)) if fields.is_valid() else {}
 	_check(int(row.get("kills", 0)) == 3 and int(row.get("who", 0)) == 42,

@@ -92,7 +92,7 @@ static func store_url_for(site: String, audience: String) -> String:
 	return site + STORE_PATH
 
 
-## Adds a "Store" page to a dot-menu (located by duck typing: null or no `add_page` does nothing) that shows a fresh panel each time it opens. [param player_key_fn] returns the player key; [param client_fn] the backbone client (default: the registry's `dot_backbone_client`). Returns the page, or null.
+## Adds a "Store" page to a GameSpice Menu (located by duck typing: null or no `add_page` does nothing) that shows a fresh panel each time it opens. [param player_key_fn] returns the player key; [param client_fn] the backbone client (default: the registry's `dot_backbone_client`). Returns the page, or null.
 static func add_to_menu(menu: Object, player_key_fn: Callable, client_fn: Callable = Callable(), before: StringName = &"") -> Object:
 	if menu == null or not menu.has_method(&"add_page"):
 		return null
@@ -180,7 +180,7 @@ func error_text() -> String:
 	return _error
 
 
-## Reads the player's entitlements and points, then what they can buy, through a backbone client (`get_integration`, dot-auth's). A failed read is returned, logged and shown with a Retry button; the list is left as it was. A store without the `store/items` read only hides the Buy list.
+## Reads the player's entitlements and points, then what they can buy, through a backbone client (`get_integration`, GameSpice Auth's). A failed read is returned, logged and shown with a Retry button; the list is left as it was. A store without the `store/items` read only hides the Buy list.
 func refresh(client: Object, player_key: String) -> DotResult:
 	_client = client
 	_player_key = player_key

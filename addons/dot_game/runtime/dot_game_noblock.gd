@@ -1,7 +1,7 @@
 class_name DotGameNoblock
 extends RefCounted
 
-## Teammates pass through each other, enemies stop: dot-team's block rules wired once for every game
+## Teammates pass through each other, enemies stop: GameSpice Team's block rules wired once for every game
 ## (loaded by path). The server builds one from the game's `body_rules` and binds `mp_teamblock` & co;
 ## a client uses `DotGameClient.add_noblock`. Config is the `noblock` kind.
 
@@ -27,7 +27,7 @@ static func available() -> bool:
 
 
 ## Builds the rules and runs the cfg layers over their config. Fails loudly (and, strict, refuses
-## the boot) on a bad value or an unknown key; fails with CODE_UNSUPPORTED when dot-team is absent.
+## the boot) on a bad value or an unknown key; fails with CODE_UNSUPPORTED when GameSpice Team is absent.
 ## [param roots] and [param strict] are for tests. [param side_fn] is `(player id) -> side id` ("" or null for none).
 static func create(
 	game_id: String, side_fn: Callable, roots := PackedStringArray(), strict := DotGameConfigBinder.default_strict()

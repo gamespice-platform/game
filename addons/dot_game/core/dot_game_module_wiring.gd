@@ -22,7 +22,7 @@ static func bind_hooks(m: DotGameModule) -> void:
 		(relay as DotGameAvatarActionRelay).veto_fn = m._avatar_action_veto
 
 
-## Publishes the site server id, and keeps looking while dot-auth has not read it.
+## Publishes the site server id, and keeps looking while GameSpice Auth has not read it.
 static func advertise_site_server(m: DotGameModule) -> void:
 	if m.console == null:
 		return
@@ -68,7 +68,7 @@ static func bind_slide_sounds(m: DotGameModule) -> void:
 	)
 
 
-## Binds dot-audio's `sv_surf_*` cvars (glide volume, speed range, pitch, whether steps stop on a ramp), which every client follows. Nothing without dot-audio.
+## Binds GameSpice Audio's `sv_surf_*` cvars (glide volume, speed range, pitch, whether steps stop on a ramp), which every client follows. Nothing without GameSpice Audio.
 static func bind_surf_sounds(m: DotGameModule) -> void:
 	for spec: Dictionary in preload("res://addons/dot_game/runtime/dot_game_slide_sounds.gd").surf_cvar_specs():
 		var cv := m.add_cvar(
@@ -112,7 +112,7 @@ static func build_roster(m: DotGameModule) -> void:
 
 	roster.follow(m.services)
 	m._follow_avatar_loadouts()
-	# Any dot-loadout manager the game built gets the site store's entitlements; idempotent per manager.
+	# Any GameSpice Loadout manager the game built gets the site store's entitlements; idempotent per manager.
 	roster.seated.connect(func(_s: DotClientSession) -> void:
 		if m.is_inside_tree():
 			DotGameStoreEntitlements.attach_tree(m.get_tree().root))
@@ -151,7 +151,7 @@ static func build_noblock(m: DotGameModule) -> DotResult:
 	return DotResult.success(built)
 
 
-## Starts dot-cloud's auto-update once per headless server process, under the server. No-op without dot-cloud, on a listen server and in a browser.
+## Starts GameSpice Cloud's auto-update once per headless server process, under the server. No-op without GameSpice Cloud, on a listen server and in a browser.
 static func start_auto_update(host: DotServer) -> Node:
 	if host == null or not DotPlatform.is_headless() or not ResourceLoader.exists(DotGameModule.AUTO_UPDATE_SCRIPT):
 		return null
@@ -216,7 +216,7 @@ static func apply_map_config(m: DotGameModule, map_id: String) -> void:
 	m.map_config.apply(map_id)
 
 
-## Builds a `DotFpsCvars` (by path: dot-player-controller is not a dependency) over [param targets] and registers its cvars, replicated, since a client predicts its own movement from them.
+## Builds a `DotFpsCvars` (by path: GameSpice Player Controller is not a dependency) over [param targets] and registers its cvars, replicated, since a client predicts its own movement from them.
 static func bind_movement_cvars(m: DotGameModule, targets: Array) -> Array:
 	if targets.is_empty() or m.console == null:
 		return []
@@ -234,7 +234,7 @@ static func bind_movement_cvars(m: DotGameModule, targets: Array) -> Array:
 	return made
 
 
-## Builds the identity layer and loads dot-platform beside it.
+## Builds the identity layer and loads GameSpice Platform beside it.
 static func build_identity(m: DotGameModule) -> DotResult:
 	m.identity = m._make_identity()
 
@@ -264,7 +264,7 @@ static func build_identity(m: DotGameModule) -> DotResult:
 
 	if m._wants_platform_module() and m.server != null and m.server.modules != null:
 		if not m.server.modules.has_module("platform"):
-			# Awaited: a module's `_module_load` may be a coroutine, and dot-platform's is.
+			# Awaited: a module's `_module_load` may be a coroutine, and GameSpice Platform's is.
 			var loaded: DotResult = await m.server.modules.load_module(
 				m.PLATFORM_MODULE_PATH
 			)

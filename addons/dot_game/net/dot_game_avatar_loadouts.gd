@@ -7,7 +7,7 @@ extends Node
 
 const CHANNEL := "game.avatar_loadout"
 
-## The scoped key's shape (dot-user-avatar's DotAvatarKey), checked before it reaches a URL.
+## The scoped key's shape (GameSpice User Avatar's DotAvatarKey), checked before it reaches a URL.
 const _KEY_RE := "^[A-Za-z0-9_-]{8,128}$"
 const _CONTENT_RE := "^action/[1-9][0-9]{0,9}/[1-9][0-9]{0,9}$"
 const _WEARABLE_RE := "^wearable/[1-9][0-9]{0,9}/[1-9][0-9]{0,9}$"
@@ -41,7 +41,7 @@ var refresh_min_sec: float = 30.0
 ## rejoin; 0 turns it off. Never faster than [member refresh_min_sec].
 var auto_refresh_sec: float = 60.0
 
-## The dot-server whose sessions hold the identities; the key is the `scoped_key` claim.
+## The GameSpice Server whose sessions hold the identities; the key is the `scoped_key` claim.
 var server: Object = null
 var net: DotNetManager = null
 var relay: RefCounted = null
@@ -309,7 +309,7 @@ func _key_for(peer_id: int) -> String:
 	return key if _key_re.search(key) != null else ""
 
 
-## `[base, token]` from the overrides or the registry's `dot_backbone_client`, as dot-platform finds it.
+## `[base, token]` from the overrides or the registry's `dot_backbone_client`, as GameSpice Platform finds it.
 func _credential() -> PackedStringArray:
 	if base_url != "" and token != "":
 		return PackedStringArray([base_url.trim_suffix("/"), token])

@@ -2,7 +2,7 @@ class_name DotGameHitFlinch
 extends RefCounted
 
 ## What being hit does to a first-person view: a roll and shake of the camera and a wobble of the aim while sighted, instead of dropping the sights.
-## dot-player-controller's DotFpsAimBreak and its sv_hit_* tunables are loaded by path; without them every call is a no-op.
+## GameSpice Player Controller's DotFpsAimBreak and its sv_hit_* tunables are loaded by path; without them every call is a no-op.
 ## Wire it with [method DotGameClient.add_hit_flinch], then call [method DotGameClient.note_hit] where the game learns the local player was hurt.
 
 const AIM_BREAK_SCRIPT := "res://addons/dot_player_controller/fp/core/dot_fps_aim_break.gd"
@@ -30,7 +30,7 @@ func _init() -> void:
 			_aim_break = (script as GDScript).new() as RefCounted
 
 
-## Whether dot-player-controller's flinch is present.
+## Whether GameSpice Player Controller's flinch is present.
 func available() -> bool:
 	return _aim_break != null
 

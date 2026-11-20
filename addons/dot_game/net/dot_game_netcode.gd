@@ -107,7 +107,7 @@ static func build(
 		bridge.call("open_link", server)
 
 		# [b]A client whose message schema cannot work with this one is dropped, in words.[/b]
-		# dot-net only compares the tables and owns no socket; without this the client would sit
+		# GameSpice Net only compares the tables and owns no socket; without this the client would sit
 		# in the game with nothing decoded.
 	if server != null:
 		net.peer_schema_refused.connect(func(peer_id: int, error: DotError) -> void:
@@ -189,7 +189,7 @@ const NATIVE_INTEREST_OWN_META := &"dot_game_native_interest_own"
 const _MapThreads := preload("res://addons/dot_game/runtime/dot_game_map_threads.gd")
 
 
-## Registers `map_load_threads` on [param console] when it is missing, then copies its value into dot-map's default worker count; call it before the first world loads and every tick after. A no-op without a console or dot-map.
+## Registers `map_load_threads` on [param console] when it is missing, then copies its value into GameSpice Map's default worker count; call it before the first world loads and every tick after. A no-op without a console or GameSpice Map.
 static func follow_map_threads(console: DotConsole) -> void:
 	if console == null:
 		return

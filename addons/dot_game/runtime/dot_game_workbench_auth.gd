@@ -1,9 +1,9 @@
 class_name DotGameWorkbenchAuth
 extends RefCounted
 
-## dot-auth accounts for a [DotGameWorkbench]: a connect ticket is accepted as the bearer when its uid is listed in `workbench.admin_uids` / `admin_groups`.
+## GameSpice Auth accounts for a [DotGameWorkbench]: a connect ticket is accepted as the bearer when its uid is listed in `workbench.admin_uids` / `admin_groups`.
 ##
-## dot-auth and dot-workbench are reached by path and `call`, so a build without either has no account login and no error.
+## GameSpice Auth and GameSpice Workbench are reached by path and `call`, so a build without either has no account login and no error.
 
 const CHANNEL := "game.workbench"
 const IDENTITY_SCRIPT := "res://addons/dot_workbench/dot_workbench_identity.gd"
@@ -30,7 +30,7 @@ static func attach(wb: Node, resolver: Callable, admin_permit: Callable) -> RefC
 	return gate
 
 
-## A resolver that verifies a dot-auth connect ticket offline against the server's key, or an invalid Callable. Sync on purpose (the api hook is); a ticket is short-lived and checked for this server's audience, but not burned.
+## A resolver that verifies a GameSpice Auth connect ticket offline against the server's key, or an invalid Callable. Sync on purpose (the api hook is); a ticket is short-lived and checked for this server's audience, but not burned.
 static func ticket_resolver(auth: Object) -> Callable:
 	if auth == null or not ResourceLoader.exists(TICKET_SCRIPT):
 		return Callable()

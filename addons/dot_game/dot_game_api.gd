@@ -1,6 +1,6 @@
 extends RefCounted
 
-## dot-game's API level; the bump rule is on [DotAddonApi].
+## GameSpice Game's API level; the bump rule is on [DotAddonApi].
 ##
 ## OLDEST rises to LEVEL when a removal or change breaks packs built before it.
 

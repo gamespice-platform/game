@@ -1,7 +1,7 @@
 @tool
 extends EditorPlugin
 
-## Editor entry point for dot-game. Registers inspector types only.
+## Editor entry point for GameSpice Game. Registers inspector types only.
 ##
 ## No autoloads: a process running two servers, or a server and a client, has two modules.
 

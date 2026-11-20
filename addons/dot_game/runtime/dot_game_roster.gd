@@ -48,7 +48,7 @@ var leaves: int = 0
 
 ## Subsystems told when somebody arrives or goes.
 ##
-## Duck-typed: dot-map, dot-vote and a game's services are optional, and naming an absent class fails to parse.
+## Duck-typed: GameSpice Map, GameSpice Vote and a game's services are optional, and naming an absent class fails to parse.
 var followers: Array[Object] = []
 
 ## Seconds a seat may stay loading before it counts as loaded anyway, with a warning. What
@@ -98,7 +98,7 @@ func unfollow(subsystem: Object) -> void:
 	followers.erase(subsystem)
 
 
-## The handler for dot-server's [code]client_spawn[/code] event.
+## The handler for GameSpice Server's [code]client_spawn[/code] event.
 ##
 ## The event carries `userid` and `name` but NOT `peer_id`; reading it gave 0 and nobody joined, silently. The lookup lives here so it is right once.
 func on_client_spawn(event: DotEvent) -> void:

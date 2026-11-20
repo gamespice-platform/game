@@ -12,14 +12,14 @@ Connect `button_down` and `button_up` to one `route(id, down, sampler_fn, handle
 
 ## The menu button corner
 
-The Escape menu's button sits in the top-right by default, where the role label and the clock usually are. dot-menu has a `menu_button_corner` setting for it; a game on a phone moves it to the top-left. Guard the line, because older dot-menu releases do not have the property (it arrived with dot-menu commit 2a79d3d):
+The Escape menu's button sits in the top-right by default, where the role label and the clock usually are. GameSpice Menu has a `menu_button_corner` setting for it; a game on a phone moves it to the top-left. Guard the line, because older GameSpice Menu releases do not have the property (it arrived with GameSpice Menu commit 2a79d3d):
 
 ```gdscript
 if &"menu_button_corner" in config:
     config.set(&"menu_button_corner", &"top_left")
 ```
 
-It needs the dot-menu release with menu-overlap support; with an older one the guard skips it and the button stays where it was.
+It needs the GameSpice Menu release with menu-overlap support; with an older one the guard skips it and the button stays where it was.
 
 ## A headless_touch suite
 
@@ -27,7 +27,7 @@ Add `examples/headless_touch.tscn` extending `DotGameCheckSuite`, with the usual
 
 ## Rendering a phone frame
 
-No assertion shows that the HUD is readable. `addons/dot_game/tools/dot_game_phone_shot.sh` renders one 844x390 frame of the game's real client with touch on, HUD and menu built, to `screenshots/phone.png`; a game's `tools/phone_shot.sh` execs it (the GPU runner only runs `tools/*.sh`). It needs xvfb, not `--headless`, which gives a 64x64 viewport. Options: `--scene=`, `--out=`, `--set=key=value`, `--size=WxH` (the window follows it), `--no-touch`, `--call=[NodePath:]method[:arg1,arg2]` (repeatable, run once the client is ready, path relative to the scene root, so `--call=Hud:shout:Run!` shows a HUD shout), and `RENDERER=gl_compatibility` for a 3D map that would otherwise pass the memory cap in Forward+ on software rendering. A game takes the tool with the dot-game update that includes it. Look at the frame after any HUD or layout change.
+No assertion shows that the HUD is readable. `addons/dot_game/tools/dot_game_phone_shot.sh` renders one 844x390 frame of the game's real client with touch on, HUD and menu built, to `screenshots/phone.png`; a game's `tools/phone_shot.sh` execs it (the GPU runner only runs `tools/*.sh`). It needs xvfb, not `--headless`, which gives a 64x64 viewport. Options: `--scene=`, `--out=`, `--set=key=value`, `--size=WxH` (the window follows it), `--no-touch`, `--call=[NodePath:]method[:arg1,arg2]` (repeatable, run once the client is ready, path relative to the scene root, so `--call=Hud:shout:Run!` shows a HUD shout), and `RENDERER=gl_compatibility` for a 3D map that would otherwise pass the memory cap in Forward+ on software rendering. A game takes the tool with the GameSpice Game update that includes it. Look at the frame after any HUD or layout change.
 
 ## HUD text placement
 

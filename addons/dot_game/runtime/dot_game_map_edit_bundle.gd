@@ -3,7 +3,7 @@ extends RefCounted
 
 ## The map-data bundle as a plain dictionary: build one, and check an untrusted one.
 ##
-## Uses dot-map's `DotMapDataBundle` when that script is in the project (located by path, so dot-game never depends on dot-map), and a plain dictionary of the same shape otherwise; the stores take the class, so a game with dot-map saves through it.
+## Uses GameSpice Map's `DotMapDataBundle` when that script is in the project (located by path, so GameSpice Game never depends on GameSpice Map), and a plain dictionary of the same shape otherwise; the stores take the class, so a game with GameSpice Map saves through it.
 
 const NATIVE_PATH := "res://addons/dot_map/data/dot_map_data_bundle.gd"
 const FORMAT := "dot-map-data"
@@ -15,7 +15,7 @@ const MAX_ITEMS := 4096
 const MAX_DEPTH := 8
 
 
-## dot-map's bundle script, or null when the project has no dot-map with it.
+## GameSpice Map's bundle script, or null when the project has no GameSpice Map with it.
 static func native() -> GDScript:
 	return load(NATIVE_PATH) as GDScript if ResourceLoader.exists(NATIVE_PATH) else null
 
@@ -31,7 +31,7 @@ static func as_dict(bundle: Variant) -> Dictionary:
 	return {}
 
 
-## A dot-map `DotMapDataBundle` when available, else a dictionary.
+## A GameSpice Map `DotMapDataBundle` when available, else a dictionary.
 static func make(game: String, map: Dictionary, by: String, sections: Dictionary, note: String = "") -> Variant:
 	var script := native()
 	var meta := {"author": by, "created": int(Time.get_unix_time_from_system()), "note": note}
@@ -140,7 +140,7 @@ static func check(text: String, map: Dictionary) -> DotResult:
 	})
 
 
-## The same check through dot-map: its caps and its id rules, the version and digest as warnings.
+## The same check through GameSpice Map: its caps and its id rules, the version and digest as warnings.
 static func _check_native(script: GDScript, text: String, map: Dictionary) -> DotResult:
 	var version := str(map.get("version", ""))
 	var digest := str(map.get("digest", ""))
@@ -154,7 +154,7 @@ static func _check_native(script: GDScript, text: String, map: Dictionary) -> Do
 	return DotResult.success({"bundle": found.call("to_dict"), "warnings": warnings})
 
 
-## dot-map's refusal in this file's wording, so the admin's reply reads the same with or without it.
+## GameSpice Map's refusal in this file's wording, so the admin's reply reads the same with or without it.
 static func _native_refusal(res: DotResult) -> DotResult:
 	var code: String = res.error.code
 	var text: String = res.error.message

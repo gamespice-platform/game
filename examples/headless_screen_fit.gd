@@ -19,7 +19,7 @@ var _failures := PackedStringArray()
 var _done: Array[String] = []
 
 
-## Stands in for dot-ui's DotTouchButtons, which this addon never names.
+## Stands in for GameSpice UI's DotTouchButtons, which this addon never names.
 class Buttons extends Control:
 	var button_scale := 1.0
 	var margin := 28.0

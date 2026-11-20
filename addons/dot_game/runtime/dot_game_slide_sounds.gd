@@ -1,6 +1,6 @@
 extends Node
 
-## The scrape of a sliding player, for every first-person game: [DotGameClient] adds one in `setup()`. It finds each dot-player-controller `DotFpsController` as it enters the tree, keeps dot-audio's `DotAudioSlide` on those bodies, follows the server's `sv_slide_sounds` and the player's `slide_volume`. dot-audio is loaded by path; without it, or without a `DotAudioManager` in the registry, nothing plays. No class_name: the client preloads it.
+## The scrape of a sliding player, for every first-person game: [DotGameClient] adds one in `setup()`. It finds each GameSpice Player Controller `DotFpsController` as it enters the tree, keeps GameSpice Audio's `DotAudioSlide` on those bodies, follows the server's `sv_slide_sounds` and the player's `slide_volume`. GameSpice Audio is loaded by path; without it, or without a `DotAudioManager` in the registry, nothing plays. No class_name: the client preloads it.
 
 const CHANNEL := "game.client.slide"
 const SLIDE_SCRIPT := "res://addons/dot_audio/runtime/dot_audio_slide.gd"
@@ -13,7 +13,7 @@ const CVAR := "sv_slide_sounds"
 const SETTING := &"slide_volume"
 const CONTROLLER_CLASS := &"DotFpsController"
 
-## The slide node (dot-audio's `DotAudioSlide`, or a stand-in); built by [method start] when unset.
+## The slide node (GameSpice Audio's `DotAudioSlide`, or a stand-in); built by [method start] when unset.
 var slide: Node = null
 ## `func() -> Object`: the game link whose replicated cvars to follow; null offline.
 var link_fn: Callable = Callable()
@@ -21,7 +21,7 @@ var link_fn: Callable = Callable()
 var settings_fn: Callable = Callable()
 ## `func(node) -> bool`: what counts as a controller; unset is [method is_controller]. A suite swaps it.
 var controller_fn: Callable = Callable()
-## dot-audio's `DotAudioSurf` (the glide on a ramp), built by [method start] when dot-audio ships it.
+## GameSpice Audio's `DotAudioSurf` (the glide on a ramp), built by [method start] when GameSpice Audio ships it.
 var surf: Node = null
 ## The `DotAudioSurfRules` behind [member surf] and its replicated `sv_surf_*` cvars; shared with [DotGameLanding] to mute landings.
 var surf_rules: RefCounted = null
@@ -56,7 +56,7 @@ static func declare(schema: Object) -> void:
 	var _added: Variant = schema.call(&"add", def)
 
 
-## Declares [constant SETTING] on a dot-menu settings node's schema before its `setup()`, building the stock schema first when the node has none.
+## Declares [constant SETTING] on a GameSpice Menu settings node's schema before its `setup()`, building the stock schema first when the node has none.
 static func declare_on(menu_settings: Object) -> void:
 	if menu_settings == null or not ("schema" in menu_settings):
 		return
@@ -70,7 +70,7 @@ static func declare_on(menu_settings: Object) -> void:
 	declare(schema)
 
 
-## Builds the slide node when unset and starts following every controller in the tree. False (and a debug line) without dot-audio.
+## Builds the slide node when unset and starts following every controller in the tree. False (and a debug line) without GameSpice Audio.
 func start() -> bool:
 	if slide == null:
 		if not ResourceLoader.exists(SLIDE_SCRIPT):
@@ -104,7 +104,7 @@ func _start_surf() -> void:
 	add_child(surf)
 
 
-## The `sv_surf_*` cvar specs (name, value, description, range) of dot-audio, or none without it.
+## The `sv_surf_*` cvar specs (name, value, description, range) of GameSpice Audio, or none without it.
 static func surf_cvar_specs() -> Array:
 	if not ResourceLoader.exists(SURF_RULES_SCRIPT):
 		return []
@@ -128,7 +128,7 @@ func _on_node_added(node: Node) -> void:
 		_controllers[node.get_instance_id()] = weakref(node)
 
 
-## Whether [param node] is a `DotFpsController` or a subclass of one, by script, so dot-game names no dot-player-controller class.
+## Whether [param node] is a `DotFpsController` or a subclass of one, by script, so GameSpice Game names no GameSpice Player Controller class.
 static func is_controller(node: Node) -> bool:
 	var script: Script = node.get_script() as Script
 	while script != null:

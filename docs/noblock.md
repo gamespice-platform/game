@@ -8,13 +8,13 @@ dot-team's `DotTeamBlockRules` decides per pair whether two players collide; dot
 
 ## Client: one call
 
-After `DotGameClient.setup()`: `client.add_noblock(game, Callable(game, "team_of_side"))`, with a `side_fn` returning the same side ids as the server's. It builds the rules, feeds `body_rules.pair_fn` and follows the replicated cvars of `client.link`; it fails loudly when dot-team is absent or the link cannot replicate cvars, because a client that does not follow rubber-bands against the server.
+After `DotGameClient.setup()`: `client.add_noblock(game, Callable(game, "team_of_side"))`, with a `side_fn` returning the same side ids as the server's. It builds the rules, feeds `body_rules.pair_fn` and follows the replicated cvars of `client.link`; it fails loudly when GameSpice Team is absent or the link cannot replicate cvars, because a client that does not follow rubber-bands against the server.
 
 ## Config
 
-The config is dot-team's `DotTeamBlockConfig`, run through a `DotGameConfigBinder` with `profile_kind` and `profile_id` both `noblock` (the binder's new `profile_kind` lets a game carry a second profile set beside its `config` one). Layers, weakest first: code defaults, `cfg/game/<game>/noblock/noblock.yml`, `cfg/server/game/<game>/noblock/noblock.yml`, `--profile.noblock/noblock.<key>=`, `DOT_TEAM_BLOCK_*` env, `--team-block-*` argv. Strict on a dedicated server: an unknown key or bad value makes the module refuse to load. The cvars start at the config's values; a cvar edit changes the config, and a workbench edit of the `noblock` kind writes the cvar. A yml file is a flat mapping, for example `team_block: true`.
+The config is GameSpice Team's `DotTeamBlockConfig`, run through a `DotGameConfigBinder` with `profile_kind` and `profile_id` both `noblock` (the binder's new `profile_kind` lets a game carry a second profile set beside its `config` one). Layers, weakest first: code defaults, `cfg/game/<game>/noblock/noblock.yml`, `cfg/server/game/<game>/noblock/noblock.yml`, `--profile.noblock/noblock.<key>=`, `DOT_TEAM_BLOCK_*` env, `--team-block-*` argv. Strict on a dedicated server: an unknown key or bad value makes the module refuse to load. The cvars start at the config's values; a cvar edit changes the config, and a workbench edit of the `noblock` kind writes the cvar. A yml file is a flat mapping, for example `team_block: true`.
 
-Test: `examples/headless_noblock.tscn`; the module wiring is a section of `examples/game_selftest.tscn` (the dot-team half only runs when the addon is linked).
+Test: `examples/headless_noblock.tscn`; the module wiring is a section of `examples/game_selftest.tscn` (the GameSpice Team half only runs when the addon is linked).
 
 ## Opting out
 

@@ -2,7 +2,7 @@ class_name DotGameCombatFeel
 extends RefCounted
 
 ## Movement-dependent spread, recoil patterns and the spread crosshair for a game that opts in.
-## dot-weapon and dot-ui are loaded by path and named nowhere: a build without them gets inert no-ops.
+## GameSpice Weapon and GameSpice UI are loaded by path and named nowhere: a build without them gets inert no-ops.
 ## Wire it with [method attach], [method track_tunables], [method bind_cvars] and [method DotGameClient.add_combat_feel].
 
 const SPREAD_SCRIPT := "res://addons/dot_weapon/math/dot_weapon_spread_rules.gd"
@@ -11,15 +11,15 @@ const BALLISTICS_SCRIPT := "res://addons/dot_weapon/math/dot_weapon_ballistics_r
 const SPRINT_SCRIPT := "res://addons/dot_player_controller/fp/core/dot_fps_sprint_rules.gd"
 const CVAR_FLAGS := DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED
 
-## DotWeaponSpreadRules, or null without dot-weapon.
+## DotWeaponSpreadRules, or null without GameSpice Weapon.
 var spread: RefCounted = null
-## DotWeaponRecoilRules, or null without dot-weapon.
+## DotWeaponRecoilRules, or null without GameSpice Weapon.
 var recoil: RefCounted = null
-## DotWeaponBallisticsRules (`sv_ballistics*`, always off until the cvar is set), or null without dot-weapon.
+## DotWeaponBallisticsRules (`sv_ballistics*`, always off until the cvar is set), or null without GameSpice Weapon.
 var ballistics: RefCounted = null
-## DotFpsSprintRules (sv_sprint*, sv_stamina*), or null without dot-player-controller API 11 or when built with [code]sprint = false[/code].
+## DotFpsSprintRules (sv_sprint*, sv_stamina*), or null without GameSpice Player Controller API 11 or when built with [code]sprint = false[/code].
 var sprint: RefCounted = null
-## DotCrosshairCvars (cl_crosshair_*), or null without dot-ui API 10.
+## DotCrosshairCvars (cl_crosshair_*), or null without GameSpice UI API 10.
 var crosshair_cvars: RefCounted = null
 
 

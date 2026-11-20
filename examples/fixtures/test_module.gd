@@ -1,6 +1,6 @@
 extends DotGameModule
 
-## A whole server game's wiring, in the thirty lines dot-game leaves you.
+## A whole server game's wiring, in the thirty lines GameSpice Game leaves you.
 ##
 ## Everything else is in [DotGameModule]. Loaded by PATH, because [method DotModuleHost.load_module] constructs the module itself.
 
@@ -78,7 +78,7 @@ func _make_identity() -> Node:
 	return null if skip_identity else TestIdentity.new()
 
 
-## Off, because dot-platform is not installed in this project and a missing module is
+## Off, because GameSpice Platform is not installed in this project and a missing module is
 ## reported rather than fatal -- which is worth asserting once, in the section that does
 ## it, rather than logging an error in every other section.
 func _wants_platform_module() -> bool:

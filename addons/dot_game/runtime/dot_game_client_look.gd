@@ -1,7 +1,7 @@
 class_name DotGameClientLook
 extends RefCounted
 
-## The look-to-gag keys of [DotGameClient]: which keys, the dot-voice node, and the target under the crosshair.
+## The look-to-gag keys of [DotGameClient]: which keys, the GameSpice Voice node, and the target under the crosshair.
 
 const CHANNEL := "game.client"
 

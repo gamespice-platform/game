@@ -33,7 +33,7 @@ var _last: Dictionary = {}
 
 ## Registers the type on [param net], answers requests and stores itself as [constant NET_META].
 ## [param game] may define `_avatar_actions_equipped(peer)` and `_avatar_action_veto(peer, id)`;
-## a game not on [DotGameModule] passes its dot-server as [param server] and its [DotGameRoster] as [param roster].
+## a game not on [DotGameModule] passes its GameSpice Server as [param server] and its [DotGameRoster] as [param roster].
 static func serve(net: DotNetManager, game: Object = null, server: Object = null,
 		roster: Object = null) -> DotResult:
 	var made := DotGameAvatarActionMessage.register(net)

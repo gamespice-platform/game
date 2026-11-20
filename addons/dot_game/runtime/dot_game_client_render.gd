@@ -1,14 +1,14 @@
 extends RefCounted
 
-## [DotGameClient]'s render quality: dot-fx's [DotFxRenderQuality] on the client, so every game gets
+## [DotGameClient]'s render quality: GameSpice FX's [DotFxRenderQuality] on the client, so every game gets
 ## anisotropic filtering, anti-aliasing and mip bias from the player's menu and the `--render-*` cvars.
-## No class_name: the client preloads it. dot-fx is optional and looked up by path.
+## No class_name: the client preloads it. GameSpice FX is optional and looked up by path.
 
 const CHANNEL := "game.client"
 const SCRIPT := "res://addons/dot_fx/runtime/dot_fx_render_quality.gd"
 
 
-## Adds the node and follows the settings, or returns null when dot-fx is not in this build or a game already has one.
+## Adds the node and follows the settings, or returns null when GameSpice FX is not in this build or a game already has one.
 static func add(c: Node, store: Object) -> Node:
 	if not ResourceLoader.exists(SCRIPT) or c.get_node_or_null("RenderQuality") != null:
 		return null

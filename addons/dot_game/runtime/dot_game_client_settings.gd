@@ -33,7 +33,7 @@ static func build(c: Node) -> void:
 	DotGameUserCfg.add_entry(c)
 
 
-## The stock dot-menu settings node, or null when dot-menu is not in the build.
+## The stock GameSpice Menu settings node, or null when GameSpice Menu is not in the build.
 static func make(c: Node) -> Node:
 	if not ResourceLoader.exists(c.SETTINGS_SCRIPT):
 		DotLog.info(CHANNEL, "dot-menu is not in this build: no settings or Escape menu")

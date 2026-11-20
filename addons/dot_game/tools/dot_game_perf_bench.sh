@@ -15,7 +15,7 @@
 # frame times are not comparable with a run without it, so --ab passes it to both sides.
 # --release benches a release export (what players run; ~27% faster client frame than the editor binary, FC 2026-11-13) instead
 # of the editor binary: gpu.sh exports it once per content key behind a dispatcher main scene and caches it (GPU_RELEASE=1,
-# tools/gpu-release-export.sh in dot-bootstrap); -d is editor-only and refused with it. Logs get a -release suffix.
+# tools/gpu-release-export.sh in GameSpice Bootstrap); -d is editor-only and refused with it. Logs get a -release suffix.
 # --compat draws with gl_compatibility on OpenGL (the browser shell's renderer) instead of Forward+ on Vulkan; both --ab sides.
 set -euo pipefail
 

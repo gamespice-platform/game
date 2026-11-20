@@ -12,7 +12,7 @@ static func is_web(c: Node) -> bool:
 	return c.web_guard_fn.is_valid() or DotPlatform.is_web()
 
 
-## The listeners live in dot-core's web/dot_web.js, loaded by the shell page; only the flag is set from here.
+## The listeners live in GameSpice Core's web/dot_web.js, loaded by the shell page; only the flag is set from here.
 static func run(c: Node, command: String) -> void:
 	if c.web_guard_fn.is_valid():
 		c.web_guard_fn.call(command)

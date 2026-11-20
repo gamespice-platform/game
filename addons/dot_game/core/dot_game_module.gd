@@ -4,18 +4,18 @@ extends DotModule
 
 ## The order a server game is built in, written once: game object, netcode and bridge, identity, services, roster, one tick, then the reverse on unload.
 ##
-## Subclass it and fill in the classes and numbers that are yours; it holds no rules, only what every game would write the same way. Nothing optional is named (dot-map, dot-vote, dot-platform, a game's services): they are reached by duck-typing or path, because a script naming an absent class fails to parse.
+## Subclass it and fill in the classes and numbers that are yours; it holds no rules, only what every game would write the same way. Nothing optional is named (GameSpice Map, GameSpice Vote, GameSpice Platform, a game's services): they are reached by duck-typing or path, because a script naming an absent class fails to parse.
 
 const CHANNEL := "game.module"
 
-## Where dot-platform's module is loaded from, by path: the module host constructs the module itself, so a pre-built instance would be thrown away.
+## Where GameSpice Platform's module is loaded from, by path: the module host constructs the module itself, so a pre-built instance would be thrown away.
 const PLATFORM_MODULE_PATH := "res://addons/dot_platform/dot_platform_module.gd"
 const FPS_CVARS_SCRIPT := "res://addons/dot_player_controller/fp/core/dot_fps_cvars.gd"
 
 ## Where [method bind_movement_cvars] looks for the binder; a suite points it at a stub.
 static var fps_cvars_script: String = FPS_CVARS_SCRIPT
 const LOOK_MUTE_SCRIPT := "res://addons/dot_voice/runtime/dot_voice_look_mute.gd"
-## dot-cloud's server auto-update, loaded by path: dot-cloud is not a dependency.
+## GameSpice Cloud's server auto-update, loaded by path: GameSpice Cloud is not a dependency.
 const AUTO_UPDATE_SCRIPT := "res://addons/dot_cloud/server/dot_cloud_auto_update.gd"
 const AUTO_UPDATE_SERVICE := &"dot_cloud_autoupdate"
 
@@ -32,9 +32,9 @@ const _STATS_REPORT_UID := "uid://b0alyooc3qid7"
 
 ## Seconds a seat may stay loading before it counts as loaded anyway, with a warning.
 @export var load_timeout_sec: float = 30.0
-## Place dot-profiler with sv_profiler_* on the console; `--no-profiler` or GS_GAME_PROFILER=0 turns it off.
+## Place GameSpice Profiler with sv_profiler_* on the console; `--no-profiler` or GS_GAME_PROFILER=0 turns it off.
 @export var use_profiler: bool = true
-## Wire dot-team's block rules (teammates pass through, enemies stop) when the game has a `body_rules`; false is the one-line opt-out.
+## Wire GameSpice Team's block rules (teammates pass through, enemies stop) when the game has a `body_rules`; false is the one-line opt-out.
 @export var use_noblock: bool = true
 
 ## After a map change, seconds to wait for a client's cover to go up again before counting it loaded.
@@ -52,7 +52,7 @@ var bridge: Node = null
 ## The NPC level-of-detail and sense-thread cvars, once the game called [method attach_npc_lod].
 var npc_lod: DotGameNpcLod = null
 
-## The movement cvars (`sv_gravity` and the rest), once [method bind_movement_cvars] ran: dot-player-controller's `DotFpsCvars`.
+## The movement cvars (`sv_gravity` and the rest), once [method bind_movement_cvars] ran: GameSpice Player Controller's `DotFpsCvars`.
 var movement_cvars: Object = null
 
 ## The identity layer, when [method _make_identity] returned one.
@@ -64,7 +64,7 @@ var services: Node = null
 ## Who is in the game, as opposed to who is connected.
 var roster: DotGameRoster = null
 
-## Reports each seat to a dot-stats tracker when one is set or registered as `dot_stats_tracker`; null feeds nothing.
+## Reports each seat to a GameSpice Stats tracker when one is set or registered as `dot_stats_tracker`; null feeds nothing.
 var stats_feed: DotGameStatsFeed = null
 
 ## Adds the tracker's per-player figures to the Tab board (`st_*`, `lt_*`, `stat_columns`). Null without a roster.
@@ -126,7 +126,7 @@ func _make_identity() -> Node:
 	return null
 
 
-## Whether to load dot-platform's module after the identity layer is up; off for a game with its own admission flow.
+## Whether to load GameSpice Platform's module after the identity layer is up; off for a game with its own admission flow.
 func _wants_platform_module() -> bool:
 	return true
 
@@ -152,7 +152,7 @@ func _game_hibernation(_hibernating: bool) -> void:
 	pass
 
 
-## This game's own columns on the Tab board for one player (kills, points, a side), merged into that player's row of dot-server's roster.
+## This game's own columns on the Tab board for one player (kills, points, a side), merged into that player's row of GameSpice Server's roster.
 ## The server's half of the scoreboard: only the server knows some numbers. Keyed by the session; [member roster] finds the player.
 func _game_board_fields(_session: Object) -> Dictionary:
 	return {}
@@ -171,7 +171,7 @@ func _movement_targets() -> Array:
 	return []
 
 
-## Binds dot-player-controller's movement cvars over [param targets] (default [method _movement_targets]) so a game's movement is server-tunable without per-game code. Skips with a log line when dot-player-controller is absent or nothing is offered. Returns the cvars made.
+## Binds GameSpice Player Controller's movement cvars over [param targets] (default [method _movement_targets]) so a game's movement is server-tunable without per-game code. Skips with a log line when GameSpice Player Controller is absent or nothing is offered. Returns the cvars made.
 func bind_movement_cvars(targets: Array = []) -> Array:
 	return _wiring().bind_movement_cvars(self, targets if not targets.is_empty() else _movement_targets())
 
@@ -273,7 +273,7 @@ func _module_load() -> DotResult:
 	return DotResult.success(null)
 
 
-## Hands dot-server's Tab board this game's columns. Asked, not assumed: an older dot-server lacks the properties.
+## Hands GameSpice Server's Tab board this game's columns. Asked, not assumed: an older GameSpice Server lacks the properties.
 func _attach_board() -> void:
 	if server == null or not ("scoreboard_fields" in server):
 		return
@@ -299,7 +299,7 @@ func _detach_board() -> void:
 		server.set(&"scoreboard_extra", Callable())
 
 
-## Builds the identity layer and loads dot-platform beside it.
+## Builds the identity layer and loads GameSpice Platform beside it.
 func _build_identity() -> DotResult:
 	return await _wiring().build_identity(self)
 
@@ -384,7 +384,7 @@ func mark_reloading() -> void:
 
 ## The spawn hook, kept here rather than handed to the roster directly.
 ##
-## Moderation records are checked here, not at connect: dot-server's mute dies with its session, so a muted player would reconnect and talk.
+## Moderation records are checked here, not at connect: GameSpice Server's mute dies with its session, so a muted player would reconnect and talk.
 func _on_client_spawn(event: DotEvent) -> void:
 	if roster == null:
 		return
@@ -492,7 +492,7 @@ func report_map(map_id: String) -> bool:
 			})
 		return false
 
-	# dot-server 19 takes the map's download groups too, so a joining client fetches only this map's files.
+	# GameSpice Server 19 takes the map's download groups too, so a joining client fetches only this map's files.
 	if _server_takes_map_groups():
 		server.games.call("set_current_map", map_id, _map_download_groups(map_id) if map_id != "" else PackedStringArray())
 	else:
@@ -500,7 +500,7 @@ func report_map(map_id: String) -> bool:
 	return true
 
 
-## The dot-cloud download groups of [param map_id]'s own files (a bake, bot rides), reported with the map so a client
+## The GameSpice Cloud download groups of [param map_id]'s own files (a bake, bot rides), reported with the map so a client
 ## joining now fetches them and one already in the session tops up. Empty, the default, means the map has none.
 func _map_download_groups(_map_id: String) -> PackedStringArray:
 	return PackedStringArray()
@@ -513,7 +513,7 @@ func _server_takes_map_groups() -> bool:
 	return false
 
 
-## The cvars a map's file may set: key -> `{type, min, max}` (dot-map's docs/map-config.md). Empty, the default, means this game takes no per-map settings.
+## The cvars a map's file may set: key -> `{type, min, max}` (GameSpice Map's docs/map-config.md). Empty, the default, means this game takes no per-map settings.
 func _map_config_keys() -> Dictionary:
 	return {}
 
@@ -555,7 +555,7 @@ func _module_unload() -> void:
 		prof.queue_free()
 
 
-## Starts dot-cloud's auto-update once per headless server process, under the server. No-op without dot-cloud, on a listen server and in a browser.
+## Starts GameSpice Cloud's auto-update once per headless server process, under the server. No-op without GameSpice Cloud, on a listen server and in a browser.
 static func start_auto_update(host: DotServer) -> Node:
 	return _wiring().start_auto_update(host)
 
@@ -592,7 +592,7 @@ func _avatar_action_veto(peer_id: int, id: String) -> bool:
 	return false
 
 
-## This server's id on the site, advertised as [constant DotGameAvatarContent.SERVER_CVAR]; 0 while unknown. Default: dot-auth's `server:<id>` audience.
+## This server's id on the site, advertised as [constant DotGameAvatarContent.SERVER_CVAR]; 0 while unknown. Default: GameSpice Auth's `server:<id>` audience.
 func _site_server_id() -> int:
 	var auth: Object = DotRegistry.get_service(&"dot_auth_server")
 	if auth != null and auth.has_method(&"join_audience"):
@@ -600,7 +600,7 @@ func _site_server_id() -> int:
 	return 0
 
 
-## Seconds between looks for the site id while dot-auth has not read it yet, and how many looks.
+## Seconds between looks for the site id while GameSpice Auth has not read it yet, and how many looks.
 var site_server_retry_sec: float = 5.0
 var site_server_retries: int = 24
 
@@ -618,7 +618,7 @@ func _advertise_avatar_content() -> void:
 	_wiring().advertise_content(self)
 
 
-## Whether to wire dot-team's block rules. A game with its own `block_rules` wired by hand is left alone.
+## Whether to wire GameSpice Team's block rules. A game with its own `block_rules` wired by hand is left alone.
 func _noblock_enabled() -> bool:
 	return use_noblock and game != null and "body_rules" in game and game.get("body_rules") != null \
 		and not ("block_rules" in game and game.get("block_rules") != null)
@@ -705,7 +705,7 @@ func _teardown() -> void:
 	tick = 0
 
 
-## Whether this module loaded dot-platform's module, and so has to unload it.
+## Whether this module loaded GameSpice Platform's module, and so has to unload it.
 var _loaded_platform := false
 
 

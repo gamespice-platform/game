@@ -12,7 +12,7 @@
 # NC_TRANSPORT=ws runs the local clients over WebSocket (TCP) and impairs TCP instead of UDP; remote boxes stay UDP.
 # NC_SOLID=1 keeps mp_solidplayers on (the default is 0 here) and is held to the same limits, plus
 # a contact count: a game whose bumps only stop the mover collides at the mover's view tick on
-# both ends (dot-net docs/prediction.md), so bumping costs no corrections.
+# both ends (GameSpice Net docs/prediction.md), so bumping costs no corrections.
 # NC_FIRE=0 keeps the clients from shooting, to count what bumping alone costs.
 #
 # Exit 1 when any assertion of any profile fails. docs/testing.md "Network chaos" says what it

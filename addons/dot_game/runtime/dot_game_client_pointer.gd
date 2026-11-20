@@ -1,7 +1,7 @@
 class_name DotGameClientPointer
 extends RefCounted
 
-## Holds [DotGameClient]'s pointer for nodes in the [code]dot_pointer_modal[/code] group (dot-ui's ballot) while their [code]pointer_mode_changed(on)[/code] says they freed the mouse. Duck-typed by group and signal, so this names nothing in dot-ui.
+## Holds [DotGameClient]'s pointer for nodes in the [code]dot_pointer_modal[/code] group (GameSpice UI's ballot) while their [code]pointer_mode_changed(on)[/code] says they freed the mouse. Duck-typed by group and signal, so this names nothing in GameSpice UI.
 
 
 static func wire(c: Node) -> void:
