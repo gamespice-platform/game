@@ -53,6 +53,12 @@ mkdir -p "$out" "$clips"
 rc=0
 run=(timeout "$limit")
 ((limit > 0)) || run=()
+# A fresh checkout or ~/wt worktree has no .godot/ yet, so --script cannot resolve the addons' class_names
+# ("Could not resolve class"): import once first.
+if [[ ! -f .godot/global_script_class_cache.cfg ]]; then
+  "${run[@]}" "${GODOT:-godot}" --headless --path . --import > /dev/null 2>&1 \
+    || echo "dot_game_visual_qa_shot.sh: the import of a fresh checkout failed; the capture may not resolve class names" >&2
+fi
 xvfb-run -a -s "-screen 0 ${size}x24" "${run[@]}" "${GODOT:-godot}" --path . --resolution "$size" --fixed-fps "$fps" \
   --script "$script" -- --out "$out" --fps "$fps" "$@" 2>&1 \
   | grep -E "^VISUALQA|SCRIPT ERROR|ERROR: .*visual_qa|^visual_qa: ${keep:+|$keep}" || rc=$?

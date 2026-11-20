@@ -56,7 +56,7 @@ func _drive(_item: String, _clip: String, t: float, _frame: int) -> void:
 exec bash "$(dirname "$0")/../addons/dot_game/tools/dot_game_visual_qa_shot.sh" --script tools/visual_qa.gd -- "$@"
 ```
 
-3. Run it as gamedev from the checkout or a `~/wt` worktree, in the background (one item and clip takes a minute or two on a box):
+3. Run it as gamedev from the checkout or a `~/wt` worktree, in the background (one item and clip takes a minute or two on a box). A worktree lacks the gitignored addon links of the checkout (`addons/dot_core` and the rest, "Could not resolve class" in the capture), so link them from `/home/gamedev/projects/godot/<repo>/addons/<name>` first; the shot tool imports a fresh `.godot/` itself. Make sure `screenshots/` belongs to gamedev, or gpu.sh's copy back fails on chgrp. The tool's own end-to-end proof is `tools/visual_judge_proof_shot.sh` (clip `pop` has a planted teleport and floating face box, clip `turn` has none):
 
 ```bash
 sudo -u gamedev bash addons/dot_game/tools/dot_game_visual_qa.sh --shot tools/visual_qa_shot.sh --fresh soldier -- --only soldier --clips walk
