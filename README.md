@@ -1,4 +1,4 @@
-[![Game - GameSpice addon](docs/banner.png)](https://moddingcommunity.com/a/256-dot-game)
+[![Game - GameSpice addon](docs/banner.png)](https://moddingcommunity.com/a/60-gs-game)
 
 The shared wiring for a multiplayer Godot 4 game. Every server game in the family needed the same setup code: networking, player identity, services, a roster of who is playing, one authoritative tick, and a clean shutdown. dot-game does that once, so your game only writes what is its own. It also has the client's platform layer (loading cover, menus, console, HUD, chat) and a set of tools shared by every game. Part of TMC's open source [**GameSpice**](https://gamespice.net) collection (MIT licence).
 
