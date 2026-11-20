@@ -25,3 +25,16 @@ jobs:
             hygiene: true
         secrets:
             DEPS_TOKEN: ${{ secrets.DOT_DEPS_TOKEN }}
+
+    # The visual judge loop's self-test (tests/visual_judge/selftest.sh): stub judge and stub nightly,
+    # no GPU, no Claude account. Every defect fixed in the judge, the gate and the post tool has a case
+    # here, so a change that breaks one fails CI rather than a nightly QA pass (vjudge-second-review-1).
+    visual-judge-selftest:
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install ffmpeg
+              run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+            - name: Visual judge self-test
+              run: bash tests/visual_judge/selftest.sh
