@@ -268,9 +268,17 @@ func _test_profiler_placement() -> void:
 	if ResourceLoader.exists(prof.SCRIPT):
 		_check(placed != null and DotRegistry.get_service(&"dot_profiler") == placed, "placed and registered as dot_profiler")
 		_check(prof.add(host) == null, "placing twice adds nothing")
+		var cfg: Variant = placed.get(&"config")
+		_check(cfg is Object and str((cfg as Object).get(&"perf_game_id")) != "", "the placed profiler knows the game id for its perf reports")
+		prof.set_map(placed, "dust")
+		prof.net_cost(&"selftest", 1, 10)
+		prof.signal_emitted(host, &"ready")
 	else:
 		_check(placed == null and host.get_child_count() == 0, "a build without dot-profiler places nothing")
 	prof.install_server(null)
+	prof.net_cost(&"selftest", 0, 10)
+	prof.set_map(null, "x")
+	_check(prof.perf_game_id() != "", "a game id is always derived (setting, repo directory or project name)")
 	host.queue_free()
 	await _late_console_after_free()
 	_done()

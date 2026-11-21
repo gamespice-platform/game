@@ -233,6 +233,7 @@ static func build_console(c: Node, manager: Object) -> Node:
 
 
 static func map_changed(c: Node, map_id: String) -> void:
+	_Profiler.set_map(c.profiler, map_id)
 	if c.map_config == null:
 		if (c.map_config_keys.is_empty() and c.map_config_defaults.is_empty()) \
 				or not c.map_config_get_fn.is_valid() or not c.map_config_set_fn.is_valid():
