@@ -85,6 +85,35 @@ func _record_end() -> void:
 	pass
 
 
+## `--mesh-census 1`: what every visible mesh instance is (mesh class, material kind, parent class and name), biggest groups first,
+## so a draw-call count gets names. `--render-scan 1` puts the draws per material and mesh in the report's render.top_draw.
+func mesh_census(top := 30) -> void:
+	var groups := {}
+	var total := 0
+	for node: Node in get_tree().root.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if not mi.is_visible_in_tree() or mi.mesh == null:
+			continue
+		total += 1
+		var mat: Material = mi.material_override
+		if mat == null and mi.mesh.get_surface_count() > 0:
+			mat = mi.mesh.surface_get_material(0)
+		var kind := "none"
+		if mat is BaseMaterial3D:
+			kind = "alpha" if (mat as BaseMaterial3D).transparency != BaseMaterial3D.TRANSPARENCY_DISABLED else "opaque"
+		elif mat != null:
+			kind = mat.get_class()
+		var up := mi.get_parent()
+		var key := "%s %s surfaces=%d shadow=%d under %s %s" % [mi.mesh.get_class(), kind, mi.mesh.get_surface_count(),
+			mi.cast_shadow, up.get_class(), String(up.name).rstrip("0123456789@")]
+		groups[key] = int(groups.get(key, 0)) + 1
+	var keys := groups.keys()
+	keys.sort_custom(func(a: String, b: String) -> bool: return groups[a] > groups[b])
+	say("mesh census: %d visible mesh instances" % total)
+	for k: String in keys.slice(0, top):
+		say("census %4d  %s" % [groups[k], k])
+
+
 ## Extra sidecar keys from the game; merged over the engine numbers.
 func _sidecar_extra(_game: Object) -> Dictionary:
 	return {}
@@ -228,6 +257,10 @@ func _run() -> void:
 	if args.has("script-top") and profiler != null:
 		profiler.config.script_top = int(args["script-top"])
 	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+	if str(args.get("render-scan", "0")) == "1" and profiler != null:
+		profiler.config.perf_render_scan = true
+	if str(args.get("mesh-census", "0")) == "1":
+		mesh_census()
 	_record_begin()
 	_nodes_added = 0
 	get_tree().node_added.connect(_count_node_added)
