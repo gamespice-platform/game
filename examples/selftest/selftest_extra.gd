@@ -13,10 +13,10 @@ func _test_chat_client_without_the_addons() -> void:
 	add_child(box)
 	await get_tree().process_frame
 
-	_check(box.window == null, "it builds no box, because there is no dot-ui")
+	_check(box.window == null, "it builds no box, because there is no gs-ui")
 	_check(
 		box.voice == null or ResourceLoader.exists(GSGameChatClient.VOICE_SCRIPT),
-		"and no microphone unless dot-voice is linked"
+		"and no microphone unless gs-voice is linked"
 	)
 	_check(box.attach(null).ok, "offline is not an error")
 
@@ -42,7 +42,7 @@ func _test_chat_client_server_lines() -> void:
 	_section("the client's chat box draws the server's own lines, once")
 
 	var link := FakeClientLink.new()
-	GSRegistry.register(&"dot_client_link", link)
+	GSRegistry.register(&"gs_client_link", link)
 
 	var box := GSGameChatClient.new()
 	box.name = "ServerLinesClient"
@@ -71,7 +71,7 @@ func _test_chat_client_server_lines() -> void:
 	link.chat_received.emit({"kind": "system", "name": "[Server]", "text": "  "})
 	link.chat_received.emit({"kind": "all", "name": "Ada", "text": "hello", "userid": 3})
 	_check(window.lines.is_empty(),
-		"chat's state, dot-chat's shape, an empty line and a player's line on the link are not drawn",
+		"chat's state, gs-chat's shape, an empty line and a player's line on the link are not drawn",
 		str(window.lines))
 
 	bridge.chat_received.emit({"d": "Ada", "m": "hello", "c": "all"})
@@ -115,7 +115,7 @@ func _test_chat_client_server_lines() -> void:
 		"offline, with no bridge, the link is not read")
 	offline.queue_free()
 
-	GSRegistry.unregister(&"dot_client_link")
+	GSRegistry.unregister(&"gs_client_link")
 	link.free()
 	_done()
 
@@ -157,7 +157,7 @@ class FakeChatBridge:
 
 
 func _test_store_entitlements_absent() -> void:
-	_section("store entitlements: a project without dot-loadout, or a non-manager, is left alone")
+	_section("store entitlements: a project without gs-loadout, or a non-manager, is left alone")
 	var plain := Node.new()
 	_check(not GSGameStoreEntitlements.attach(plain), "a node without entitlement_source is not wrapped")
 	_check(not GSGameStoreEntitlements.attach(null), "null is not wrapped")
@@ -409,7 +409,7 @@ func _test_workbench_hosting() -> void:
 	add_child(wb)
 	var res := wb.start()
 	_check(res.ok and res.value == false and wb.overlay == null, "without the addon there is no workbench and no error")
-	_check(wb.accounts and wb.account_gate == null, "accounts default on, and no gate without dot-auth or dot-workbench")
+	_check(wb.accounts and wb.account_gate == null, "accounts default on, and no gate without gs-auth or gs-workbench")
 	var fake_auth := Node.new()
 	_check(not GSGameWorkbenchAuth.ticket_resolver(null).is_valid() and not GSGameWorkbenchAuth.ticket_resolver(fake_auth).is_valid(), "no auth server or no ticket key gives no resolver")
 	_check(GSGameWorkbenchAuth.identity_of_ticket("a.b.c", "", "srv", 0) == null, "a ticket nobody can verify is no identity")
@@ -472,30 +472,30 @@ func _test_workbench_key() -> void:
 
 func _test_class_immunity() -> void:
 	_section("class immunity: a class that lists fall takes none and breaks no legs; respawn clears it")
-	var combat_path := "res://addons/dot_combat/dot_combat_manager.gd"
+	var combat_path := "res://addons/gs_combat/gs_combat_manager.gd"
 	if not ResourceLoader.exists(combat_path) or not ResourceLoader.exists(GSGameClassImmunity.APPLY_SCRIPT):
-		_check(GSGameClassImmunity.apply(null, null, 1) == 0, "without dot-combat it is a no-op")
+		_check(GSGameClassImmunity.apply(null, null, 1) == 0, "without gs-combat it is a no-op")
 		_done()
 		return
 	var manager: Node = load(combat_path).new()
 	manager.set(&"register_service", false)
-	manager.set(&"trace", load("res://addons/dot_combat/trace/dot_trace_flat.gd").call(&"with_floor", 0.0))
-	manager.set(&"rules", load("res://addons/dot_combat/resolve/dot_damage_rules.gd").new())
-	manager.set(&"config", load("res://addons/dot_combat/dot_combat_config.gd").new())
+	manager.set(&"trace", load("res://addons/gs_combat/trace/gs_trace_flat.gd").call(&"with_floor", 0.0))
+	manager.set(&"rules", load("res://addons/gs_combat/resolve/gs_damage_rules.gd").new())
+	manager.set(&"config", load("res://addons/gs_combat/gs_combat_config.gd").new())
 	add_child(manager)
 	# Immunity matches GSDamageType.id; an unregistered kind resolves as the default type, so games register "fall".
-	manager.call(&"register_damage_type", load("res://addons/dot_combat/core/dot_damage_type.gd").call(&"make", &"fall", "Fall"))
+	manager.call(&"register_damage_type", load("res://addons/gs_combat/core/gs_damage_type.gd").call(&"make", &"fall", "Fall"))
 	var health := _immune_health()
 	manager.call(&"register_health", 7, health)
 	manager.call(&"register_health", 8, _immune_health())
-	var rules: Object = load("res://addons/dot_combat/core/dot_fall_damage_rules.gd").new()
+	var rules: Object = load("res://addons/gs_combat/core/gs_fall_damage_rules.gd").new()
 	rules.set(&"enabled", true)
 	rules.set(&"threshold", 10.0)
 	rules.set(&"scale", 2.0)
 	rules.set(&"legs_seconds", 2.0)
 	var ctl := ImmuneController.new()
 	add_child(ctl)
-	var fall: Node = load("res://addons/dot_combat/core/dot_fall_damage.gd").new()
+	var fall: Node = load("res://addons/gs_combat/core/gs_fall_damage.gd").new()
 	fall.set(&"rules", rules)
 	fall.set(&"victim", 7)
 	var cref: GSNodeRef = GSNodeRef.of_path(ctl.get_path())
@@ -530,7 +530,7 @@ func _test_class_immunity() -> void:
 	var old := GDScript.new()
 	old.source_code = "static func other() -> int:\n\treturn 1\n"
 	old.reload()
-	_check(GSGameClassImmunity.call_apply(old, immune_def, RefCounted.new(), 7) == 0, "an older dot-player-class without to_immunity is skipped, not a script error")
+	_check(GSGameClassImmunity.call_apply(old, immune_def, RefCounted.new(), 7) == 0, "an older gs-player-class without to_immunity is skipped, not a script error")
 	_check(not GSGameClassImmunity.ensure(manager).call(&"is_immune", 7, &"fall"), "cleared")
 	manager.queue_free()
 	ctl.queue_free()
@@ -539,7 +539,7 @@ func _test_class_immunity() -> void:
 
 
 func _immune_health() -> Node:
-	var h: Node = load("res://addons/dot_combat/core/dot_health.gd").new()
+	var h: Node = load("res://addons/gs_combat/core/gs_health.gd").new()
 	h.set(&"max_health", 100.0)
 	h.set(&"health", 100.0)
 	add_child(h)
@@ -560,7 +560,7 @@ class ImmuneDef extends RefCounted:
 
 
 func _test_combat_feel_inert() -> void:
-	_section("combat feel is an inert no-op without dot-weapon, dot-ui and dot-player-controller")
+	_section("combat feel is an inert no-op without gs-weapon, gs-ui and gs-player-controller")
 	var feel := GSGameCombatFeel.new(true)
 	_check(feel.spread == null and feel.recoil == null and feel.sprint == null, "no addon, no rules")
 	var names: Array[String] = []

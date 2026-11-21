@@ -25,7 +25,7 @@ CORRECTION_RATE = {"clean": 0.10, "lossy100": 0.25, "lossy200": 0.40, "jitter200
 # predicted its own, so the first snapshot after it is a correction of up to speed x blackout.
 # That one is the server's honest answer, reported apart; the worst-correction limit judges the rest.
 RESUME_S = 2.0
-SPIKES_KEPT = 40  # dot_game_netchaos_client.gd keeps the first 40 spikes over 0.5 m
+SPIKES_KEPT = 40  # gs_game_netchaos_client.gd keeps the first 40 spikes over 0.5 m
 POS_SELF_M = 0.25
 POS_OTHER_M = 0.75
 REJOIN_S = 25.0

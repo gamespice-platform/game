@@ -17,7 +17,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-game: the module skeleton, end to end")
+	print("gs-game: the module skeleton, end to end")
 
 	if await _boot():
 		await _test_it_refuses_without_a_game()
@@ -119,7 +119,7 @@ func _boot() -> bool:
 	_section("a server boots")
 
 	var config := GSServerConfig.new()
-	config.hostname = "dot-game selftest"
+	config.hostname = "gs-game selftest"
 	config.port = PORT
 	config.max_players = 4
 	config.a2s_enabled = false
@@ -242,7 +242,7 @@ func _test_the_sequence() -> bool:
 	)
 	_module.report_map("")
 	_check(_server.games.current_map() == "", "and \"\" clears it")
-	_check(_module._server_takes_map_groups() == (GSAddonApi.build_level("dot_server") >= 19),
+	_check(_module._server_takes_map_groups() == (GSAddonApi.build_level("gs_server") >= 19),
 		"report_map passes groups exactly when the server's set_current_map takes them")
 
 	_done()
@@ -344,7 +344,7 @@ func _test_the_roster() -> void:
 	_check(
 		not _module.roster.has(banned.userid),
 		"a player the services layer refuses is not added",
-		"dot-server's own mute dies with the connection; dot-moderation's records "
+		"gs-server's own mute dies with the connection; gs-moderation's records "
 		+ "are the durable second gate and they are checked here"
 	)
 	_module.services.refuse_admission = false
@@ -533,7 +533,7 @@ func _test_hibernation() -> void:
 	)
 
 	# The signal itself, rather than the cvar: what is under test is the module's wiring,
-	# and dot-server's own suite owns when the server decides to sleep.
+	# and gs-server's own suite owns when the server decides to sleep.
 	_server.hibernation_changed.emit(true)
 	_server.hibernation_changed.emit(false)
 
@@ -627,7 +627,7 @@ func _test_noblock_wired() -> void:
 	var wired := GSGameNoblock.available()
 	_check(
 		module != null and (module.noblock != null) == wired,
-		"noblock is built exactly when dot-team is in the build"
+		"noblock is built exactly when gs-team is in the build"
 	)
 	_check(body.pair_fn.is_valid() == wired, "and feeds the body's pair_fn")
 	var slide_cvar: GSConVar = module.console.find_cvar("sv_slide_sounds") if module != null else null
@@ -635,11 +635,11 @@ func _test_noblock_wired() -> void:
 		slide_cvar != null and slide_cvar.get_string() == "1" and slide_cvar.has_flag(GSConVar.FLAG_REPLICATED),
 		"every game's module binds sv_slide_sounds, on and replicated"
 	)
-	var surf_specs: Array = load("res://addons/dot_game/runtime/dot_game_slide_sounds.gd").surf_cvar_specs()
+	var surf_specs: Array = load("res://addons/gs_game/runtime/gs_game_slide_sounds.gd").surf_cvar_specs()
 	var surf_cvar: GSConVar = module.console.find_cvar("sv_surf_volume") if module != null else null
 	_check(
 		(surf_cvar != null and surf_cvar.has_flag(GSConVar.FLAG_REPLICATED)) == (not surf_specs.is_empty()),
-		"the module binds the replicated sv_surf_* cvars exactly when dot-audio is in the build"
+		"the module binds the replicated sv_surf_* cvars exactly when gs-audio is in the build"
 	)
 	var stub_rt := RefCounted.new()
 	_check(module != null and module._noblock_runtime() == null, "no workbench on the game: no runtime for the noblock kind")

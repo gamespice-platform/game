@@ -33,7 +33,7 @@ func _check(ok: bool, what: String) -> void:
 
 
 func _run() -> void:
-	print("dot-game: net plumbing")
+	print("gs-game: net plumbing")
 	var a := Ask.new(2, PackedByteArray([1, 2, 3]))
 	_check(a._type_name() == &"test.request", "the subclass names the message")
 	_check(a._validate().ok, "a kind inside the count validates")
@@ -48,7 +48,7 @@ func _run() -> void:
 	_check(b.kind == 2 and b.body == PackedByteArray([1, 2, 3]), "kind and body round-trip")
 	_check(b.reader().read_uint(8) == 1, "reader reads the body")
 
-	var mount := "res://dot_cloud/me/g/1.0.0"
+	var mount := "res://gs_cloud/me/g/1.0.0"
 	_check(GSGamePaths.rebase_onto("res://maps/x.json", mount) == mount + "/maps/x.json", "a res path moves onto the mount")
 	_check(GSGamePaths.rebase_onto(mount + "/maps/x.json", mount) == mount + "/maps/x.json", "rebasing is idempotent")
 	_check(GSGamePaths.rebase_onto("user://s.cfg", mount) == "user://s.cfg", "a user path is untouched")

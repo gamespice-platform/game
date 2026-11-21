@@ -48,7 +48,7 @@ func _check(ok: bool, what: String) -> void:
 
 
 func _run() -> void:
-	print("dot-game: cover server")
+	print("gs-game: cover server")
 	var c := Cover.new()
 	add_child(c)
 	for _i in 120:

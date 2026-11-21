@@ -2,7 +2,7 @@ extends SceneTree
 
 ## Any game's real client (project main scene, or the first user arg) with the menu opened on Advanced,
 ## scrolled to the Performance card, after a short recording; prints the checks and saves a PNG. Needs a renderer; exit 0 only when the card exists and a recording was written.
-##   xvfb-run -a godot --path ~/godot/<game> --resolution 1280x720 --script ~/godot/dot-game/tools/profiler_menu_shot.gd -- out.png [scene.tscn]
+##   xvfb-run -a godot --path ~/godot/<game> --resolution 1280x720 --script ~/godot/gs-game/tools/profiler_menu_shot.gd -- out.png [scene.tscn]
 
 
 func _initialize() -> void:
@@ -31,7 +31,7 @@ func _run() -> void:
 		await process_frame
 		if f % 10 == 0 and f >= 30:
 			menu = _find_menu(root)
-			prof = GSRegistry.get_service(&"dot_profiler")
+			prof = GSRegistry.get_service(&"gs_profiler")
 			if menu != null and prof != null:
 				break
 	print("profiler_menu_shot: scene=%s menu=%s profiler=%s at %d ms" % [scene_path, menu != null, prof != null, Time.get_ticks_msec()])
@@ -41,7 +41,7 @@ func _run() -> void:
 	for f in 90:
 		await process_frame
 	var claimed := false
-	var con: Object = GSRegistry.get_service(&"dot_console")
+	var con: Object = GSRegistry.get_service(&"gs_console")
 	if con != null and con.has_method(&"sources"):
 		for src: Object in con.call(&"sources"):
 			if src.has_method(&"claims") and bool(src.call(&"claims", "profiler_enabled")):

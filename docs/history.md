@@ -8,7 +8,7 @@ Bugs worth recognising if they come back. All parsed clean and none errored.
 var session := server.session_by_userid(event.get_int("peer_id"))
 ```
 
-`client_spawn` carries `userid` and `name`. It does not carry `peer_id`. So that lookup asked for session 0, found null, and returned, and **nobody ever joined those dedicated servers**, silently, for as long as those modules existed. A null session is a legitimate thing to find, so nothing errored; a dedicated-server suite passes without noticing, because it never connects a client. This is why dot-game exists, and why `GSGameRoster.session_fn` is injectable ([design](design.md#session_fn-exists-so-the-bug-above-can-be-asserted)).
+`client_spawn` carries `userid` and `name`. It does not carry `peer_id`. So that lookup asked for session 0, found null, and returned, and **nobody ever joined those dedicated servers**, silently, for as long as those modules existed. A null session is a legitimate thing to find, so nothing errored; a dedicated-server suite passes without noticing, because it never connects a client. This is why gs-game exists, and why `GSGameRoster.session_fn` is injectable ([design](design.md#session_fn-exists-so-the-bug-above-can-be-asserted)).
 
 ## Two bugs in GameSpice Server the first suite found
 

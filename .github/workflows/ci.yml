@@ -24,7 +24,7 @@ jobs:
             efficiency: true
             hygiene: true
         secrets:
-            DEPS_TOKEN: ${{ secrets.DOT_DEPS_TOKEN }}
+            DEPS_TOKEN: ${{ secrets.GS_DEPS_TOKEN }}
 
     # The visual judge loop's self-test (tests/visual_judge/selftest.sh): stub judge and stub nightly,
     # no GPU, no Claude account. Every defect fixed in the judge, the gate and the post tool has a case

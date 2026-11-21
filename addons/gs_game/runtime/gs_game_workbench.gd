@@ -1,0 +1,466 @@
+class_name GSGameWorkbench
+extends Node
+
+## Hosts GameSpice Workbench in a game: the in-game panel (the `;` key, or console `workbench`) and, when asked for,
+## the loopback HTTP page. The panel is on in the editor, debug builds and listen hosts; HTTP needs
+## `workbench.enabled: true` in cfg/server.yml. Everything is reached by path. Use: `add_set`, `add_child`, `start`.
+
+const CHANNEL := "game.workbench"
+const API_SCRIPT := "res://addons/gs_workbench/gs_workbench_api.gd"
+const OVERLAY_SCRIPT := "res://addons/gs_workbench/gs_workbench_overlay.gd"
+const HTTP_SCRIPT := "res://addons/gs_workbench/gs_workbench_http.gd"
+const EXPORT_SCRIPT := "res://addons/gs_workbench/gs_workbench_export.gd"
+## The actor of whoever sits at this machine; allowed only where [method local_allowed] says so.
+const LOCAL_ACTOR := "workbench-local"
+const TOGGLE_ACTION := &"gs_workbench_toggle"
+const DEFAULT_TOKEN_FILE := "user://workbench.token"
+
+signal open_changed(open: bool)
+## A panel was built after [method start] (a remote admin's, once the server allows it); the host mounts it.
+signal panel_built(panel: Control)
+
+## -1 follows [method default_panel], 0 never, 1 always.
+@export_enum("auto", "off", "on") var panel_mode: int = 0
+## The InputMap action that opens and closes the panel. GameSpice Menu's Controls page lists and persists it (`bind_workbench`); [method ensure_action] gives it the semicolon when nothing registered it.
+@export var toggle_action: StringName = TOGGLE_ACTION
+## Callable() -> bool: the player is typing somewhere the focus owner does not show (the chat box, the console line). The key is ignored while it is true.
+var typing_fn: Callable = Callable()
+@export var layer: int = 125
+## Callable() -> bool: this process hosts a listen game. Unset means no.
+var listen_host_fn: Callable = Callable()
+## Build the panel's nodes on the first open instead of at start (about 50 nodes a player who never presses the key pays for).
+var lazy_panel: bool = false
+var _panel_pending := false
+## True on a dedicated server, where no panel is built (HTTP can still run).
+var dedicated: bool = false
+## Callable() -> bool: this process is connected to somebody else's server. While it is, even an editor or debug build is not trusted locally; the server decides.
+var remote_fn: Callable = Callable()
+## Set on a connected client: the panel is built only while the server says this player holds a workbench flag, and edits are forwarded to it.
+var remote_client: GSGameWorkbenchRemoteClient = null
+## The server half, set by [method serve_remote]; remote admins act as `remote:<uid>`.
+var remote_server: GSGameWorkbenchRemote = null
+## Callable(actor, flag) -> bool for actors other than [constant LOCAL_ACTOR] (the console's or admin manager's permit).
+var permit_fn: Callable = Callable()
+## Callable() -> {cvar: value} of cvars changed from the shipped default, for the export.
+var cvars_fn: Callable = Callable()
+## On by default: with GameSpice Auth running a ticket key, a connect ticket is also accepted as the bearer ([GSGameWorkbenchAuth]).
+var accounts: bool = true
+## Callable(token) -> identity or null, replacing the ticket check. Unset means gs-auth's offline ticket check.
+var account_resolver: Callable = Callable()
+## Callable(uid, flag) -> bool for a listed account; unset means [member permit_fn].
+var account_permit_fn: Callable = Callable()
+## The account gate once attached; null without GameSpice Auth, a ticket key or `admin_uids` / `admin_groups` to resolve.
+var account_gate: RefCounted = null
+## The `workbench:` block; read from cfg/server.yml by [method start] when empty.
+var config: Dictionary = {}
+
+var api: RefCounted = null
+var http: RefCounted = null
+var overlay: Control = null
+var exporter: RefCounted = null
+var running_http := false
+
+## Offer the GSServer's [constant THREAD_CVARS] as a set; Save writes `cfg/server/addon/gs_server/threads/server.yml`, applied at the next start.
+var thread_cvars: bool = true
+
+## Offer the relevance cvars (net_interest_radius, net_far_every, net_far_distance) as a set; Save writes `cfg/server/addon/gs_server/relevance/server.yml`, applied at the next start (the console changes them at once).
+var relevance_cvars: bool = true
+
+## Offer the NPC level-of-detail cvars (npc_lod*, npc_sense_quiet) as a set; Save writes `cfg/server/addon/gs_server/npclod/server.yml`, applied at the next start.
+var npc_lod_cvars: bool = true
+
+## The server's thread cvars and their profile types.
+const THREAD_CVARS := {"sv_worker_threads": "int", "sv_threads_net": "bool", "sv_threads_npc": "bool", "net_native": "bool", "net_native_interest": "bool", "map_load_threads": "int"}
+const THREADS_KIND := "threads"
+const RELEVANCE_KIND := "relevance"
+const NPC_LOD_KIND := "npclod"
+const _Relevance := preload("res://addons/gs_game/net/gs_game_relevance.gd")
+const THREADS_ADDON := "gs_server"
+## The one profile id a cvar set has.
+const CVAR_SET_ID := "server"
+
+var _sets: Array = []
+var _labels: Dictionary = {}
+var _canvas: CanvasLayer = null
+
+
+## Whether the panel is wanted when nothing says otherwise: editor, debug build or listen host.
+static func default_panel(editor: bool, debug: bool, listen: bool, is_dedicated: bool) -> bool:
+	return not is_dedicated and (editor or debug or listen)
+
+
+## The panel's actor is trusted only where the player owns the process.
+static func local_allowed(editor: bool, debug: bool, listen: bool, remote: bool = false) -> bool:
+	return listen or (not remote and (editor or debug))
+
+
+static func available() -> bool:
+	return ResourceLoader.exists(API_SCRIPT) and ResourceLoader.exists(OVERLAY_SCRIPT)
+
+
+func add_set(set: Object, label: String = "") -> void:
+	_sets.append(set)
+	if not label.is_empty():
+		_labels[set.get("rel_path")] = label
+
+
+## Builds the api over [param runtime] (a fresh one when null) and opens what is wanted. Value: true when something is live.
+func start(runtime: Object = null) -> GSResult:
+	if not available():
+		GSLog.info(CHANNEL, "gs-workbench is not in this build: no workbench")
+		return GSResult.success(false)
+	if config.is_empty():
+		var http_script: GDScript = load(HTTP_SCRIPT)
+		config = http_script.call("read_config")
+	var api_script: GDScript = load(API_SCRIPT)
+	api = api_script.new(runtime)
+	var server := GSRegistry.get_node_service(GSServer.SERVICE) as GSServer
+	if server != null and server.console != null:
+		if thread_cvars:
+			var made := cvar_set(server.console, THREAD_CVARS, THREADS_KIND, THREADS_ADDON)
+			if made != null:
+				bind_cvar_set(made, api.get("runtime"), server.console)
+				add_set(made, "Server threads")
+		if relevance_cvars:
+			_Relevance.ensure_cvars(server.console)
+			var rel := cvar_set(server.console, _Relevance.TYPES, RELEVANCE_KIND, THREADS_ADDON)
+			if rel != null:
+				bind_cvar_set(rel, api.get("runtime"), server.console)
+				add_set(rel, "Relevance (saved values apply at next start)")
+		if npc_lod_cvars:
+			GSGameNpcLod.ensure_cvars(server.console)
+			var lod := cvar_set(server.console, GSGameNpcLod.TYPES, NPC_LOD_KIND, THREADS_ADDON)
+			if lod != null:
+				bind_cvar_set(lod, api.get("runtime"), server.console)
+				add_set(lod, "NPC level of detail")
+	for s in _sets:
+		api.call("add_set", s)
+	ensure_action(toggle_action)
+	var editor := OS.has_feature("editor")
+	var debug := OS.is_debug_build()
+	var listen: bool = listen_host_fn.is_valid() and bool(listen_host_fn.call())
+	api.set("permit", func(actor: Variant, flag: String) -> bool:
+		if actor is String and actor == LOCAL_ACTOR:
+			return local_allowed(editor, debug, listen, remote_fn.is_valid() and bool(remote_fn.call()))
+		if actor is String and actor == GSGameWorkbenchRemoteClient.ACTOR:
+			return remote_client != null and remote_client.permit(actor, flag)
+		if actor is String and (actor as String).begins_with(GSGameWorkbenchRemote.ACTOR_PREFIX):
+			return remote_server != null and remote_server.permit_actor(actor, flag)
+		return permit_fn.is_valid() and bool(permit_fn.call(actor, flag)))
+	_attach_accounts()
+	var export_script: GDScript = load(EXPORT_SCRIPT)
+	exporter = export_script.new(api)
+	if cvars_fn.is_valid():
+		exporter.set("cvars_provider", cvars_fn)
+	var want_panel := panel_mode == 2 or (panel_mode == 0 and bool(config.get("panel", default_panel(editor, debug, listen, dedicated))))
+	if dedicated or panel_mode == 1:
+		want_panel = false
+	if remote_client != null:
+		# Nobody gets a panel node until the server says so; the node is freed again if it takes the flag back.
+		api.set("forward", func(req: Dictionary) -> void: remote_client.request(req))
+		remote_client.access_changed.connect(_on_remote_access)
+		if remote_client.allowed:
+			_on_remote_access(true)
+	elif want_panel and lazy_panel:
+		_panel_pending = true
+	elif want_panel:
+		_build_panel()
+	var res := _start_http()
+	if not res.ok:
+		return res
+	return GSResult.success(overlay != null or _panel_pending or running_http)
+
+
+## A profile set over [param types] ({cvar name: "int" | "bool" | "float" | "string"}) of [param console]'s cvars, one implicit id [constant CVAR_SET_ID]; names that are not cvars are left out. Null when none is.
+static func cvar_set(console: GSConsole, types: Dictionary, kind: String, addon: String = "") -> GSProfileSet:
+	var fields: Array = []
+	for name: String in types:
+		var c := console.find_cvar(name)
+		if c == null:
+			continue
+		var opts := {"description": c.description}
+		if c.has_min:
+			opts["min"] = c.min_value
+		if c.has_max:
+			opts["max"] = c.max_value
+		fields.append(GSProfileSet.field(name, types[name], _cvar_value(c, types[name]), opts))
+	if fields.is_empty():
+		return null
+	var made := GSProfileSet.create(addon, "", kind, fields)
+	made.implicit_ids = PackedStringArray([CVAR_SET_ID])
+	return made
+
+
+## Applies a saved file of [param set] to the cvars, then follows [param runtime]'s edits of it into them. Value: the cvars the file set.
+static func bind_cvar_set(set: GSProfileSet, runtime: GSProfileRuntime, console: GSConsole) -> int:
+	var pushed := {}
+	for f: Dictionary in set.schema:
+		pushed[f["name"]] = f["default"]
+	var applied := 0
+	var loaded := set.load_profile(CVAR_SET_ID)
+	if loaded.ok:
+		var p: GSProfile = loaded.value
+		for path in p.file_keys:
+			var name := String(path).split(".")[0]
+			if pushed.has(name) and _push_cvar(console, name, p.values[name]):
+				pushed[name] = p.values[name]
+				applied += 1
+	if applied > 0:
+		GSLog.info(CHANNEL, "saved cvars applied", {"kind": set.rel_path, "cvars": applied})
+	if runtime != null:
+		runtime.profile_changed.connect(func(kind: String, id: String, _rev: int) -> void:
+			if kind != set.rel_path or id != CVAR_SET_ID:
+				return
+			var now := set.load_profile(CVAR_SET_ID)
+			if not now.ok:
+				return
+			var values: Dictionary = (now.value as GSProfile).values
+			# Only what this edit moved: a cvar changed at the console since is left alone.
+			for name: String in pushed:
+				if values.has(name) and str(values[name]) != str(pushed[name]):
+					pushed[name] = values[name]
+					_push_cvar(console, name, values[name]))
+	return applied
+
+
+static func _cvar_value(c: GSConVar, type: String) -> Variant:
+	match type:
+		"int":
+			return c.get_int()
+		"bool":
+			return c.get_bool()
+		"float":
+			return c.get_float()
+	return c.get_string()
+
+
+static func _push_cvar(console: GSConsole, name: String, value: Variant) -> bool:
+	var text := ("1" if value else "0") if value is bool else str(value)
+	var res := console.set_cvar(name, text)
+	if not res.ok:
+		GSLog.warn(CHANNEL, "cvar refused the workbench value", {"cvar": name, "value": text, "error": res.error.message})
+	return res.ok
+
+
+func _attach_accounts() -> void:
+	if not accounts:
+		return
+	var resolver := account_resolver
+	if not resolver.is_valid():
+		resolver = GSGameWorkbenchAuth.ticket_resolver(GSRegistry.get_node_service(GSGameWorkbenchAuth.AUTH_SERVICE))
+	var permit: Callable = account_permit_fn if account_permit_fn.is_valid() else permit_fn
+	account_gate = GSGameWorkbenchAuth.attach(self, resolver, permit)
+	if account_gate != null:
+		GSLog.info(CHANNEL, "workbench accepts gs-auth accounts")
+
+
+## Answers requests from admin clients through this workbench's api. Value: the [GSGameWorkbenchRemote], whose message must already be registered by [method GSGameWorkbenchRemote.serve] on [param net].
+func serve_remote(net: GSNetManager) -> GSGameWorkbenchRemote:
+	var remote := GSGameWorkbenchRemote.of(net)
+	if remote == null:
+		return null
+	remote.api = api
+	remote.bind_server(GSRegistry.get_node_service(GSServer.SERVICE))
+	remote_server = remote
+	return remote
+
+
+func _on_remote_access(allowed: bool) -> void:
+	if allowed and overlay == null and api != null and not dedicated:
+		_build_panel(GSGameWorkbenchRemoteClient.ACTOR)
+	elif not allowed and overlay != null:
+		_drop_panel()
+
+
+func _drop_panel() -> void:
+	var was_open := is_open()
+	if _canvas != null and is_instance_valid(_canvas):
+		_canvas.queue_free()
+	_canvas = null
+	overlay = null
+	if was_open:
+		open_changed.emit(false)
+
+
+func _build_panel(actor: String = LOCAL_ACTOR) -> void:
+	var o_script: GDScript = load(OVERLAY_SCRIPT)
+	var built: Variant = o_script.call("create", api, actor, _labels)
+	if not (built is Control):
+		GSLog.info(CHANNEL, "gs-menu or gs-ui is not linked: no workbench panel")
+		return
+	overlay = built
+	overlay.visible = false
+	overlay.get("exporter").set("cvars_provider", cvars_fn)
+	_canvas = CanvasLayer.new()
+	_canvas.name = "WorkbenchLayer"
+	_canvas.layer = layer
+	add_child(_canvas)
+	_canvas.add_child(overlay)
+	overlay.connect(&"closed", func() -> void: open_changed.emit(false))
+	GSLog.info(CHANNEL, "workbench panel ready", {"action": String(toggle_action)})
+	panel_built.emit(overlay)
+
+
+func _start_http() -> GSResult:
+	if not bool(config.get("enabled", false)):
+		return GSResult.success(0)
+	var cfg := config.duplicate(true)
+	var token_file := str(cfg.get("token_file", DEFAULT_TOKEN_FILE))
+	cfg["token_file"] = token_file
+	if not FileAccess.file_exists(token_file) and token_file.begins_with("user://"):
+		var made := _make_token(token_file)
+		if not made.ok:
+			return made
+	cfg["bind"] = cfg.get("bind", "127.0.0.1")
+	var http_script: GDScript = load(HTTP_SCRIPT)
+	http = http_script.new(api)
+	var res: GSResult = http.call("start_from_config", cfg)
+	if not res.ok:
+		GSLog.result(CHANNEL, "workbench http", res)
+		http = null
+		return res
+	running_http = true
+	GSLog.info(CHANNEL, "workbench http listening", {"bind": cfg["bind"], "port": int(cfg.get("port", 8790)), "token_file": ProjectSettings.globalize_path(token_file)})
+	return res
+
+
+## A fresh random token in [param path], for a developer's machine; a deployment names its own token_file.
+func _make_token(path: String) -> GSResult:
+	var crypto := Crypto.new()
+	var token := crypto.generate_random_bytes(24).hex_encode()
+	var wrote := GSPaths.write_text(path, token + "\n")
+	if wrote.ok:
+		GSWeb.sync_filesystem()
+	return wrote
+
+
+func _process(_d: float) -> void:
+	if remote_server != null:
+		remote_server.poll()
+	if running_http and http != null:
+		http.call("poll")
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if overlay == null and not _panel_pending:
+		return
+	if handle_key(event, get_viewport().gui_get_focus_owner() if is_inside_tree() else null):
+		get_viewport().set_input_as_handled()
+
+
+## Toggles the panel when [param event] is the toggle action's press and nobody is typing. True when it did.
+func handle_key(event: InputEvent, focus_owner: Control = null) -> bool:
+	if not (event is InputEventKey) or not event.is_action_pressed(toggle_action, false, true):
+		return false
+	if text_has_focus(focus_owner) or (typing_fn.is_valid() and bool(typing_fn.call())):
+		return false
+	toggle()
+	return true
+
+
+## Gives [constant TOGGLE_ACTION] the semicolon unless something (GameSpice Menu's bindings) already registered it.
+static func ensure_action(action: StringName = TOGGLE_ACTION) -> void:
+	if InputMap.has_action(action):
+		return
+	InputMap.add_action(action)
+	var key := InputEventKey.new()
+	key.physical_keycode = KEY_SEMICOLON
+	InputMap.action_add_event(action, key)
+
+
+## Whether [param focus] is a text control the player is typing in: a LineEdit, TextEdit or CodeEdit that is editable (the chat and console lines, every GameSpice Menu text field).
+static func text_has_focus(focus: Control) -> bool:
+	if focus is LineEdit:
+		return (focus as LineEdit).editable
+	if focus is TextEdit:
+		return (focus as TextEdit).editable
+	return false
+
+
+func is_open() -> bool:
+	return overlay != null and overlay.visible
+
+
+func toggle() -> void:
+	if is_open():
+		overlay.call("close")
+	else:
+		open()
+
+
+func open() -> void:
+	if overlay == null and _panel_pending:
+		_panel_pending = false
+		_build_panel()
+	if overlay == null:
+		return
+	overlay.call("open")
+	open_changed.emit(true)
+
+
+## The `workbench` console command: open, close, export, http.
+func console_command(args: PackedStringArray) -> Variant:
+	var verb := args[0] if args.size() > 0 else "toggle"
+	match verb:
+		"open", "toggle", "close":
+			if overlay == null:
+				if remote_client != null:
+					return "workbench: not allowed"
+				return GSResult.fail(GSError.CODE_STATE, "no workbench panel in this build or process")
+			if verb == "open" or (verb == "toggle" and not is_open()):
+				open()
+			else:
+				overlay.call("close")
+			return "workbench " + ("open" if is_open() else "closed")
+		"export":
+			var res: GSResult = exporter.call("export_changes") if exporter != null else GSResult.fail(GSError.CODE_STATE, "workbench is not running")
+			if not res.ok:
+				return res
+			return PackedStringArray(["exported to " + ProjectSettings.globalize_path(res.value["dir"]), "zip: " + ProjectSettings.globalize_path(res.value["zip"])])
+		"http":
+			return "http " + (JSON.stringify(http.call("describe")) if running_http else "off (workbench.enabled in cfg/server.yml)")
+	return GSResult.fail(GSError.CODE_INVALID, "usage: workbench [open|close|toggle|export|http]")
+
+
+func stop() -> void:
+	if http != null:
+		http.call("stop")
+	http = null
+	running_http = false
+
+
+func _exit_tree() -> void:
+	stop()
+
+
+func describe_lines() -> PackedStringArray:
+	return PackedStringArray([
+		"workbench   panel %s, http %s" % ["ready" if overlay != null else "off", "on" if running_http else "off"],
+	])
+
+
+## Hosts [param wb] on [param c]: its window is a menu overlay and the console gets `workbench`.
+static func host_on(c: Node, wb: Node) -> void:
+	if wb.get_parent() == null:
+		c.add_child(wb)
+	var mount := func(panel: Variant) -> void:
+		if panel is Control and c.menu != null and c.menu.has_method(&"add_overlay"):
+			c.menu.call(&"add_overlay", panel)
+	mount.call(wb.get(&"overlay"))
+	wb.set(&"typing_fn", func() -> bool:
+		for node: Variant in [c.chat, c.console]:
+			if node != null and is_instance_valid(node):
+				var n: Object = node
+				if n.has_method(&"is_typing") and bool(n.call(&"is_typing")):
+					return true
+				if n.has_method(&"is_open") and bool(n.call(&"is_open")):
+					return true
+		return false)
+	wb.connect(&"panel_built", mount)
+	wb.connect(&"open_changed", func(open: bool) -> void:
+		if open and c.menu != null and is_instance_valid(c.menu) and c.menu.has_method(&"overlay_opened"):
+			c.menu.call(&"overlay_opened"))
+	if c.console != null and is_instance_valid(c.console) and ResourceLoader.exists(c.LOCAL_SCRIPT):
+		var local: Object = (load(c.LOCAL_SCRIPT) as GDScript).new()
+		local.call(&"add_command", &"workbench", "Tuning panel: workbench [open|close|toggle|export|http]", Callable(wb, &"console_command"))
+		c.console.call(&"add_source", local)

@@ -1,10 +1,10 @@
 # Moving a game client onto `GSGameClient`
 
-`GSGameClient` (GameSpice Game API level 8) is the platform layer a client root adds: the loading cover, the settings and Escape menu, the console, the HUD's theme, Tab, M, the pointer, the input block and the browser's filesystem flush. Why it is a child node and not a base class is in [design.md](design.md#dotgameclient-the-platform-layer-every-client-wires). GameSpice Game Template (`game/tpl_client.gd`) and mg-look-at-me (`game/lm_client.gd`) are the two converted clients to copy from.
+`GSGameClient` (GameSpice Game API level 8) is the platform layer a client root adds: the loading cover, the settings and Escape menu, the console, the HUD's theme, Tab, M, the pointer, the input block and the browser's filesystem flush. Why it is a child node and not a base class is in [design.md](design.md#gsgameclient-the-platform-layer-every-client-wires). GameSpice Game Template (`game/tpl_client.gd`) and mg-look-at-me (`game/lm_client.gd`) are the two converted clients to copy from.
 
-**First 10 minutes** (a new game): start from [GameSpice Game Template](https://github.com/gamespice-platform/game-template), run `../dot-ci/scripts/resolve-deps.sh .` to link the addons, do the steps below, then run `./game.sh test`. Moving an existing client over is the same steps.
+**First 10 minutes** (a new game): start from [GameSpice Game Template](https://github.com/gamespice-platform/game-template), run `../gs-ci/scripts/resolve-deps.sh .` to link the addons, do the steps below, then run `./game.sh test`. Moving an existing client over is the same steps.
 
-Settings layer the same way in every addon, weakest first: the addon's schema defaults, the addon's shipped `cfg/addon/<addon>/`, the game's `cfg/game/<game>/<addon>/`, the server operator's `cfg/server/addon/<addon>/` and `cfg/server/game/<game>/`, then environment variables, then the command line, then runtime changes (a console `set`). The folder is the addon name with `-` written as `_`. Secrets are read from files only: a key marked sensitive is refused from the environment and the command line. Details: [dot-core's addon-config.md](../../dot-core/docs/addon-config.md).
+Settings layer the same way in every addon, weakest first: the addon's schema defaults, the addon's shipped `cfg/addon/<addon>/`, the game's `cfg/game/<game>/<addon>/`, the server operator's `cfg/server/addon/<addon>/` and `cfg/server/game/<game>/`, then environment variables, then the command line, then runtime changes (a console `set`). The folder is the addon name with `-` written as `_`. Secrets are read from files only: a key marked sensitive is refused from the environment and the command line. Details: [gs-core's addon-config.md](../../gs-core/docs/addon-config.md).
 
 `./game.sh` is the one entry point every game repository has (copy it from the reference game, `game-fatal-contact`):
 
@@ -32,15 +32,15 @@ Settings layer the same way in every addon, weakest first: the addon's schema de
    offline = platform.offline
    ```
 
-   Delete the game's own `GSRegistry.get_node_service(&"dot_client_link")` and `--offline` test: `platform.link` and `platform.offline` are the same answer. Any extra hold (a map download, a course built) goes on `platform.gate`.
+   Delete the game's own `GSRegistry.get_node_service(&"gs_client_link")` and `--offline` test: `platform.link` and `platform.offline` are the same answer. Any extra hold (a map download, a course built) goes on `platform.gate`.
 
 2. **Hand it the pieces, then call `setup()`**, after the HUD, the chat box and whatever the settings bind to exist:
 
    ```gdscript
-   platform.settings = MySettings.new()   # the game's GSMenuSettings subclass; unset is dot-menu's stock one
+   platform.settings = MySettings.new()   # the game's GSMenuSettings subclass; unset is gs-menu's stock one
    platform.hud = hud_root
    platform.hud_accent = MyHud.piece_theme()
-   platform.chat = chat                   # GSGameChatClient (or a dot-ui chat window)
+   platform.chat = chat                   # GSGameChatClient (or a gs-ui chat window)
    platform.busy_fn = func() -> bool: return command_line.visible   # only if the game has its own line
    platform.board_snapshot_fn = board_snapshot
    platform.maps_rows_fn = game.course_rows

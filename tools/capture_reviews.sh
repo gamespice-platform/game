@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Captures short looping clips of the animations that changed since the last posted review and files them on the
 # nightly panel's /reviews page (before = the clip posted last time, after = the new one, plus a filmstrip sheet).
-# The shared script (dot-game/tools); a game's tools/capture_reviews.sh cds to its root and execs it, and
+# The shared script (gs-game/tools); a game's tools/capture_reviews.sh cds to its root and execs it, and
 # tools/qa.conf supplies three functions:
 #   review_items                  print the item ids (a weapon, a gait), one per line
 #   review_fingerprint ITEM       print every input that decides how ITEM animates (files, rows); a changed hash = recapture
@@ -14,8 +14,8 @@
 #   tools/capture_reviews.sh --dry-run       list what would be captured
 #   tools/capture_reviews.sh --no-post       capture into .godot/review-clips/ only
 # State (the last posted clips, which become the next "before", and the fingerprints) is in $REVIEW_STATE
-# (default ~/.local/state/dot-reviews/<game>). Key of the review: <game>-anim-<date>. Exit 1 if a clip is missing.
-# Before anything is posted, a fresh judge (addons/dot_game/tools/dot_game_visual_judge.sh, docs/visual-judge-rubric.md)
+# (default ~/.local/state/gs-reviews/<game>). Key of the review: <game>-anim-<date>. Exit 1 if a clip is missing.
+# Before anything is posted, a fresh judge (addons/gs_game/tools/gs_game_visual_judge.sh, docs/visual-judge-rubric.md)
 # reads every clip and writes .godot/review-clips/judge/verdict.json. A clip is posted only when the judge says
 # production_ready, or when each blocker/major defect has a filed nightly item; its look text is the verdict and the
 # item's review verdict is the judge's. VISUAL_JUDGE_GIVE_UP=1 files the open defects (one nightly item each) so they
@@ -39,7 +39,7 @@ for a in "$@"; do
         *) items+=("$a") ;;
     esac
 done
-state=${REVIEW_STATE:-$HOME/.local/state/dot-reviews}/$GAME
+state=${REVIEW_STATE:-$HOME/.local/state/gs-reviews}/$GAME
 work=.godot/review-clips
 mkdir -p "$state" "$work"
 
@@ -66,14 +66,14 @@ shopt -s nullglob
 [ -n "$(echo "$work"/*.mp4)" ] || { echo "reviews: no clips produced" >&2; exit 1; }
 for it in "${want[@]}"; do
     f=("$work/${it}__reload.mp4"); [ -f "${f[0]}" ] || f=("$work/${it}__"*.mp4)
-    [ -f "${f[0]:-}" ] && bash addons/dot_core/tools/dot_filmstrip.sh "${f[0]}" "$work/$it" --cols 4 --rows 3 --width 320 >/dev/null
+    [ -f "${f[0]:-}" ] && bash addons/gs_core/tools/gs_filmstrip.sh "${f[0]}" "$work/$it" --cols 4 --rows 3 --width 320 >/dev/null
 done
 [ "$post" = 1 ] || { echo "reviews: clips in $work (not posted)"; exit 0; }
 
 # The fresh judge: never post on the capture's own reading.
-judge=addons/dot_game/tools/dot_game_visual_judge.sh
-[ -f "$judge" ] || judge=$SHARED/../addons/dot_game/tools/dot_game_visual_judge.sh
-gate=$(dirname "$judge")/dot_game_visual_verdict.py
+judge=addons/gs_game/tools/gs_game_visual_judge.sh
+[ -f "$judge" ] || judge=$SHARED/../addons/gs_game/tools/gs_game_visual_judge.sh
+gate=$(dirname "$judge")/gs_game_visual_verdict.py
 # Items the capture made no clip for are reported (and fail the run); the judge must see every clip it is asked about.
 made=() missing=0
 for it in "${want[@]}"; do

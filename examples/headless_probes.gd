@@ -145,7 +145,7 @@ func _check(ok: bool, what: String) -> void:
 
 
 func _run() -> void:
-	print("dot-game: probes")
+	print("gs-game: probes")
 	var lp := Load.new()
 	add_child(lp)
 	for _i in 12:

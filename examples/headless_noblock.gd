@@ -21,8 +21,8 @@ func _side(id: Variant) -> Variant:
 
 
 func _run() -> void:
-	print("dot-game: noblock")
-	_check(GSGameNoblock.available(), "dot-team is linked")
+	print("gs-game: noblock")
+	_check(GSGameNoblock.available(), "gs-team is linked")
 	var plain := GSGameNoblock.create("tg", _side, PackedStringArray([ROOT + "none"]), true)
 	_check(plain.ok, "defaults load with no files")
 	var nb: GSGameNoblock = plain.value

@@ -2,7 +2,7 @@ extends GSGameVisualQaCapture
 
 ## The smallest GSGameVisualQaCapture: a capsule "avatar" that turns in place and walks a circle on the default stage.
 ## Renders, so it runs on a GPU box or xvfb, never in the headless suites (docs/visual-qa.md):
-##   bash addons/dot_game/tools/dot_game_visual_qa_shot.sh --script examples/visual_qa_demo.gd -- --out /tmp/vq-demo
+##   bash addons/gs_game/tools/gs_game_visual_qa_shot.sh --script examples/visual_qa_demo.gd -- --out /tmp/vq-demo
 
 var _body: Node3D = null
 

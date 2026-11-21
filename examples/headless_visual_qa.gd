@@ -15,7 +15,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-game: visual qa")
+	print("gs-game: visual qa")
 	_plan()
 	_verdict()
 	_rest_distance()

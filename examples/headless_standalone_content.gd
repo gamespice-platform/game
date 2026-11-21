@@ -31,7 +31,7 @@ func _fresh() -> void:
 
 
 func _run() -> void:
-	print("dot-game: standalone content")
+	print("gs-game: standalone content")
 	GSGameStandaloneContent.client_script_override = Stub
 	GSGameStandaloneContent.config_script_override = ConfigStub
 	_fresh()
@@ -40,7 +40,7 @@ func _run() -> void:
 	add_child(gate)
 	var cloud: Node = GSGameStandaloneContent.install(self, gate)
 	_check(cloud != null, "installs with none registered")
-	_check(GSRegistry.get_service(&"dot_cloud_client") == cloud, "registered under the cloud service name")
+	_check(GSRegistry.get_service(&"gs_cloud_client") == cloud, "registered under the cloud service name")
 	_check(cloud.host_role == "client" and cloud.config.side == "client", "a player's client")
 	_check(not cloud.http_base_urls.is_empty() and cloud.http_base_urls[0].begins_with("https://"), "the origin defaults to the platform")
 	_check(GSGameStandaloneContent.install(self, gate) == null, "a second install finds one and does nothing")
@@ -102,7 +102,7 @@ func _run() -> void:
 	GSGameStandaloneContent.client_script_override = null
 	GSGameStandaloneContent.config_script_override = null
 	GSGameStandaloneContent.urls_override = PackedStringArray()
-	print("dot-game standalone content: %d passed, %d failed" % [_passed, _failed])
+	print("gs-game standalone content: %d passed, %d failed" % [_passed, _failed])
 	for f in _failures:
 		print("FAIL: ", f)
 	get_tree().quit(1 if _failed > 0 else 0)

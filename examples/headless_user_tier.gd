@@ -2,7 +2,7 @@ extends GSGameCheckSuite
 
 ## The player's user:// cfg tier end to end: a process that is a dedicated server ignores a user override, solo and a listen host apply it.
 
-const ADDON := "dot_game_usertier_probe"
+const ADDON := "gs_game_usertier_probe"
 const FILE := "probe.yml"
 const CHECKS := 16
 
@@ -24,7 +24,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-game: user cfg tier by process kind")
+	print("gs-game: user cfg tier by process kind")
 	_clean()
 	var schema := [{"name": "mode", "type": "string", "default": "default"}]
 	var defaults := {"mode": "default"}

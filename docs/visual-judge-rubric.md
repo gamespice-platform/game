@@ -2,7 +2,7 @@
 
 A fresh judge reads this before it looks at any frame. It answers one question: **would this ship in a modern FPS (CS:S, CS2, Valorant, Apex) without a player noticing something wrong?** The default answer is **no**. `production_ready: true` must be earned by the frames. A metric PASS, an author's note or "it is better than before" earns nothing.
 
-The tool is `addons/dot_game/tools/dot_game_visual_judge.sh` ([visual-qa.md](visual-qa.md#the-judge-loop)). Why it exists: [visual-qa-root-cause.md](visual-qa-root-cause.md).
+The tool is `addons/gs_game/tools/gs_game_visual_judge.sh` ([visual-qa.md](visual-qa.md#the-judge-loop)). Why it exists: [visual-qa-root-cause.md](visual-qa-root-cause.md).
 
 ## How to read the pack
 
@@ -35,7 +35,7 @@ Severity: `blocker` means it cannot ship, `major` means a player notices, `minor
 
 ## Passes, the streak and evidence
 
-One clean verdict is not production ready. The tool runs **at least 3 consecutive fresh judges** (`--passes`, `VISUAL_JUDGE_PASSES`, never below 3), each on a new variant: other phase stills, other motion bursts, a close-up of another camera, and with `--capture` a recapture under `SHOT_VQA_VARIANT` (the outside cameras move and the scene's lights turn and dim or brighten). The run is production ready only when every pass is clean; the first defect ends the round and the streak starts again after the fix. Each judge's stream-json transcript is kept: `evidence.json` records its session id, the images it Read with their sha256, and the sha256 of the verdict it wrote. `dot_game_visual_verdict.py` (the post gate, `--audit` to check a run) refuses a verdict whose judge did not read every image, whose images or verdict changed afterwards, whose passes reuse a variant or a judge session, or whose streak is short. Authors never write or edit `verdict.json`, `evidence.json` or `judge.jsonl`.
+One clean verdict is not production ready. The tool runs **at least 3 consecutive fresh judges** (`--passes`, `VISUAL_JUDGE_PASSES`, never below 3), each on a new variant: other phase stills, other motion bursts, a close-up of another camera, and with `--capture` a recapture under `SHOT_VQA_VARIANT` (the outside cameras move and the scene's lights turn and dim or brighten). The run is production ready only when every pass is clean; the first defect ends the round and the streak starts again after the fix. Each judge's stream-json transcript is kept: `evidence.json` records its session id, the images it Read with their sha256, and the sha256 of the verdict it wrote. `gs_game_visual_verdict.py` (the post gate, `--audit` to check a run) refuses a verdict whose judge did not read every image, whose images or verdict changed afterwards, whose passes reuse a variant or a judge session, or whose streak is short. Authors never write or edit `verdict.json`, `evidence.json` or `judge.jsonl`.
 
 ## verdict.json
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Renders a game's standard shots and compares them to tests/golden/<case>_<shot>.png. The shared script (dot-game/tools);
+# Renders a game's standard shots and compares them to tests/golden/<case>_<shot>.png. The shared script (gs-game/tools);
 # a game's tools/visual_check.sh cds to its root and execs it, and tools/qa.conf sets VISUAL_CASES (default cases),
 # VISUAL_SHOTS (names, default "overview eye roof") and visual_render CASE (writes screenshots/<case>_<shot>.png).
 #

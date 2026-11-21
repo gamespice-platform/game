@@ -8,7 +8,7 @@ What each `GSGameApi.LEVEL` added. The bump rule is on `GSAddonApi`.
 - 4: GSGameContent, the map packs a server names for the running game.
 - 5: GSGameChatClient draws GameSpice Server's own lines (server_lines, server_colour, link), window_settings, voice_method.
 - 6: GSGameChatClient honours the player's block list (self_mute, self_mute_enabled).
-- 7: voice: GSGameChatClient opens the microphone on the first press of dot-voice's dot_voice_talk action (not on attach), follows the replicated sv_voice_enable, publishes its manager as dot_voice_client, voice_available_changed, voice_position_fn; GSGameModule binds sv_voice_enable and sv_voice_mode on the services' router.
+- 7: voice: GSGameChatClient opens the microphone on the first press of gs-voice's gs_voice_talk action (not on attach), follows the replicated sv_voice_enable, publishes its manager as gs_voice_client, voice_available_changed, voice_position_fn; GSGameModule binds sv_voice_enable and sv_voice_mode on the services' router.
 - 8: GSGameClient, the platform layer a game client adds: load gate and cover, settings and the Escape menu, console, HUD theme, Tab, M, the chat's keyboard, the pointer, web sync.
 - 9: still loading. GSGameModule is_loading / is_peer_loading / can_be_harmed / can_peer_be_harmed / loading_seats / mark_reloading, loading_changed, load_timeout_sec, reload_grace_sec, report_map re-marks on a new map, the game's peer_loading_fn; GSGameRoster's loading state and COVER_KIND; GSGameClient report_loading and the static report_cover.
 - 10: GSGameLink.attach / retire, a game's RPC link under the server node, freed with its bridge.
@@ -35,7 +35,7 @@ What each `GSGameApi.LEVEL` added. The bump rule is on `GSAddonApi`.
 - 31: GSGamePrejoin.extra_steps (a game or addon adds async pre-join steps, such as a trail pack fetch).
 - 32: GSGameHitFlinch and GSGameClient.add_hit_flinch / note_hit (hit shake and aim wobble, sv_hit_*).
 - 33: GSGameStatsFeed.key_for / forget / open_sessions / scope_key_file (stable per-server stats key); GSGameClassImmunity.call_apply.
-- 34: GSGameClientAvatars.publish_figures / figure_of and the dot_game_client service (an addon finds a player's figure).
+- 34: GSGameClientAvatars.publish_figures / figure_of and the gs_game_client service (an addon finds a player's figure).
 - 35: GSGameStatsFeed.upgrade (a late profile key moves a seat's stats key, deliberately).
 - 36: GSGameSlideSounds.surf / surf_rules / surf_cvar_specs, GSGameLanding.surf_rules_fn, GSGameModuleWiring.bind_surf_sounds (the replicated sv_surf_* cvars).
 - 37: GSGameStoreEntitlements.attach / attach_tree (site store entitlements merged into a GameSpice Loadout manager; the module does it on every seat).
@@ -60,5 +60,5 @@ What each `GSGameApi.LEVEL` added. The bump rule is on `GSAddonApi`.
 - 56: `GSGameModule._map_download_groups(map_id)`: the groups `report_map` passes to GameSpice Server's `set_current_map` (GameSpice Server API 19, per-map download groups); an older server is called with the map alone. Suite: `examples/game_selftest.tscn`.
 - 57: `GSGameClient.setup_stepped(between)`: `setup()` one piece per frame (`SETUP_PIECES`), the caller's `between` awaited after each; `setup_usec` times each piece. Suite: `examples/game_selftest.tscn`.
 - 58: `GSGameCheckSuite.cpu_usec()` / `cpu_is_real()`: the calling thread's CPU time (wall fallback), for tick-budget checks that must not fail on a loaded box. Suite: `examples/game_selftest.tscn`.
-- 59: `GSGameConfigSchemas.binder_of(script)`: a make_binder script's binder as a GSResult, its config from the script's static `make_config()` when it has one (the games' flashlight scripts), refused with the reason when the binder's first parameter would not take it. `schemas_for` and `qa/dot_game_cfg_templates.gd` use it, so the tool no longer stops on a flashlight script and idles. Suite: `examples/headless_config.tscn`.
+- 59: `GSGameConfigSchemas.binder_of(script)`: a make_binder script's binder as a GSResult, its config from the script's static `make_config()` when it has one (the games' flashlight scripts), refused with the reason when the binder's first parameter would not take it. `schemas_for` and `qa/gs_game_cfg_templates.gd` use it, so the tool no longer stops on a flashlight script and idles. Suite: `examples/headless_config.tscn`.
 - 60: GSGameStorePanel buys in game and says when it cannot: `buy(item_id)` (POST `store/purchase`, STORE_WRITE) and `purchased`, `offers()` / `offers_from` (GET `store/items`), `points()` (the read now asks `include=points` and shows the balance), `error_text()` and `retry()` (a failed read shows the error and a Retry button, not "Nothing yet"), `audience_of` / `store_url_for` ("Get more" opens `/dashboard/store/app/<id>` or `/server/<id>` from the token's audience), ITEMS_PATH, PURCHASE_PATH, OWNER_KINDS. Suite: `examples/game_selftest.tscn`.

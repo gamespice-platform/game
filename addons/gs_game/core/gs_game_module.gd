@@ -1,0 +1,760 @@
+@tool
+class_name GSGameModule
+extends GSModule
+
+## The order a server game is built in, written once: game object, netcode and bridge, identity, services, roster, one tick, then the reverse on unload.
+##
+## Subclass it and fill in the classes and numbers that are yours; it holds no rules, only what every game would write the same way. Nothing optional is named (GameSpice Map, GameSpice Vote, GameSpice Platform, a game's services): they are reached by duck-typing or path, because a script naming an absent class fails to parse.
+
+const CHANNEL := "game.module"
+
+## Where GameSpice Platform's module is loaded from, by path: the module host constructs the module itself, so a pre-built instance would be thrown away.
+const PLATFORM_MODULE_PATH := "res://addons/gs_platform/gs_platform_module.gd"
+const FPS_CVARS_SCRIPT := "res://addons/gs_player_controller/fp/core/gs_fps_cvars.gd"
+
+## Where [method bind_movement_cvars] looks for the binder; a suite points it at a stub.
+static var fps_cvars_script: String = FPS_CVARS_SCRIPT
+const LOOK_MUTE_SCRIPT := "res://addons/gs_voice/runtime/gs_voice_look_mute.gd"
+## GameSpice Cloud's server auto-update, loaded by path: GameSpice Cloud is not a dependency.
+const AUTO_UPDATE_SCRIPT := "res://addons/gs_cloud/server/gs_cloud_auto_update.gd"
+const AUTO_UPDATE_SERVICE := &"gs_cloud_autoupdate"
+
+## A seat's client went behind its loading cover (joined, or a map change began) or came out (lifted, timed out, left). [param seat] is the userid.
+signal loading_changed(seat: int, loading: bool)
+
+## The property a game object may declare to be handed [method is_peer_loading]: `var peer_loading_fn: Callable`. Assigned before [method _game_load], cleared at unload.
+const PEER_LOADING_PROPERTY := &"peer_loading_fn"
+const _Profiler := preload("res://addons/gs_game/runtime/gs_game_profiler.gd")
+# GSGameModuleWiring and GSGameStatsReport take the module typed, so they are loaded by uid at use:
+# naming them here would put the three in one script loop, which Godot 4.7 never frees.
+const _WIRING_UID := "uid://d1wk1ddon2tyq"
+const _STATS_REPORT_UID := "uid://b0alyooc3qid7"
+
+## Seconds a seat may stay loading before it counts as loaded anyway, with a warning.
+@export var load_timeout_sec: float = 30.0
+## Place GameSpice Profiler with sv_profiler_* on the console; `--no-profiler` or GS_GAME_PROFILER=0 turns it off.
+@export var use_profiler: bool = true
+## Wire GameSpice Team's block rules (teammates pass through, enemies stop) when the game has a `body_rules`; false is the one-line opt-out.
+@export var use_noblock: bool = true
+
+## After a map change, seconds to wait for a client's cover to go up again before counting it loaded.
+@export var reload_grace_sec: float = 5.0
+
+## The game object, resolved from [GSRegistry] under [method _game_service].
+var game: Object = null
+
+## The netcode, or null for a game that declared no [method _net_config].
+var net: GSNetManager = null
+
+## The game's own bridge between itself and [member net]. Duck-typed.
+var bridge: Node = null
+
+## The NPC level-of-detail and sense-thread cvars, once the game called [method attach_npc_lod].
+var npc_lod: GSGameNpcLod = null
+
+## The movement cvars (`sv_gravity` and the rest), once [method bind_movement_cvars] ran: GameSpice Player Controller's `GSFpsCvars`.
+var movement_cvars: Object = null
+
+## The identity layer, when [method _make_identity] returned one.
+var identity: Node = null
+
+## Chat, voice and moderation, when [method _make_services] returned one.
+var services: Node = null
+
+## Who is in the game, as opposed to who is connected.
+var roster: GSGameRoster = null
+
+## Reports each seat to a GameSpice Stats tracker when one is set or registered as `gs_stats_tracker`; null feeds nothing.
+var stats_feed: GSGameStatsFeed = null
+
+## Adds the tracker's per-player figures to the Tab board (`st_*`, `lt_*`, `stat_columns`). Null without a roster.
+var stats_board: GSGameStatsBoard = null
+
+## Authoritative ticks since load. The number the bridge is driven with.
+var tick: int = 0
+
+## [method report_map] said once that this server cannot take a map.
+var _warned_no_map_report := false
+
+## The per-map settings, built on the first [method report_map] when [method _map_config_keys] names any.
+var map_config: GSGameMapConfig = null
+## Assign to handle a GSMapWorld's `script.*` events; its per-map switches join [method _map_config_keys] and it restores on a map change and on unload.
+var map_scripts: GSGameMapScripts = null
+
+## The map [method report_map] last reported; a different one re-marks every seat loading.
+var _reported_map := ""
+
+## Whether this module put its handler on the server's envelope, and the game's property.
+var _handles_cover := false
+var _set_peer_loading := false
+
+
+## The [GSRegistry] name the game object publishes itself under. Required; `&""` means a scene-only game with no object.
+func _game_service() -> StringName:
+	return &""
+
+
+## What to tell somebody whose game object is not there; override to name the class and the call.
+func _game_missing_hint() -> String:
+	return (
+		"create it and call setup() before loading this module, and make sure it "
+		+ "registers itself under '%s'" % String(_game_service())
+	)
+
+
+## The netcode settings, or null for a game that does not replicate. No default: tick and snapshot rates are the game's own numbers.
+func _net_config() -> GSNetConfig:
+	return null
+
+
+## The operator's limits on [method _net_config] (see [method GSGameNetcode.cap]); the default reads [constant GSGameNetcode.CEILING_META] off the server. An empty dictionary changes nothing.
+func _net_ceiling() -> Dictionary:
+	if server != null and server.has_meta(GSGameNetcode.CEILING_META):
+		var v: Variant = server.get_meta(GSGameNetcode.CEILING_META)
+		if v is Dictionary:
+			return v
+	return {}
+
+
+## The game's bridge to the netcode. Required with a netcode. Duck-typed: `attach(game, net) -> GSResult`, `open_link(server)`, and `server_tick(tick)` if driven.
+func _make_bridge() -> Node:
+	return null
+
+
+## Content, profiles, avatars and admission. Optional; needs `setup() -> GSResult`. Null for none.
+func _make_identity() -> Node:
+	return null
+
+
+## Whether to load GameSpice Platform's module after the identity layer is up; off for a game with its own admission flow.
+func _wants_platform_module() -> bool:
+	return true
+
+
+## Chat, voice and moderation. Optional; needs `setup(server, game, link) -> GSResult` (link is the bridge's or null).
+func _make_services() -> Node:
+	return null
+
+
+## Everything this game adds that the skeleton does not know. Runs last, after everything else is up; a failure refuses to load.
+func _game_load() -> GSResult:
+	return GSResult.success(null)
+
+
+## Anything [method _game_load] set up that the [GSModule] helpers do not undo (commands, cvars and hooks they registered are removed for you).
+func _game_unload() -> void:
+	pass
+
+
+## The server went to sleep ([param hibernating] true) or woke, after every clock this module found has heard it.
+## Votes and map sessions under this module are followed for you ([method _follow_hibernation]); a game's own round timer or warmup is a rule, so reset it here.
+func _game_hibernation(_hibernating: bool) -> void:
+	pass
+
+
+## This game's own columns on the Tab board for one player (kills, points, a side), merged into that player's row of GameSpice Server's roster.
+## The server's half of the scoreboard: only the server knows some numbers. Keyed by the session; [member roster] finds the player.
+func _game_board_fields(_session: Object) -> Dictionary:
+	return {}
+
+
+## Everything else on the board: `"teams"`, a `"header"`, `"rows"` for non-session players. Optional.
+func _game_board_extra() -> Dictionary:
+	return {}
+
+
+## The movement tunables the `sv_*` cvars drive (anything with `cvar_specs()` and `set_cvar()`: `GSFpsTunables`, swim, ladder). The default asks the game object's `movement_targets()`; empty binds nothing.
+func _movement_targets() -> Array:
+	if game != null and game.has_method(&"movement_targets"):
+		var targets: Variant = game.call(&"movement_targets")
+		return targets if targets is Array else []
+	return []
+
+
+## Binds GameSpice Player Controller's movement cvars over [param targets] (default [method _movement_targets]) so a game's movement is server-tunable without per-game code. Skips with a log line when GameSpice Player Controller is absent or nothing is offered. Returns the cvars made.
+func bind_movement_cvars(targets: Array = []) -> Array:
+	return _wiring().bind_movement_cvars(self, targets if not targets.is_empty() else _movement_targets())
+
+
+## Registers the family's `stats_report` cvar (default 0) and aliases for a game's old names; see [GSGameStatsReport].
+func bind_stats_report(apply: Callable = Callable(), legacy: PackedStringArray = PackedStringArray()) -> GSConVar:
+	return (load(_STATS_REPORT_UID) as GDScript).bind(self, apply, legacy)
+
+
+## Wires a GSNpcSpawner to `sv_threads_npc` and the `npc_lod*` / `npc_sense_quiet` cvars (all off by default; see [GSGameNpcLod]). Call it once the spawner is in the tree; [param players] returns the positions NPCs measure distance from (default: the spawner's candidates).
+func attach_npc_lod(spawner: Object, players: Callable = Callable()) -> GSGameNpcLod:
+	if npc_lod != null:
+		npc_lod.release()
+	npc_lod = GSGameNpcLod.attach(self, console, spawner, server.config if server != null else null, players)
+	return npc_lod
+
+
+## One authoritative tick, after the bridge has been driven.
+## The game's simulation runs inside the netcode's tick, so this cannot come first. Drive clocks from this tick, not the frame, so a stalled server loses no map time.
+func _game_tick(_tick: int, _delta: float) -> void:
+	pass
+
+
+## Builds the game, in the one order that works.
+## The netcode is fatal and everything after it is not: no netcode accepts players into nothing, but an unreadable punishment file must not take the whole server down.
+func _module_load() -> GSResult:
+	var service := _game_service()
+
+	if service != &"":
+		game = GSRegistry.get_node_service(service)
+
+		if game == null:
+						# Refusing is right: a module that did nothing admits players into a match that does not exist.
+			return GSResult.fail(
+				GSError.CODE_STATE,
+				"No game is registered under '%s'." % String(service),
+				_game_missing_hint()
+			)
+
+	var config := _net_config()
+
+	if config != null:
+		var capped := GSGameNetcode.cap(config, _net_ceiling())
+
+		if not capped.is_empty():
+			GSLog.info(CHANNEL, "operator net limits applied", {
+				"module": String(_module_name()), "changes": "; ".join(capped),
+			})
+
+		_wiring().adapt_snapshot_rate(self, config)
+
+		GSGameNetcode.follow_server_threads(config, server.config if server != null else null)
+		GSGameNetcode.follow_map_threads(console)
+
+		var built := GSGameNetcode.build(
+			self, server, game, config, _make_bridge()
+		)
+
+		if not built.ok:
+			return built.wrap("the netcode could not start")
+
+		net = built.value["net"]
+		bridge = built.value["bridge"]
+		_bind_avatar_hooks()
+		var _latency := net.latency.bind_server_cvar(Callable(self, "add_cvar"), GSConVar.FLAG_NOTIFY | GSConVar.FLAG_REPLICATED)
+
+	var identified: GSResult = await _build_identity()
+	GSLog.result(CHANNEL, "the identity layer", identified)
+
+	var serviced: GSResult = await _build_services()
+	GSLog.result(CHANNEL, "chat, voice and moderation", serviced)
+
+	_build_roster()
+
+	var loaded: GSResult = await _game_load()
+
+	if not loaded.ok:
+				# The game refused, so everything built above it comes down; else a ticking netcode outlives the module.
+		_teardown()
+		return loaded
+
+	var _movement := bind_movement_cvars()
+	_wiring().bind_slide_sounds(self)
+	_wiring().bind_surf_sounds(self)
+	var blocked := _build_noblock()
+	if not blocked.ok:
+		_teardown()
+		return blocked
+
+	if use_profiler:
+		_Profiler.install_server(_Profiler.add(self))
+	_advertise_avatar_content()
+	_advertise_site_server()
+	_follow_hibernation()
+	_attach_board()
+	start_auto_update(server)
+
+	log_info("%s loaded" % _module_name(), describe())
+	return GSResult.success(null)
+
+
+## Hands GameSpice Server's Tab board this game's columns. Asked, not assumed: an older GameSpice Server lacks the properties.
+func _attach_board() -> void:
+	if server == null or not ("scoreboard_fields" in server):
+		return
+	server.set(&"scoreboard_fields", func(session: Object) -> Dictionary:
+		var own := _game_board_fields(session)
+		if stats_board != null and session is GSClientSession:
+			own.merge(stats_board.fields(session as GSClientSession))
+		return own)
+	server.set(&"scoreboard_extra", func() -> Dictionary:
+		var own := _game_board_extra()
+		if stats_board != null:
+			own.merge(stats_board.extra())
+		return own)
+
+
+## Takes them back. The server outlives this game, and the next one is not asked about it.
+func _detach_board() -> void:
+	if server == null or not ("scoreboard_fields" in server):
+		return
+	var fields: Callable = server.get(&"scoreboard_fields")
+	if fields.is_valid() and fields.get_object() == self:
+		server.set(&"scoreboard_fields", Callable())
+		server.set(&"scoreboard_extra", Callable())
+
+
+## Builds the identity layer and loads GameSpice Platform beside it.
+func _build_identity() -> GSResult:
+	return await _wiring().build_identity(self)
+
+
+## Builds the services layer over whatever link the bridge opened.
+func _build_services() -> GSResult:
+	return await _wiring().build_services(self)
+
+
+## Wires the roster to the bridge and to whatever else wants to know.
+func _build_roster() -> void:
+	_wiring().build_roster(self)
+
+
+## Puts this module's handler for [constant GSGameRoster.COVER_KIND] on the server's envelope.
+## A kind on the existing envelope, because the RPC set is frozen and each game's bridge is its own. Duck-typed and optional: a client that predates it is released by the timeout.
+func _handle_cover_reports() -> void:
+	if server == null or not ("envelope" in server):
+		return
+	var env: Object = server.get(&"envelope")
+	if env == null or not env.has_method("register"):
+		return
+	env.call("register", GSGameRoster.COVER_KIND, Callable(self, "_on_cover_report"), false)
+	_handles_cover = true
+
+
+func _release_cover_reports() -> void:
+	if not _handles_cover:
+		return
+	_handles_cover = false
+	var env: Object = server.get(&"envelope") if server != null else null
+	if env != null and env.has_method("handle"):
+				# The kind stays known (an advert cannot be taken back); with no handler the envelope drops it.
+		env.call("handle", GSGameRoster.COVER_KIND, Callable())
+
+
+func _on_cover_report(peer_id: int, payload: Dictionary) -> void:
+	var covered: Variant = payload.get("covered")
+	if roster == null or not (covered is bool):
+		return
+	roster.report_cover(peer_id, covered)
+
+
+func _on_loading_changed(seat: int, loading: bool) -> void:
+	loading_changed.emit(seat, loading)
+
+
+## Whether [param seat]'s client is still behind its loading cover (joined, or a map change began, until it says the cover lifted), at most [member load_timeout_sec]. False for bots and anybody not in the game.
+## What a hazard asks before it hurts somebody and round counting before it counts somebody out.
+func is_loading(seat: int) -> bool:
+	return roster != null and roster.is_loading(seat)
+
+
+## [method is_loading] by peer id, which is what most server game code holds.
+func is_peer_loading(peer_id: int) -> bool:
+	return roster != null and roster.is_peer_loading(peer_id)
+
+
+## Whether [param seat] may be damaged, eliminated or counted out now: not while loading; override to add reasons (a spawn shield).
+func can_be_harmed(seat: int) -> bool:
+	return not is_loading(seat)
+
+
+## [method can_be_harmed] by peer id.
+func can_peer_be_harmed(peer_id: int) -> bool:
+	if roster == null:
+		return true
+	var seat := roster.seat_of_peer(peer_id)
+	return seat < 0 or can_be_harmed(seat)
+
+
+## Every seat still loading, sorted.
+func loading_seats() -> PackedInt32Array:
+	return roster.loading_seats() if roster != null else PackedInt32Array()
+
+
+## A map change this game drives without [method report_map]: every seat is loading again until its client reports.
+func mark_reloading() -> void:
+	if roster != null:
+		roster.mark_reloading()
+
+
+## The spawn hook, kept here rather than handed to the roster directly.
+##
+## Moderation records are checked here, not at connect: GameSpice Server's mute dies with its session, so a muted player would reconnect and talk.
+func _on_client_spawn(event: GSEvent) -> void:
+	if roster == null:
+		return
+
+		# Through the roster: `client_spawn` carries `userid` and `name`, not `peer_id`.
+	var session := roster.session_of(event.get_int("userid"))
+
+	if session == null:
+		return
+
+	if services != null and services.has_method("check_admission"):
+		var admitted: Variant = services.call("check_admission", session)
+
+		if admitted is GSResult and not (admitted as GSResult).ok:
+			server.kick(session, (admitted as GSResult).error.message)
+			return
+
+	roster.add(session)
+
+
+## One authoritative tick.
+func _physics_process(delta: float) -> void:
+	if not loaded or Engine.is_editor_hint():
+		return
+
+		# Before the tick gate: a timeout is wall-clock.
+	if roster != null:
+		roster.poll_loading()
+
+	if not _can_tick():
+		return
+
+	tick += 1
+
+	# The cvars are live; the game's own net config is left alone.
+	GSGameNetcode.follow_map_threads(console)
+	if net != null and server != null and net.config != null:
+		GSGameNetcode.follow_server_threads(net.config, server.config)
+
+	if npc_lod != null:
+		npc_lod.follow(delta)
+
+	if bridge != null and bridge.has_method("server_tick"):
+		bridge.call("server_tick", tick)
+
+	_game_tick(tick, delta)
+
+
+## Whether this frame may tick at all, asked before the counter moves. A game whose world can vanish under a loaded module answers false instead of overriding `_physics_process`.
+func _can_tick() -> bool:
+	return true
+
+
+## Hands the server's hibernation to every clock under this module, and to [method _game_hibernation].
+##
+## Found, not registered: after [method _game_load] the subtree is searched for anything with `follow_hibernation(server)` (gs-vote's director, gs-map's session), so a game cannot forget it. Harmless twice; nothing on a server without the signal.
+func _follow_hibernation() -> void:
+	if server == null or not server.has_signal("hibernation_changed"):
+		return
+
+	var followed := 0
+
+	for node in find_children("*", "", true, false):
+		if node.has_method("follow_hibernation") and bool(node.call("follow_hibernation", server)):
+			followed += 1
+
+	if not server.hibernation_changed.is_connected(_on_hibernation_changed):
+		server.hibernation_changed.connect(_on_hibernation_changed)
+
+	GSLog.debug(CHANNEL, "following the server's hibernation", {
+		"clocks": followed, "hibernating": server.is_hibernating(),
+	})
+
+
+func _on_hibernation_changed(hibernating: bool) -> void:
+	_game_hibernation(hibernating)
+
+
+## Snapshot interest from [param world]'s potentially visible set (a gs-map GSMapBspMesh placed at the origin), switched by the `net_visibility` cvar; call on every server map load, with null on unload. Value: whether a set is in force (false without a netcode, a default interest or the map's data).
+func use_map_visibility(world: Object, bounds: AABB = AABB()) -> bool:
+	var on := GSGameNetcode.attach_visibility(net, world, bounds)
+	GSLog.info(CHANNEL, "snapshot visibility", {"in_force": on})
+	return on
+
+
+## Tells the server which map this game is on, for A2S, DQP and the backbone report; "" clears it. Returns whether the server took it.
+##
+## Called by the game, which alone knows what it calls a map; the server forgets it on every unload. Duck-typed: an older server reports nothing and this says so once.
+func report_map(map_id: String) -> bool:
+	if map_id != _reported_map:
+		_apply_map_config(map_id)
+		# A different map is a map change; the first report is not one.
+	if map_id != _reported_map and _reported_map != "":
+		mark_reloading()
+	_reported_map = map_id
+
+	if server == null or server.games == null:
+		return false
+
+	if not server.games.has_method("set_current_map"):
+		if not _warned_no_map_report:
+			_warned_no_map_report = true
+			GSLog.info(CHANNEL, "this server cannot be told the map; listings show the game", {
+				"map": map_id,
+			})
+		return false
+
+	# GameSpice Server 19 takes the map's download groups too, so a joining client fetches only this map's files.
+	if _server_takes_map_groups():
+		server.games.call("set_current_map", map_id, _map_download_groups(map_id) if map_id != "" else PackedStringArray())
+	else:
+		server.games.call("set_current_map", map_id)
+	return true
+
+
+## The GameSpice Cloud download groups of [param map_id]'s own files (a bake, bot rides), reported with the map so a client
+## joining now fetches them and one already in the session tops up. Empty, the default, means the map has none.
+func _map_download_groups(_map_id: String) -> PackedStringArray:
+	return PackedStringArray()
+
+
+func _server_takes_map_groups() -> bool:
+	for m in server.games.get_method_list():
+		if m.name == "set_current_map":
+			return (m.args as Array).size() >= 2
+	return false
+
+
+## The cvars a map's file may set: key -> `{type, min, max}` (GameSpice Map's docs/map-config.md). Empty, the default, means this game takes no per-map settings.
+func _map_config_keys() -> Dictionary:
+	return {}
+
+
+## The weakest layer: key -> value for a map with no file (the converter's defaults).
+func _map_config_defaults() -> Dictionary:
+	return {}
+
+
+## The `cfg/game/<game>/gs_map/` folder's game name (the repository's, such as `game-fatal-contact`): `GSAddonConfig.game` when the host set it, else the module's name.
+func _map_config_game() -> String:
+	return GSAddonConfig.game if GSAddonConfig.game != "" else String(_module_name())
+
+
+## The key's current value; the server console's cvar unless overridden.
+func _map_config_get(key: String) -> Variant:
+	if map_scripts != null and map_scripts.owns_key(key):
+		return map_scripts.config_get(key)
+	var cv: GSConVar = console.find_cvar(key) if console != null else null
+	return cv.get_string() if cv != null else null
+
+
+## Applies one value; false refuses it. The server console's cvar unless overridden.
+func _map_config_set(key: String, value: Variant) -> bool:
+	if map_scripts != null and map_scripts.owns_key(key):
+		return map_scripts.config_set(key, value)
+	return console != null and console.set_cvar(key, str(value)).ok
+
+
+func _apply_map_config(map_id: String) -> void:
+	_wiring().apply_map_config(self, map_id)
+
+
+func _module_unload() -> void:
+	_game_unload()
+	_teardown()
+	var prof := get_node_or_null(_Profiler.NODE_NAME)
+	if prof != null:
+		prof.queue_free()
+
+
+## Starts GameSpice Cloud's auto-update once per headless server process, under the server. No-op without GameSpice Cloud, on a listen server and in a browser.
+static func start_auto_update(host: GSServer) -> Node:
+	return _wiring().start_auto_update(host)
+
+
+## Every delivered pack the server's games run, as `{id, version}` (games, dependencies, maps).
+static func watched_packs(host: Object) -> Array:
+	return _wiring().watched_packs(host)
+
+
+## The block rules (teammates pass, enemies stop) when the game has a `body_rules`; null when off.
+var noblock: GSGameNoblock = null
+
+
+## Has the roster tell the relay's loadouts who joins and leaves.
+func _follow_avatar_loadouts() -> void:
+	_wiring().follow_loadouts(self)
+
+
+func _bind_avatar_hooks() -> void:
+	_wiring().bind_hooks(self)
+
+
+## The avatar actions [param peer_id] may play as ids, or null for what the server read from the backbone. Default asks the game object.
+func _avatar_actions_equipped(peer_id: int) -> Variant:
+	if game != null and game.has_method(&"_avatar_actions_equipped"):
+		return game.call(&"_avatar_actions_equipped", peer_id)
+	return null
+
+
+## True refuses [param id] for [param peer_id] now. Default asks the game object, else allows.
+func _avatar_action_veto(peer_id: int, id: String) -> bool:
+	if game != null and game.has_method(&"_avatar_action_veto"):
+		return bool(game.call(&"_avatar_action_veto", peer_id, id))
+	return false
+
+
+## This server's id on the site, advertised as [constant GSGameAvatarContent.SERVER_CVAR]; 0 while unknown. Default: GameSpice Auth's `server:<id>` audience.
+func _site_server_id() -> int:
+	var auth: Object = GSRegistry.get_service(&"gs_auth_server")
+	if auth != null and auth.has_method(&"join_audience"):
+		return GSGameAvatarContent.server_id_from_audience(String(auth.call(&"join_audience")))
+	return 0
+
+
+## Seconds between looks for the site id while GameSpice Auth has not read it yet, and how many looks.
+var site_server_retry_sec: float = 5.0
+var site_server_retries: int = 24
+
+
+func _advertise_site_server() -> void:
+	_wiring().advertise_site_server(self)
+
+
+## Content ids a client must download before it connects, published as `sv_avatar_content`. Default none.
+func _avatar_content_required() -> Array:
+	return []
+
+
+func _advertise_avatar_content() -> void:
+	_wiring().advertise_content(self)
+
+
+## Whether to wire GameSpice Team's block rules. A game with its own `block_rules` wired by hand is left alone.
+func _noblock_enabled() -> bool:
+	return use_noblock and game != null and "body_rules" in game and game.get("body_rules") != null \
+		and not ("block_rules" in game and game.get("block_rules") != null)
+
+
+## `(player id) -> side id` for teammates ("" or null for none); the game's `team_of` by default.
+func _noblock_side(id: Variant) -> Variant:
+	if game == null or not game.has_method(&"team_of"):
+		return ""
+	var team := int(game.call(&"team_of", int(id)))
+	return str(team) if team > 0 else ""
+
+
+## The game's `GSProfileRuntime`, so the workbench lists the `noblock` kind; the started `game.workbench`'s by default, null for none.
+func _noblock_runtime() -> Object:
+	var wb: Variant = game.get("workbench") if game != null and "workbench" in game else null
+	var api: Variant = wb.get("api") if wb is Object else null
+	return api.get("runtime") if api is Object else null
+
+
+func _build_noblock() -> GSResult:
+	return _wiring().build_noblock(self)
+
+
+## Everything the sequence built, in the reverse order it was built in: the netcode is what the rest attached to, so freeing it first leaves them calling a freed object.
+func _teardown() -> void:
+	movement_cvars = null
+	_detach_board()
+	_release_cover_reports()
+
+	if _set_peer_loading and game != null and is_instance_valid(game):
+		game.set(PEER_LOADING_PROPERTY, Callable())
+	_set_peer_loading = false
+	_reported_map = ""
+	if map_scripts != null:
+		map_scripts.restore()
+	if map_config != null:
+		map_config.restore()
+		map_config = null
+
+	if server != null and server.hibernation_changed.is_connected(_on_hibernation_changed):
+		server.hibernation_changed.disconnect(_on_hibernation_changed)
+
+	if server != null and roster != null:
+		if server.client_disconnected.is_connected(roster.on_client_disconnected):
+			server.client_disconnected.disconnect(roster.on_client_disconnected)
+
+	if stats_feed != null:
+		stats_feed.end_all()
+		if roster != null:
+			stats_feed.unfollow(roster)
+		stats_feed = null
+
+	if roster != null:
+		if roster.loading_changed.is_connected(_on_loading_changed):
+			roster.loading_changed.disconnect(_on_loading_changed)
+		roster.clear()
+		roster = null
+
+	_drop(services)
+	services = null
+
+		# The platform module goes with the identity layer that loaded it: it holds that layer's
+		# hub, and left loaded it asked the freed hub to admit the next player (signal 11).
+	if _loaded_platform and server != null and server.modules != null \
+			and server.modules.has_module("platform"):
+		server.modules.unload_module("platform")
+	_loaded_platform = false
+
+	_drop(identity)
+	identity = null
+
+	# The bridge before the manager it attached to.
+	_drop(bridge)
+	bridge = null
+
+	if net != null:
+		net.stop()
+		_drop(net)
+		net = null
+
+	noblock = null
+	game = null
+	tick = 0
+
+
+## Whether this module loaded GameSpice Platform's module, and so has to unload it.
+var _loaded_platform := false
+
+
+func _drop(child: Node) -> void:
+	if child == null or not is_instance_valid(child):
+		return
+	if child.get_parent() == self:
+		remove_child(child)
+	child.queue_free()
+
+
+## Extends [GSModule]'s rather than replacing it: the base reports the counts the module host and `modules` read.
+func describe() -> Dictionary:
+	var out := super.describe()
+
+	out.merge({
+		"game": game != null,
+		"netcode": net != null,
+		"identity": identity != null,
+		"services": services != null,
+		"tick": tick,
+		"loading": Array(loading_seats()),
+	}, true)
+
+	if roster != null:
+		out["roster"] = roster.describe()
+
+	return out
+
+
+func describe_lines() -> PackedStringArray:
+	var lines := PackedStringArray([
+		"module     %s" % _module_name(),
+		"game       %s" % ("yes" if game != null else "no"),
+		"netcode    %s" % ("yes" if net != null else "no"),
+		"identity   %s" % ("yes" if identity != null else "no"),
+		"services   %s" % ("yes" if services != null else "no"),
+		"tick       %d" % tick,
+	])
+
+	if map_config != null:
+		lines.append_array(map_config.describe_lines())
+
+	if roster != null:
+		lines.append_array(roster.describe_lines())
+
+	return lines
+
+
+## GSGameModuleWiring, loaded (see [constant _WIRING_UID]).
+static func _wiring() -> GDScript:
+	return load(_WIRING_UID) as GDScript

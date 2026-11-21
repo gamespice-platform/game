@@ -62,7 +62,7 @@ func _check(ok: bool, what: String) -> void:
 
 
 func _run() -> void:
-	print("dot-game: map edit overlay")
+	print("gs-game: map edit overlay")
 	var ov := GSGameMapEditOverlay.new()
 	ov.schema = _schema()
 	ov.send_fn = func(line: String) -> void: _sent.append(line)

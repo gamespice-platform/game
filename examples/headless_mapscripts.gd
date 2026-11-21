@@ -24,9 +24,9 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-game: map script events")
+	print("gs-game: map script events")
 	if not ResourceLoader.exists(GSGameMapScripts.SCRIPT_PATH):
-		print("SKIPPED: dot-map is not linked into this project (addons/dot_map)")
+		print("SKIPPED: gs-map is not linked into this project (addons/gs_map)")
 		get_tree().quit(0)
 		return
 
@@ -43,7 +43,7 @@ func _run() -> void:
 	_check(not s.handle("effect.fire", {}), "a non-script event is not this handler's")
 	_check(s.handle("script.set_player_speed", {"kind": "run", "value": 250.0}) and run.get_float() == 250.0, "run speed is set through sv_runspeed")
 	_check(s.handle("script.set_player_speed", {"kind": "walk", "value": 125.0}) and absf(walk.get_float() - 0.5) < 0.001, "walk speed is a fraction of the run speed")
-	_check(s.handle("script.set_player_speed", {"kind": "run", "value": 5000.0}) and run.get_float() == 1000.0, "a speed in dot-map's range but above the game's cap is clamped")
+	_check(s.handle("script.set_player_speed", {"kind": "run", "value": 5000.0}) and run.get_float() == 1000.0, "a speed in gs-map's range but above the game's cap is clamped")
 	s.restore()
 	_check(run.get_float() == 300.0 and absf(walk.get_float() - 0.5) < 0.001, "restore puts the speeds back")
 

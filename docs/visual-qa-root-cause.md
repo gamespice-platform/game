@@ -1,6 +1,6 @@
 # Why the visual QA loop passed bad frames (2026-11-19)
 
-The FC battle_rifle reload on review `game-arena-anim-2026-11-19` was posted with blown-out frames, a magazine larger than the receiver and the support hand off the gun, and nobody flagged it. This doc records what was verified. The fix is the judge loop in [visual-judge-rubric.md](visual-judge-rubric.md) and `addons/dot_game/tools/dot_game_visual_judge.sh`.
+The FC battle_rifle reload on review `game-fatal-contact-anim-2026-11-19` was posted with blown-out frames, a magazine larger than the receiver and the support hand off the gun, and nobody flagged it. This doc records what was verified. The fix is the judge loop in [visual-judge-rubric.md](visual-judge-rubric.md) and `addons/gs_game/tools/gs_game_visual_judge.sh`.
 
 ## What was wrong with the frames
 
@@ -12,15 +12,15 @@ The FC battle_rifle reload on review `game-arena-anim-2026-11-19` was posted wit
 
 ## Why the process let it through
 
-1. **Nothing judged the posted clips.** GameSpice Game `tools/capture_reviews.sh`, which FC, game-arena and zombie-zone run through `tools/qa.conf`, cuts before and after clips and posts them as `<game>-anim-<date>` with only the `review_look` text. No verdict was ever written, so every weapon on the item read "not reviewed". Nobody had to look before it was posted.
+1. **Nothing judged the posted clips.** GameSpice Game `tools/capture_reviews.sh`, which FC, game-fatal-contact and zombie-zone run through `tools/qa.conf`, cuts before and after clips and posts them as `<game>-anim-<date>` with only the `review_look` text. No verdict was ever written, so every weapon on the item read "not reviewed". Nobody had to look before it was posted.
 2. **The docs told agents not to look.** FC `docs/anim-review.md` step 3: "Save tokens: read the report before any image ... crop to the cells". GameSpice Game `docs/visual-qa.md` asks for sheets "small enough for an agent to read cheaply". An agent read the numeric PASS, cropped a few 320 px cells and moved on. "Done" in practice meant metric PASS.
 3. **The checklist had no quality criteria.** It covered foot slide, T-pose and detachment, which the metrics already catch. Scale, proportion, exposure, textures, silhouette, hands and fingers, and reference quality (CS:S or a modern FPS) were not on it, so nothing asked whether the result looked like a shipped game.
 4. **The author judged their own work.** The agent that changed the clip also wrote the verdict, with the metrics and its own notes in context. A fresh reviewer rule existed in the family CLAUDE.md, but no tool enforced it.
-5. **The review clips were too small and too slow to judge.** They were 960x540 at 30 fps with 320 px filmstrip cells, and FC's `tools/qa.conf` still fingerprinted `../arena-weapons`, a path that no longer exists.
+5. **The review clips were too small and too slow to judge.** They were 960x540 at 30 fps with 320 px filmstrip cells, and FC's `tools/qa.conf` still fingerprinted `../fc-weapons`, a path that no longer exists.
 
 ## The fix
 
-- `dot_game_visual_judge.sh` captures on a GPU box (it refuses llvmpipe), builds a judge pack (full-resolution stills at start, mid, end and the motion peaks, a frame-delta strip, every camera), and runs a fresh judge with no metrics and no author notes. The judge writes `verdict.json`, and `production_ready` defaults to false.
+- `gs_game_visual_judge.sh` captures on a GPU box (it refuses llvmpipe), builds a judge pack (full-resolution stills at start, mid, end and the motion peaks, a frame-delta strip, every camera), and runs a fresh judge with no metrics and no author notes. The judge writes `verdict.json`, and `production_ready` defaults to false.
 - The loop runs fix, recapture and a fresh judge with no round cap (`VISUAL_JUDGE_MAX_ROUNDS`, 0 = unlimited). When it gives up, it fails loudly and opens one nightly item per unresolved defect.
-- `dot_game_visual_qa_post.sh` and `capture_reviews.sh` refuse to post without a passing verdict, or without every open defect filed in nightly. A posted item carries its verdict and defects.
+- `gs_game_visual_qa_post.sh` and `capture_reviews.sh` refuse to post without a passing verdict, or without every open defect filed in nightly. A posted item carries its verdict and defects.
 - FC's `review_clips_run.sh` converts the range (`in_range=pc:out_range=tv`) and records at 1280x720 and 60 fps.

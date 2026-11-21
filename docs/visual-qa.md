@@ -8,11 +8,11 @@ Nothing here ships in a pack, so none of it bumps the API level.
 
 | File | What |
 | --- | --- |
-| `addons/dot_game/qa/dot_game_visual_qa_capture.gd` | `GSGameVisualQaCapture`, a `SceneTree` script: the capture scene contract. A game extends it and overrides the hooks |
-| `addons/dot_game/qa/dot_game_visual_qa_views.gd` | `GSGameVisualQaViews`: the behind-right and opponent cameras as SubViewports of the game's world, `place(feet, yaw)`, `save(dir, i, first_person)` (f/t/o jpgs), `tag_layers` |
-| `addons/dot_game/tools/dot_game_visual_qa_shot.sh` | the on-box half: runs the capture under xvfb at `--fixed-fps`, makes the sheets and the side-by-side clip (into `--clip-dir`, default `--out`), drops the frames |
-| `addons/dot_game/tools/dot_game_visual_qa.sh` | the driver: routes the shot tool to a GPU box (`gpu.sh shot --route --pull`), falls back to `heavy`, files the clips, writes `report.md` |
-| `addons/dot_game/tools/dot_game_visual_qa_post.sh` | posts clips (with `fps`, frames and verdict in `--metrics`) and first-person sheets to a nightly review item |
+| `addons/gs_game/qa/gs_game_visual_qa_capture.gd` | `GSGameVisualQaCapture`, a `SceneTree` script: the capture scene contract. A game extends it and overrides the hooks |
+| `addons/gs_game/qa/gs_game_visual_qa_views.gd` | `GSGameVisualQaViews`: the behind-right and opponent cameras as SubViewports of the game's world, `place(feet, yaw)`, `save(dir, i, first_person)` (f/t/o jpgs), `tag_layers` |
+| `addons/gs_game/tools/gs_game_visual_qa_shot.sh` | the on-box half: runs the capture under xvfb at `--fixed-fps`, makes the sheets and the side-by-side clip (into `--clip-dir`, default `--out`), drops the frames |
+| `addons/gs_game/tools/gs_game_visual_qa.sh` | the driver: routes the shot tool to a GPU box (`gpu.sh shot --route --pull`), falls back to `heavy`, files the clips, writes `report.md` |
+| `addons/gs_game/tools/gs_game_visual_qa_post.sh` | posts clips (with `fps`, frames and verdict in `--metrics`) and first-person sheets to a nightly review item |
 | `examples/visual_qa_demo.gd` | a runnable capture (a capsule with a nose turning and walking a circle, plus a clip that skips): copy it to start |
 | `examples/headless_visual_qa.tscn` | the suite for the plan filter, the verdict, the T-pose distance and the camera placement |
 
@@ -53,16 +53,16 @@ func _drive(_item: String, _clip: String, t: float, _frame: int) -> void:
 
 ```bash
 #!/usr/bin/env bash
-exec bash "$(dirname "$0")/../addons/dot_game/tools/dot_game_visual_qa_shot.sh" --script tools/visual_qa.gd -- "$@"
+exec bash "$(dirname "$0")/../addons/gs_game/tools/gs_game_visual_qa_shot.sh" --script tools/visual_qa.gd -- "$@"
 ```
 
-3. Run it as gamedev from the checkout or a `~/wt` worktree, in the background (one item and clip takes a minute or two on a box). A worktree lacks the gitignored addon links of the checkout (`addons/dot_core` and the rest, "Could not resolve class" in the capture), so link them from `/home/gamedev/projects/godot/<repo>/addons/<name>` first; the shot tool imports a fresh `.godot/` itself. Make sure `screenshots/` belongs to gamedev, or gpu.sh's copy back fails on chgrp. The tool's own end-to-end proof is `tools/visual_judge_proof_shot.sh` (clip `pop` has a planted teleport and floating face box, clip `turn` has none):
+3. Run it as gamedev from the checkout or a `~/wt` worktree, in the background (one item and clip takes a minute or two on a box). A worktree lacks the gitignored addon links of the checkout (`addons/gs_core` and the rest, "Could not resolve class" in the capture), so link them from `/home/gamedev/projects/godot/<repo>/addons/<name>` first; the shot tool imports a fresh `.godot/` itself. Make sure `screenshots/` belongs to gamedev, or gpu.sh's copy back fails on chgrp. The tool's own end-to-end proof is `tools/visual_judge_proof_shot.sh` (clip `pop` has a planted teleport and floating face box, clip `turn` has none):
 
 ```bash
-sudo -u gamedev bash addons/dot_game/tools/dot_game_visual_qa.sh --shot tools/visual_qa_shot.sh --fresh soldier -- --only soldier --clips walk
+sudo -u gamedev bash addons/gs_game/tools/gs_game_visual_qa.sh --shot tools/visual_qa_shot.sh --fresh soldier -- --only soldier --clips walk
 ```
 
-4. Read `screenshots/visual_qa/report.md`, then the sheets (below), then post: `nightly review new "<Game> visual QA <date>" --key <game>-visual-qa-<date>` once, and `bash addons/dot_game/tools/dot_game_visual_qa_post.sh <key> [--fails] [--variant before|after]`.
+4. Read `screenshots/visual_qa/report.md`, then the sheets (below), then post: `nightly review new "<Game> visual QA <date>" --key <game>-visual-qa-<date>` once, and `bash addons/gs_game/tools/gs_game_visual_qa_post.sh <key> [--fails] [--variant before|after]`.
 
 Add `screenshots/` to `.gitignore` if it is not there.
 
@@ -101,7 +101,7 @@ The metric verdict in `report.md` is a pre-filter: it catches foot slide, pops a
 A visual change is done only when **3 or more consecutive fresh judges** each find zero defects, every one on a new variant (see below). The author never judges their own frames: it took a weeks-long run of metric PASSes on a magazine three times the gun's size to learn that ([visual-qa-root-cause.md](visual-qa-root-cause.md)).
 
 ```bash
-bash addons/dot_game/tools/dot_game_visual_judge.sh --clips screenshots/visual_qa [--capture '<GPU capture cmd>'] \
+bash addons/gs_game/tools/gs_game_visual_judge.sh --clips screenshots/visual_qa [--capture '<GPU capture cmd>'] \
      [--only item,item] [--anims clip,clip] [--out DIR] [--passes N] [--give-up] [--fix-cmd CMD]
 ```
 
@@ -113,15 +113,15 @@ bash addons/dot_game/tools/dot_game_visual_judge.sh --clips screenshots/visual_q
 - Evidence: the judge runs with `--output-format stream-json`; `judge.jsonl` is its transcript and `evidence.json` its session id, every image it Read, the images' sha256 and the sha256 of the `verdict.json` it wrote. `evidence.json` also records the item, clip, the judged mp4 and its sha256, pass, variant, round and renderer. A judge that skipped an image, or a verdict file that differs from what it wrote, is invalid and judged again (two judges per pack, then exit 5). Each judge is killed after `--timeout`/`VISUAL_JUDGE_TIMEOUT` seconds (default 1800), and a timeout counts as an invalid judge.
 - Anchor: the gate does not trust `judge.jsonl` alone, since whoever writes the pack could write it too. It looks up the judge's own Claude transcript (`<session>.jsonl` under christian's `~/.claude*/projects/`, owned by christian, not by the pack's author) and checks that the session ran in this pack directory, Read every image and that its last Write of `verdict.json` has the exact content on disk. A pack with no such transcript is unsound. Limit: root can forge anything; the anchor stops an agent working as gamedev or core. `VISUAL_JUDGE_TRANSCRIPTS` overrides the lookup for the self-test only; the post tools unset it.
 - It runs a fresh `claude -p` judge (`VISUAL_JUDGE_MODEL`, default opus; haiku, sonnet or opus, never Fable) on the pack with [visual-judge-rubric.md](visual-judge-rubric.md). The judge writes `verdict.json`: per-frame findings, defects (category, severity, camera, frames, what, fix hint), `production_ready` and a justification. An invalid verdict (an image not Read or not in `looked_at`, a frame without findings, true with any defect, a thin justification) is rejected and judged again.
-- Exit 0 means production ready, and only after `dot_game_visual_verdict.py --audit` agrees with the run (otherwise exit 5). Exit 1 means fix the defects at their source and run it again. With `--capture` and `--fix-cmd` it loops by itself. There is no round cap unless `VISUAL_JUDGE_MAX_ROUNDS` is set (0 = unlimited).
+- Exit 0 means production ready, and only after `gs_game_visual_verdict.py --audit` agrees with the run (otherwise exit 5). Exit 1 means fix the defects at their source and run it again. With `--capture` and `--fix-cmd` it loops by itself. There is no round cap unless `VISUAL_JUDGE_MAX_ROUNDS` is set (0 = unlimited).
 - To stop with defects open, run `--give-up` (or hit the round cap): it files one nightly item per game and defect category under a stable key (`vj-<game>-<category>`; a done, dropped or wontfix item is reopened to queue) with each open defect (any severity), its clip, frames, fix hint, pack, round and judge session as a note, writes the keys into `verdict.json` after each one and exits 3. If any defect cannot be filed it exits 1 and says which. It fails loudly; it never passes. The gate accepts a filed defect only when its nightly item exists and names that judge session.
-- The post tools (`dot_game_visual_qa_post.sh`, the games' wrappers, `tools/capture_reviews.sh`) read `verdict.json` through `dot_game_visual_verdict.py`. They pass the clip's own mp4 (`--mp4`) and refuse it unless it is the very file the judge saw (sha256), and unless the run is production ready with a sound streak, or every defect has a filed nightly key (a `--variant before` post needs only a verdict); every one needs judge evidence that still matches the files. `dot_game_visual_verdict.py --audit <out>/verdict.json` checks a whole run (`--pack DIR` one pack) and prints `sound: PRODUCTION READY` or the reasons it is not; it never trusts the run's own `production_ready` field. Self-test: `bash tests/visual_judge/selftest.sh` (stub judge and nightly, no GPU). The post's look text is the verdict and its defects, and the item's review verdict is the judge's.
+- The post tools (`gs_game_visual_qa_post.sh`, the games' wrappers, `tools/capture_reviews.sh`) read `verdict.json` through `gs_game_visual_verdict.py`. They pass the clip's own mp4 (`--mp4`) and refuse it unless it is the very file the judge saw (sha256), and unless the run is production ready with a sound streak, or every defect has a filed nightly key (a `--variant before` post needs only a verdict); every one needs judge evidence that still matches the files. `gs_game_visual_verdict.py --audit <out>/verdict.json` checks a whole run (`--pack DIR` one pack) and prints `sound: PRODUCTION READY` or the reasons it is not; it never trusts the run's own `production_ready` field. Self-test: `bash tests/visual_judge/selftest.sh` (stub judge and nightly, no GPU). The post's look text is the verdict and its defects, and the item's review verdict is the judge's.
 
 The snippet for briefs, nightly prompts and CLAUDE.md files is [visual-judge-brief.md](visual-judge-brief.md).
 
 ## 60 fps in the nightly viewer
 
-The review viewer already plays clips at their own rate: it reads the file's frame rate (ffprobe `r_frame_rate`), steps one frame per 1/fps, and has a playback-rate control. `dot_game_visual_qa_post.sh` also posts the rate as the `fps` metric, from the file itself, and the repo's `tools/capture_reviews.sh` does the same. A browser shows at most the display's refresh rate, so a 60 fps clip plays fully on a 60 Hz or faster screen; step frame by frame for anything finer. A sheet shows 15 frames a second, so a one-frame pop can fall between cells: that is what the clip and the numbers are for.
+The review viewer already plays clips at their own rate: it reads the file's frame rate (ffprobe `r_frame_rate`), steps one frame per 1/fps, and has a playback-rate control. `gs_game_visual_qa_post.sh` also posts the rate as the `fps` metric, from the file itself, and the repo's `tools/capture_reviews.sh` does the same. A browser shows at most the display's refresh rate, so a 60 fps clip plays fully on a 60 Hz or faster screen; step frame by frame for anything finer. A sheet shows 15 frames a second, so a one-frame pop can fall between cells: that is what the clip and the numbers are for.
 
 ## The checklist
 
@@ -150,4 +150,4 @@ The driver hands the game's shot wrapper to a GPU box (staging or staging02) wit
 
 ## Filmstrip, the other capture
 
-`addons/dot_game/tools/dot_game_filmstrip.sh` plays scripted scenarios (`tools/filmstrip_scenarios.json`) through the game's real client with `--write-movie`: one camera, a whole level or interaction, for gameplay feel. Visual QA is per subject, three cameras, every frame judged. Use the filmstrip for "does the match play right", visual QA for "does this weapon, avatar or NPC look right".
+`addons/gs_game/tools/gs_game_filmstrip.sh` plays scripted scenarios (`tools/filmstrip_scenarios.json`) through the game's real client with `--write-movie`: one camera, a whole level or interaction, for gameplay feel. Visual QA is per subject, three cameras, every frame judged. Use the filmstrip for "does the match play right", visual QA for "does this weapon, avatar or NPC look right".

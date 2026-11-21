@@ -37,7 +37,7 @@ func _check(ok: bool, what: String) -> void:
 
 
 func _run() -> void:
-	print("dot-game: net io")
+	print("gs-game: net io")
 	var io := GSGameNetIo.new()
 	var link := FakeLink.new()
 	var bytes := PackedByteArray([1])

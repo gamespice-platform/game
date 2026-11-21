@@ -6,9 +6,9 @@ The shared wiring for a multiplayer Godot 4 game. Every server game in the famil
 
 ## Install
 
-Copy `addons/dot_game/` into your project with [GameSpice Core](https://github.com/gamespice-platform/core), [GameSpice Server](https://github.com/gamespice-platform/server) and [GameSpice Net](https://github.com/gamespice-platform/net) (all three are required), and enable dot-game under **Project > Project Settings > Plugins**. [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap) does this for a whole project.
+Copy `addons/gs_game/` into your project with [GameSpice Core](https://github.com/gamespice-platform/core), [GameSpice Server](https://github.com/gamespice-platform/server) and [GameSpice Net](https://github.com/gamespice-platform/net) (all three are required), and enable gs-game under **Project > Project Settings > Plugins**. [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap) does this for a whole project.
 
-Optional pieces (a map director, a vote, a services layer, dot-platform) are reached without being named, so you only need them if you use them.
+Optional pieces (a map director, a vote, a services layer, gs-platform) are reached without being named, so you only need them if you use them.
 
 ## A server game in one file
 

@@ -4,7 +4,7 @@ extends GSGameCheckSuite
 
 const EXPECTED_CHECKS := 42
 const SECTIONS := ["presets", "homes", "overrides", "validate", "apply"]
-const L := preload("res://addons/dot_game/runtime/dot_game_touch_layout.gd")
+const L := preload("res://addons/gs_game/runtime/gs_game_touch_layout.gd")
 
 var _done: Array[String] = []
 
@@ -25,7 +25,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-game: touch layout")
+	print("gs-game: touch layout")
 	_presets()
 	_homes()
 	_overrides()
@@ -70,7 +70,7 @@ func _homes() -> void:
 	for extra: StringName in [L.COMMAND, L.MAPS, L.GAG, L.MUTE]:
 		_check(L.build(L.PLATFORMER, {extra: &"row1"}).ok and L.LABELS.has(extra), "%s is a canonical id with a label, placeable in a slot" % extra)
 	_check(L.canonical_id(&"attack") == L.FIRE and L.canonical_id(&"swing") == L.FIRE, "attack and swing are fire")
-	_check(L.canonical_id(&"duck") == L.CROUCH and L.canonical_id(&"dot_fps_crouch") == L.CROUCH, "duck and dot_fps_crouch are crouch")
+	_check(L.canonical_id(&"duck") == L.CROUCH and L.canonical_id(&"gs_fps_crouch") == L.CROUCH, "duck and gs_fps_crouch are crouch")
 	_check(L.canonical_id(&"split") == &"split", "a game's own id is left alone")
 	_done.append("homes")
 

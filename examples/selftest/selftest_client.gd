@@ -484,7 +484,7 @@ func _test_client_hooks_rewire(host: Node) -> void:
 
 ## This suite's project has neither GameSpice Menu nor GameSpice Console, which is a real build.
 func _test_client_without_the_addons() -> void:
-	_section("the client's platform, in a build with neither dot-menu nor dot-console")
+	_section("the client's platform, in a build with neither gs-menu nor gs-console")
 	var host := Node.new()
 	add_child(host)
 	var client := GSGameClient.new()

@@ -24,7 +24,7 @@ func _make(roots_dir: String, strict := true, json := "") -> GSGameConfigBinder:
 
 
 func _run() -> void:
-	print("dot-game: config binder")
+	print("gs-game: config binder")
 	_schema()
 	_defaults()
 	_layers()
@@ -235,7 +235,7 @@ func _schemas() -> void:
 
 
 func _write_templates() -> void:
-	var root := "user://dot_game_tmpl_test"
+	var root := "user://gs_game_tmpl_test"
 	var b := GSGameConfigBinder.create(preload("fixtures/test_grouped_config.gd").new(), "tg", "tg")
 	b.grouped = true
 	b.group_files = {"Movement": "move"}

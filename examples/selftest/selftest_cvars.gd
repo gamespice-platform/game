@@ -27,8 +27,8 @@ class _FakeVarSource extends RefCounted:
 
 
 func _test_map_load_threads() -> void:
-	_section("map_load_threads reaches dot-map's default worker count, on the server and the client")
-	var threads := load("res://addons/dot_game/runtime/dot_game_map_threads.gd")
+	_section("map_load_threads reaches gs-map's default worker count, on the server and the client")
+	var threads := load("res://addons/gs_game/runtime/gs_game_map_threads.gd")
 	var have_map := ResourceLoader.exists(threads.BUILD_SCRIPT)
 	var console := GSConsole.new()
 	add_child(console)
@@ -36,7 +36,7 @@ func _test_map_load_threads() -> void:
 	var cv := console.find_cvar("map_load_threads")
 	_check(cv != null, "the server cvar is registered")
 	_check(cv != null and cv.get_int() == 0, "and defaults to 0 (inline)")
-	_check(threads.current() == 0, "so dot-map starts with no workers (dot-map: %s)" % str(have_map))
+	_check(threads.current() == 0, "so gs-map starts with no workers (gs-map: %s)" % str(have_map))
 	var _r := console.set_cvar("map_load_threads", "3")
 	GSGameNetcode.follow_map_threads(console)
 	_check(threads.current() == (3 if have_map else 0), "setting it reaches GSMapParallelBuild.default_workers")
@@ -53,7 +53,7 @@ func _test_map_load_threads() -> void:
 	_r = console.set_cvar("map_load_threads", "0")
 	GSGameNetcode.follow_map_threads(console)
 	threads.client_value = 0
-	_check(threads.current() == 0, "back to 0 puts dot-map back inline")
+	_check(threads.current() == 0, "back to 0 puts gs-map back inline")
 	console.queue_free()
 	_done()
 
@@ -66,7 +66,7 @@ func _test_workbench_thread_cvars() -> void:
 	console.cvar("sv_threads_net", "0", "Net threads.", GSConVar.FLAG_ARCHIVE)
 	var types := GSGameWorkbench.THREAD_CVARS.duplicate()
 	types["sv_no_such_cvar"] = "int"
-	var set := GSGameWorkbench.cvar_set(console, types, "threads", "dot_server")
+	var set := GSGameWorkbench.cvar_set(console, types, "threads", "gs_server")
 	var root := "user://wb_thread_cvars_%d" % OS.get_process_id()
 	set.roots = PackedStringArray([root])
 	var names: Array = set.schema.map(func(f: Dictionary) -> String: return f["name"])
@@ -82,15 +82,15 @@ func _test_workbench_thread_cvars() -> void:
 	_check(r.ok and console.get_int("sv_worker_threads") == 4, "an edit sets the cvar", str(r.error.message if not r.ok else ""))
 	_check(console.get_bool("sv_threads_net"), "a cvar changed at the console is not reverted by an edit of another")
 	var saved := runtime.handle_request("t", GSProfileRuntime.make_request("save", "threads", "server"))
-	_check(saved.ok and str(saved.value.get("saved", "")).ends_with("server/addon/dot_server/threads/server.yml"), "save writes the server tier", str(saved.value if saved.ok else saved.error.message))
+	_check(saved.ok and str(saved.value.get("saved", "")).ends_with("server/addon/gs_server/threads/server.yml"), "save writes the server tier", str(saved.value if saved.ok else saved.error.message))
 	var fresh := GSConsole.new()
 	add_child(fresh)
 	fresh.cvar("sv_worker_threads", "0", "Workers.", GSConVar.FLAG_ARCHIVE).with_range(-1, 64)
 	fresh.cvar("sv_threads_net", "0", "Net threads.", GSConVar.FLAG_ARCHIVE)
-	var again := GSGameWorkbench.cvar_set(fresh, GSGameWorkbench.THREAD_CVARS, "threads", "dot_server")
+	var again := GSGameWorkbench.cvar_set(fresh, GSGameWorkbench.THREAD_CVARS, "threads", "gs_server")
 	again.roots = PackedStringArray([root])
 	_check(GSGameWorkbench.bind_cvar_set(again, null, fresh) == 1 and fresh.get_int("sv_worker_threads") == 4, "the saved file is applied at the next start")
-	var file := root.path_join("server/addon/dot_server/threads/server.yml")
+	var file := root.path_join("server/addon/gs_server/threads/server.yml")
 	DirAccess.remove_absolute(file)
 	console.queue_free()
 	fresh.queue_free()
@@ -99,7 +99,7 @@ func _test_workbench_thread_cvars() -> void:
 
 func _test_relevance_cvars() -> void:
 	_section("the relevance settings are server cvars that drive the default interest strategy")
-	var Rel: GDScript = load("res://addons/dot_game/net/dot_game_relevance.gd")
+	var Rel: GDScript = load("res://addons/gs_game/net/gs_game_relevance.gd")
 	var console := GSConsole.new()
 	add_child(console)
 	var net := GSNetManager.new()
@@ -125,7 +125,7 @@ func _test_relevance_cvars() -> void:
 	var early := GSConsole.new()
 	add_child(early)
 	Rel.ensure_cvars(early)
-	var set := GSGameWorkbench.cvar_set(early, Rel.TYPES, "relevance", "dot_server")
+	var set := GSGameWorkbench.cvar_set(early, Rel.TYPES, "relevance", "gs_server")
 	_check(set != null and set.schema.size() == 3, "the workbench set exists even when it starts before the netcode")
 	var late := GSNetInterestDistance.new()
 	var late_net := GSNetManager.new()
@@ -182,7 +182,7 @@ class RenderStore:
 
 func _test_sun_shadow_cvars() -> void:
 	_section("r_sun_shadow_size and r_sun_shadow_splits validate and cap a sun, never raising it")
-	var rq := load("res://addons/dot_game/runtime/dot_game_render_quality.gd")
+	var rq := load("res://addons/gs_game/runtime/gs_game_render_quality.gd")
 	var saved: Dictionary = rq.values.duplicate()
 	_check(rq.set_value(&"r_sun_shadow_splits", 3).ok == false, "3 splits is refused")
 	_check(rq.set_value(&"r_sun_shadow_size", 100).ok == false, "a 100 px sun map is refused")
@@ -206,7 +206,7 @@ func _test_sun_shadow_cvars() -> void:
 
 
 func _test_render_quality() -> void:
-	_section("every client applies render quality (dot-fx) from the menu's keys, no per-game wiring")
+	_section("every client applies render quality (gs-fx) from the menu's keys, no per-game wiring")
 	var c := GSGameClient.new()
 	c.use_gate = false
 	c.use_settings = false
@@ -214,10 +214,10 @@ func _test_render_quality() -> void:
 	c.use_slide_sounds = false
 	c.capture_pointer = false
 	add_child(c)
-	var has_fx := ResourceLoader.exists("res://addons/dot_fx/runtime/dot_fx_render_quality.gd")
+	var has_fx := ResourceLoader.exists("res://addons/gs_fx/runtime/gs_fx_render_quality.gd")
 	_check(c.setup().ok, "setup succeeds")
 	if not has_fx:
-		_check(c.render_quality == null, "without dot-fx it is a no-op")
+		_check(c.render_quality == null, "without gs-fx it is a no-op")
 	else:
 		_check(c.render_quality != null and c.get_node_or_null("RenderQuality") == c.render_quality, "the node is added")
 		var vp := c.get_viewport()
@@ -428,7 +428,7 @@ func _test_escape_and_hold(host: Node) -> void:
 	await _test_pointer_hold(host, esc_menu, vp)
 
 
-## A game's own modal and a dot_pointer_modal node hold the pointer.
+## A game's own modal and a gs_pointer_modal node hold the pointer.
 func _test_pointer_hold(host: Node, esc_menu: Node, vp: Viewport) -> void:
 	# A game's own modal holds the pointer: a click, a menu closing and a focus event do not recapture.
 	esc_menu.open_now = false
@@ -460,7 +460,7 @@ func _test_pointer_hold(host: Node, esc_menu: Node, vp: Viewport) -> void:
 
 	# A node in the pointer-modal group (GameSpice UI's ballot) holds it through its own signal.
 	var modal := FakePointerModal.new()
-	modal.add_to_group(&"dot_pointer_modal")
+	modal.add_to_group(&"gs_pointer_modal")
 	host.add_child(modal)
 	hold._wire_pointer_modals()
 	modal.set_pointer(true)
@@ -528,7 +528,7 @@ func _test_movement_cvars() -> void:
 	m.game = game
 	var saved := GSGameModule.fps_cvars_script
 	GSGameModule.fps_cvars_script = "res://examples/fixtures/missing_binder.gd"
-	_check(m.bind_movement_cvars().is_empty() and m.movement_cvars == null, "without dot-player-controller it is skipped, not an error")
+	_check(m.bind_movement_cvars().is_empty() and m.movement_cvars == null, "without gs-player-controller it is skipped, not an error")
 
 	GSGameModule.fps_cvars_script = "res://examples/fixtures/test_fps_cvars.gd"
 	var made := m.bind_movement_cvars()

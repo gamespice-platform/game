@@ -3,7 +3,7 @@ extends Node
 ## The remote workbench: an unauthenticated or unauthorised peer is refused before the api sees a request, an admin's edit is applied, audited and replicated, and a revoked flag closes the panel.
 
 const CHECKS := 45
-const API_SCRIPT := "res://addons/dot_workbench/dot_workbench_api.gd"
+const API_SCRIPT := "res://addons/gs_workbench/gs_workbench_api.gd"
 
 var _passed := 0
 var _failed := 0
@@ -80,7 +80,7 @@ func _ask(remote: GSGameWorkbenchRemote, peer: int, text: String) -> void:
 
 
 func _run() -> void:
-	print("dot-game: remote workbench")
+	print("gs-game: remote workbench")
 	var flags := {"admin": ["cvar", "root"], "mod": ["cvar"], "low": []}
 	var enabled := [false]
 	var uids := {5: "admin", 6: "mod", 7: "", 8: "low", 9: "ghost"}
@@ -220,17 +220,17 @@ func _panel_phase(client: GSGameWorkbenchRemoteClient) -> void:
 ## Needs GameSpice Workbench linked into this project; skipped (and counted as such) when it is not.
 func _real_api(remote: GSGameWorkbenchRemote, flags: Dictionary, clock: Array, enabled: Array) -> void:
 	if not ResourceLoader.exists(API_SCRIPT):
-		print("   dot-workbench not linked: real-api checks skipped")
+		print("   gs-workbench not linked: real-api checks skipped")
 		_passed += 12
 		return
 	var root := "user://wb_remote_test"
-	var set := GSProfileSet.create("dot-npc", "mygame", "npc", [
+	var set := GSProfileSet.create("gs-npc", "mygame", "npc", [
 		GSProfileSet.field("health", "int", 100, {"min": 1, "max": 1000}),
 	])
 	set.roots = PackedStringArray([root])
 	set.override_prefix = "wbt"
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root + "/addons/dot-npc/npc"))
-	var f := FileAccess.open(root + "/addons/dot-npc/npc/zombie.yml", FileAccess.WRITE)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root + "/addons/gs-npc/npc"))
+	var f := FileAccess.open(root + "/addons/gs-npc/npc/zombie.yml", FileAccess.WRITE)
 	f.store_string("health: 50\n")
 	f.close()
 	var api: RefCounted = (load(API_SCRIPT) as GDScript).new()

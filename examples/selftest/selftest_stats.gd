@@ -192,7 +192,7 @@ func _test_stats_keys() -> void:
 	for f in [KEY_A, KEY_B]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
 	if not ResourceLoader.exists(GSGameStatsFeed.SCOPE_SCRIPT):
-		_check(_feed_on(KEY_A).key_for(_who(1, "backbone:ann")) == &"u1", "without dot-user a key is the seat's")
+		_check(_feed_on(KEY_A).key_for(_who(1, "backbone:ann")) == &"u1", "without gs-user a key is the seat's")
 		_done()
 		return
 	var boot1 := _feed_on(KEY_A)
@@ -219,7 +219,7 @@ func _test_stats_keys() -> void:
 	var held := _FakePlatformPlayer.new()
 	held.k = "ProfileKey_abcdefghijkl"
 	plat.data["platform"] = held
-	_check(boot1.key_for(plat) == &"ProfileKey_abcdefghijkl", "dot-platform's profile key wins over both")
+	_check(boot1.key_for(plat) == &"ProfileKey_abcdefghijkl", "gs-platform's profile key wins over both")
 	var late := _who(12, "backbone:fay")
 	var first := boot1.key_for(late)
 	late.data["platform"] = held

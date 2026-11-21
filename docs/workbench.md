@@ -1,6 +1,6 @@
 # Hosting GameSpice Workbench in a game
 
-`GSGameWorkbench` (`runtime/dot_game_workbench.gd`) mounts GameSpice Workbench's in-game window and, when asked, its loopback HTTP page. GameSpice Workbench, GameSpice Menu and GameSpice UI are reached by path: a build without them logs one line and has no workbench.
+`GSGameWorkbench` (`runtime/gs_game_workbench.gd`) mounts GameSpice Workbench's in-game window and, when asked, its loopback HTTP page. GameSpice Workbench, GameSpice Menu and GameSpice UI are reached by path: a build without them logs one line and has no workbench.
 
 | | Default |
 | --- | --- |
@@ -25,15 +25,15 @@ Export builds need `*.html` in the preset's `include_filter` for the HTTP page. 
 
 ## Accounts (API level 20)
 
-`GSGameWorkbench.accounts` is on by default: when dot-auth is running a ticket key (`GSAuthServer.config.ticket_public_key` and `server_id`), a connect ticket is also accepted as the HTTP bearer, verified offline by `GSGameWorkbenchAuth` (audience-checked, expiry required, not burned). Only the uids in `admin_uids` and the groups in `admin_groups` of the `workbench:` block are let in; with neither listed nobody is. The game's own policy still decides each flag: `account_permit_fn(uid, flag)`, which falls back to `permit_fn`. `account_resolver` (`Callable(token) -> identity or null`) replaces the ticket check; `accounts = false` turns the whole thing off; `account_gate` is the dot-workbench `GSWorkbenchIdentity` once attached, else null. dot-auth and dot-workbench are reached by path, so a build without them has no account login and no error. Set the hooks before `start()`; a game wires nothing else.
+`GSGameWorkbench.accounts` is on by default: when gs-auth is running a ticket key (`GSAuthServer.config.ticket_public_key` and `server_id`), a connect ticket is also accepted as the HTTP bearer, verified offline by `GSGameWorkbenchAuth` (audience-checked, expiry required, not burned). Only the uids in `admin_uids` and the groups in `admin_groups` of the `workbench:` block are let in; with neither listed nobody is. The game's own policy still decides each flag: `account_permit_fn(uid, flag)`, which falls back to `permit_fn`. `account_resolver` (`Callable(token) -> identity or null`) replaces the ticket check; `accounts = false` turns the whole thing off; `account_gate` is the gs-workbench `GSWorkbenchIdentity` once attached, else null. gs-auth and gs-workbench are reached by path, so a build without them has no account login and no error. Set the hooks before `start()`; a game wires nothing else.
 
 ## The server's thread cvars
 
-`start()` adds a **Server threads** set to every game's panel when a `GSServer` is registered: `sv_worker_threads`, `sv_threads_net`, `sv_threads_npc`, `net_native`, `net_native_interest` and `map_load_threads` (`THREAD_CVARS`), each field built from its cvar (range, description, current value). An edit sets the cvar, which GameSpice Server applies live; Save writes `cfg/server/addon/dot_server/threads/server.yml`, and the next `start()` applies that file to the cvars before anything reads them. Only what an edit moved is pushed, so a cvar changed at the console since is left alone. `thread_cvars = false` leaves the set out. `cvar_set(console, {name: type}, kind, addon)` and `bind_cvar_set(set, runtime, console)` build the same thing over any other cvars.
+`start()` adds a **Server threads** set to every game's panel when a `GSServer` is registered: `sv_worker_threads`, `sv_threads_net`, `sv_threads_npc`, `net_native`, `net_native_interest` and `map_load_threads` (`THREAD_CVARS`), each field built from its cvar (range, description, current value). An edit sets the cvar, which GameSpice Server applies live; Save writes `cfg/server/addon/gs_server/threads/server.yml`, and the next `start()` applies that file to the cvars before anything reads them. Only what an edit moved is pushed, so a cvar changed at the console since is left alone. `thread_cvars = false` leaves the set out. `cvar_set(console, {name: type}, kind, addon)` and `bind_cvar_set(set, runtime, console)` build the same thing over any other cvars.
 
 ## The relevance cvars
 
-`GSGameNetcode.build` registers `net_interest_radius`, `net_far_every` and `net_far_distance` on the server console (`GSGameRelevance`, archive flag) and follows them into the manager's default `GSNetInterestDistance`, live; a game that assigns its own interest strategy is left alone. 0 keeps the game's value; the radius is a ceiling (the smaller wins), the far pair replaces. The same names in the operator's `server.yml` seed the defaults. The workbench offers them as a "Relevance" set; Save writes `cfg/server/addon/dot_server/relevance/server.yml`, applied at the next start (the console changes them at once). `GSGameWorkbench.relevance_cvars = false` hides the set. The same bind registers `net_skip_idle` (`GSNetConfig.skip_idle_snapshots`) and `net_visibility` (`GSNetInterestDistance.visibility_enabled`), 0/1, seeded from the game's own value, live; `net_visibility` only cuts on a map whose PVS the game handed over with `GSGameModule.use_map_visibility(world)` (a converted BSP map with a `vis` record, placed at the origin).
+`GSGameNetcode.build` registers `net_interest_radius`, `net_far_every` and `net_far_distance` on the server console (`GSGameRelevance`, archive flag) and follows them into the manager's default `GSNetInterestDistance`, live; a game that assigns its own interest strategy is left alone. 0 keeps the game's value; the radius is a ceiling (the smaller wins), the far pair replaces. The same names in the operator's `server.yml` seed the defaults. The workbench offers them as a "Relevance" set; Save writes `cfg/server/addon/gs_server/relevance/server.yml`, applied at the next start (the console changes them at once). `GSGameWorkbench.relevance_cvars = false` hides the set. The same bind registers `net_skip_idle` (`GSNetConfig.skip_idle_snapshots`) and `net_visibility` (`GSNetInterestDistance.visibility_enabled`), 0/1, seeded from the game's own value, live; `net_visibility` only cuts on a map whose PVS the game handed over with `GSGameModule.use_map_visibility(world)` (a converted BSP map with a `vis` record, placed at the origin).
 
 ## NPC level of detail
 
@@ -56,7 +56,7 @@ Flagged admins edit profiles from a connected client; nobody else even gets a pa
 3. Keep the local workbench for offline play only; online, only the remote one is trusted.
 4. `examples/headless_net.gd` gets a section that registers both ends in that order and checks that an admin's edit applies and replicates, and that a guest, a non-admin, a revoked admin and the cvar off are refused.
 
-Test: `examples/headless_workbench_remote.tscn` (the real-api half needs `addons/dot_workbench` linked and is counted as skipped otherwise).
+Test: `examples/headless_workbench_remote.tscn` (the real-api half needs `addons/gs_workbench` linked and is counted as skipped otherwise).
 
 ## The suite base: GSGameWorkbenchSuite
 

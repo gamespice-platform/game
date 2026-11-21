@@ -1,6 +1,6 @@
 # Per-map settings in a game
 
-Every game gets dot-map's per-map settings (`GSMapConfig`, dot-map's docs/map-config.md: files, wildcards, precedence, the whitelist) from dot-game. A game declares two things, the keys a map may set and (optionally) their defaults; it copies no loading code. dot-map is found by path (`res://addons/dot_map/config/dot_map_config.gd`) and never named, so a build without it applies nothing and logs that once. It needs dot-core API level 19 (`GSAddonConfig.tier_dirs`).
+Every game gets gs-map's per-map settings (`GSMapConfig`, gs-map's docs/map-config.md: files, wildcards, precedence, the whitelist) from gs-game. A game declares two things, the keys a map may set and (optionally) their defaults; it copies no loading code. gs-map is found by path (`res://addons/gs_map/config/gs_map_config.gd`) and never named, so a build without it applies nothing and logs that once. It needs gs-core API level 19 (`GSAddonConfig.tier_dirs`).
 
 ## On a `GSGameModule` (the server)
 
@@ -36,11 +36,11 @@ A client that predicts with a setting needs the same value: assign `map_config_k
 
 ## The files
 
-`cfg/game/<game>/dot_map/map/<name>.yml`, `<name>` a map id or a glob (`surf_%.yml`: `%` is `*`, `@` is `?`, since a literal `*` or `?` cannot be a file name on Windows or in a pack), a flat key-to-scalar mapping; the operator overrides in `cfg/server/game/<game>/dot_map/map/`. The converter writes a commented starter for every map (GameSpice Map's docs/map-config.md).
+`cfg/game/<game>/gs_map/map/<name>.yml`, `<name>` a map id or a glob (`surf_%.yml`: `%` is `*`, `@` is `?`, since a literal `*` or `?` cannot be a file name on Windows or in a pack), a flat key-to-scalar mapping; the operator overrides in `cfg/server/game/<game>/gs_map/map/`. The converter writes a commented starter for every map (GameSpice Map's docs/map-config.md).
 
 ## The check
 
-`examples/headless_mapcfg.tscn` (needs GameSpice Map linked at `addons/dot_map`; it says SKIPPED and exits 0 without it): the server hook, the client hook and `for_console`, with the cvars starting away from the files' values.
+`examples/headless_mapcfg.tscn` (needs GameSpice Map linked at `addons/gs_map`; it says SKIPPED and exits 0 without it): the server hook, the client hook and `for_console`, with the cvars starting away from the files' values.
 
 ## Map scripts (`script.*` events)
 

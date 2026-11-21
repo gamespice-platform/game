@@ -36,7 +36,7 @@ func _check(ok: bool, what: String) -> void:
 
 
 func _run() -> void:
-	print("dot-game: toy net")
+	print("gs-game: toy net")
 	var toy := FakeToy.new()
 	toy.on = true
 	toy.count = 7

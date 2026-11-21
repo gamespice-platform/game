@@ -1,0 +1,525 @@
+class_name GSGameNetchaosClient
+extends Node
+
+## One real game client of `tools/netchaos.sh`: the game's client scene over ENet to a remote server, a
+## pilot that runs, strafes, jumps and shoots, and a JSON report. A game extends it in `tools/netchaos_client.gd`
+## and sets [member client_scene]; `--start-at` (UNIX time, this clock) lines every client's active window up.
+
+## The game's client scene, instanced after the join.
+var client_scene := ""
+## The action the pilot holds to shoot; empty for none.
+var fire_action := &""
+
+const READY_SECONDS := 45.0
+## Seconds a client stays connected after its report, so every report sees the full roster.
+const LINGER_SEC := 3.0
+## Connect attempts before the first join counts as failed (each one a refused or timed-out connect).
+const JOIN_ATTEMPTS := 4
+
+var _server := "127.0.0.1:27210"
+var _name := "A"
+var _start_at := 0.0
+var _active := 30.0
+## `--seq DIR`: a rendered client (not --headless) saves a 16-frame "DIR" (ending .seq) from the middle of the active window.
+var _seq_dir := ""
+var _settle := 6.0
+var _out := "netchaos_report.json"
+var _fire := true
+var _transport := "udp"
+var _frames: PackedFloat32Array = PackedFloat32Array()
+
+var _keepalive: Variant = null
+var _link: GSClientLink = null
+var _client: Node = null
+var _pilot: Node = null
+var _dropped := false
+var _gone_reason := ""
+
+var _sessions := 0
+var _join_attempts := 1
+var _disconnects: Array = []
+var _join_seconds: Array = []
+var _rejoin_seconds: Array = []
+var _timeline: Array = []
+var _corrections := 0
+var _replays := 0
+var _worst_error := 0.0
+var _max_gap := 0.0
+var _gap_clock := 0.0
+var _last_received := -1
+var _never_ready := false
+var _gate_open := true
+var _errors: PackedStringArray = []
+var _sess_base := {"corrections": 0, "replays": 0}
+var _spikes: Array = []
+## Corrections under SPIKE_M but visible (over 2 cm), with the predictor's newest mismatch, to tell rounding from a real divergence.
+var _small: Array = []
+var _roster_seen: Dictionary = {}
+var _dbg: Dictionary = {}
+var _dbg_log: Array = []
+
+
+## Override: set [member client_scene] and [member fire_action].
+func _configure() -> void:
+	pass
+
+
+## Override: called once before the connect; keep what it returns alive in [member _keepalive]
+## (a game's scratch settings, so the run does not touch the player's saved ones).
+func _prepare(_label: String) -> Variant:
+	return null
+
+
+## Override: sweeps of this client's player another player's hull stopped (replays included), so a
+## solid run can show it bumped at all; -1 when the game does not count them.
+func _contacts() -> int:
+	return -1
+
+
+func _ready() -> void:
+	_configure()
+	var args := OS.get_cmdline_user_args()
+	for i in range(args.size() - 1):
+		match args[i]:
+			"--server": _server = args[i + 1]
+			"--name": _name = args[i + 1]
+			"--start-at": _start_at = float(args[i + 1])
+			"--active": _active = float(args[i + 1])
+			"--settle": _settle = float(args[i + 1])
+			"--out": _out = args[i + 1]
+			"--fire": _fire = args[i + 1] != "0"
+			"--transport": _transport = args[i + 1]
+			"--seq": _seq_dir = args[i + 1]
+	name = "Netchaos"  # RPC paths must match the server's root name
+	GSLog.set_level(GSLog.Level.WARN)
+	_keepalive = _prepare("netchaos_client_" + _name)
+	_run.call_deferred()
+	if _seq_dir != "":
+		_record_seq.call_deferred()
+
+
+func _record_seq() -> void:
+	await get_tree().create_timer(maxf(_start_at + _active * 0.5 - _now(), 0.0)).timeout
+	OS.set_environment("GS_SHOT_FRAMES", "16")
+	await GSShotSeq.new().record(get_tree(), _seq_dir.trim_suffix(".seq") + ".png")
+
+
+func _process(delta: float) -> void:
+	if _client != null and _now() >= _start_at:
+		_frames.append(delta)
+
+
+## Frame times in ms of the whole run, so a network stall that holds the frame loop shows as a long frame.
+func _frame_stats() -> Dictionary:
+	var n := _frames.size()
+	if n < 10:
+		return {"count": n}
+	var sorted := _frames.duplicate()
+	sorted.sort()
+	var total := 0.0
+	var over50 := 0
+	var over100 := 0
+	for d in _frames:
+		total += d
+		over50 += int(d > 0.05)
+		over100 += int(d > 0.1)
+	return {"count": n, "mean_ms": snappedf(total / n * 1000.0, 0.01), "p50_ms": snappedf(sorted[n / 2] * 1000.0, 0.01),
+		"p99_ms": snappedf(sorted[int(n * 0.99)] * 1000.0, 0.01), "max_ms": snappedf(sorted[n - 1] * 1000.0, 0.01),
+		"over50": over50, "over100": over100, "fps_mean": snappedf(float(n) / total, 0.1)}
+
+
+func _now() -> float:
+	return Time.get_unix_time_from_system()
+
+
+# Every `cnet` below is untyped on purpose: with `var cnet: GSNetManager` here and a typed
+# `GSClientLink` in the same script, Godot 4.7.2 left 120 objects and 90 scripts at exit (the exit-walk
+# bug), and `netchaos clean` failed on it. Do not annotate them.
+func _join() -> bool:
+	_sessions += 1
+	_dropped = false
+	_gone_reason = ""
+	var began := _now()
+	_link = GSClientLink.new()
+	_link.name = "Server"
+	_link.player_name = "nc_" + _name
+	_link.transport_preference = _transport
+	_link.udp_address = _server
+	add_child(_link)
+	_link.disconnected.connect(func(reason: String) -> void:
+		_dropped = true
+		_gone_reason = reason)
+	var spawned := [false]
+	_link.spawned.connect(func() -> void: spawned[0] = true)
+	_link.connect_to_server(_server)
+	while not (spawned[0] or _link.is_playing()) and not _dropped and _now() - began < 40.0:
+		await get_tree().create_timer(0.1).timeout
+	if not (spawned[0] or _link.is_playing()):
+		_errors.append("session %d never joined: %s" % [_sessions, _gone_reason])
+		return false
+	# After the join, as net_probe does: building the scene first or on game_changed never opened
+	# the game link here. The server's first calls land before it exists: a few engine errors
+	# the evaluator counts as the join race.
+	_client = (load(client_scene) as PackedScene).instantiate()
+	_client.set("mouse_capture_override", true)
+	add_child(_client)
+	while _now() - began < READY_SECONDS and not _dropped:
+		var cnet = _client.get("net")
+		if cnet != null and cnet.clock.is_synced() and _client.get("player") != null:
+			_join_seconds.append(_now() - began)
+			_sess_base = {"corrections": 0, "replays": 0}
+			_last_received = -1
+			return true
+		await get_tree().create_timer(0.1).timeout
+	_errors.append("session %d not ready after %.0f s (gate open %s)" % [_sessions, _now() - began, _gate_is_open()])
+	return false
+
+
+## The spawn snap on join is not a misprediction; judge corrections from the moment play starts.
+func _forget_join_snap() -> void:
+	var cnet = _client.get("net")
+	if cnet == null or cnet.predictor == null:
+		return
+	cnet.predictor.set("_worst_error", 0.0)
+	_worst_error = 0.0
+	var p := _prediction()
+	_corrections = 0
+	_replays = 0
+	_sess_base = {"corrections": int(p.get("corrections", 0)), "replays": int(p.get("replays", 0))}
+
+
+func _gate_is_open() -> bool:
+	var g = _client.get("gate") if _client != null else null
+	return g == null or g.is_open()
+
+
+func _teardown() -> void:
+	_fold_prediction()
+	if _pilot != null:
+		_pilot.queue_free()
+		_pilot = null
+	if _client != null:
+		_client.queue_free()
+	if _link != null:
+		_link.queue_free()
+	_client = null
+	_link = null
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+
+func _fold_prediction() -> void:
+	var p := _prediction()
+	_corrections += int(p.get("corrections", 0)) - _sess_base["corrections"]
+	_replays += int(p.get("replays", 0)) - _sess_base["replays"]
+	_worst_error = maxf(_worst_error, float(str(p.get("worst_error", "0")).trim_suffix(" m")))
+	_sess_base = {"corrections": int(p.get("corrections", 0)), "replays": int(p.get("replays", 0))}
+
+
+func _prediction() -> Dictionary:
+	if _client == null:
+		return {}
+	var cnet = _client.get("net")
+	if cnet == null or cnet.predictor == null:
+		return {}
+	return cnet.predictor.describe()
+
+
+func _sample() -> void:
+	var cnet = _client.get("net")
+	if cnet == null:
+		return
+	var p := _prediction()
+	_worst_error = maxf(_worst_error, float(str(p.get("worst_error", "0")).trim_suffix(" m")))
+	_timeline.append({
+		"t": snappedf(_now() - _start_at, 0.1),
+		"rtt_p50": snappedf(cnet.stats.rtt_percentile(0.5), 0.1),
+		"rtt_p95": snappedf(cnet.stats.rtt_percentile(0.95), 0.1),
+		"snap_lost": cnet.stats.snapshots_lost,
+		"snap_recv": cnet.stats.snapshots_received,
+		"out_of_order": cnet.stats.out_of_order,
+		"corrections": _corrections + int(p.get("corrections", 0)) - _sess_base["corrections"],
+		"worst_error": _worst_error,
+		"snaps": int(p.get("snaps", 0)),
+		"worst_snap": float(str(p.get("worst_snap", "0")).trim_suffix(" m")),
+		"gap_max": snappedf(_max_gap, 0.01),
+		"fps": Engine.get_frames_per_second(),
+	})
+
+
+## Each correction over SPIKE_M with what the link and clock looked like, so a spike in the
+## report says whether it was a respawn, a blackout or a bump. Reads and clears the predictor's
+## worst each frame, which keeps [member _worst_error] the run's maximum.
+const SPIKE_M := 0.5
+
+
+func _watch_corrections() -> void:
+	var cnet = _client.get("net") if _client != null else null
+	if cnet == null or cnet.predictor == null:
+		return
+	var e: float = cnet.predictor.get("_worst_error")
+	if e <= 0.0:
+		return
+	cnet.predictor.set("_worst_error", 0.0)
+	_worst_error = maxf(_worst_error, e)
+	if e >= 0.02 and e < SPIKE_M and _small.size() < 60 and _now() >= _start_at:
+		var q = cnet.predictor.describe()
+		_small.append({"t": snappedf(_now() - _start_at, 0.01), "error_m": snappedf(e, 0.001),
+			"replayed": q.get("last_replay_ticks"), "last_mismatch": str(q.get("last_mismatch")), "state": _state_line()})
+	if e < SPIKE_M or _spikes.size() >= 40 or _now() < _start_at:
+		return
+	var p = cnet.predictor.describe()
+	var c = cnet.clock.describe()
+	var player = _client.get("player")
+	_spikes.append({"t": snappedf(_now() - _start_at, 0.01), "error_m": snappedf(e, 0.001),
+		"replayed": p.get("last_replay_ticks"), "snaps": p.get("snaps"), "alive": player != null and _alive(player),
+		"tick": c.get("tick"), "received_tick": c.get("received_tick"), "lead": c.get("lead"),
+		"catch_ups": c.get("catch_ups"), "clock_snaps": c.get("snaps"), "lost_ms": c.get("lost_ms"),
+		"snap_lost": cnet.stats.snapshots_lost, "out_of_order": cnet.stats.out_of_order,
+		"gap_s": snappedf(_gap_clock, 0.01), "last_mismatch": str(p.get("last_mismatch"))})
+
+
+## Where the pilot is and what the motor says (position, mode, ground), for the small corrections.
+func _state_line() -> String:
+	var player = _client.get("player") if _client != null else null
+	if player == null or player.get("controller") == null or player.controller.get("state") == null:
+		return ""
+	var st = player.controller.state
+	return "pos %s vel %s mode %s ground %s" % [st.position, st.velocity, st.get("mode"), st.get("ground_id")]
+
+
+## The replicated behaviour a player is mirrored by, found through the registry.
+func _net_behaviour(who) -> Variant:
+	var cnet = _client.get("net")
+	if cnet == null:
+		return null
+	for identity in cnet.registry.all():
+		for b in identity.behaviours:
+			if b.get("player") == who:
+				return b
+	return null
+
+
+## Override when the player has no `is_alive()` (a game with no health); default true.
+func _alive(p: Object) -> bool:
+	return p.is_alive() if p.has_method(&"is_alive") else true
+
+
+## Override when the game's roster is not `game.players()` (an Array of players).
+func _roster() -> Array:
+	var game = _find_game(_client)
+	return game.players() if game != null else []
+
+
+## The client's game node: its `game` property when set, else the first node-valued script variable of the client (or of a
+## `GSGameClient` child) that has a `players()` method, else a node in group `game`. A game names it as it likes
+## (playlot's is `playlot`), so the roster watch must not need the name.
+static func _find_game(client: Node) -> Object:
+	if client == null:
+		return null
+	var named = client.get("game")
+	if named is Object and is_instance_valid(named):
+		return named
+	var holders: Array = [client]
+	for child in client.get_children():
+		if child is GSGameClient:
+			holders.append(child)
+	for holder: Object in holders:
+		for prop in holder.get_property_list():
+			if prop["type"] != TYPE_OBJECT or not (prop["usage"] & PROPERTY_USAGE_SCRIPT_VARIABLE):
+				continue
+			var value = holder.get(prop["name"])
+			if value is Node and value != client and value.has_method(&"players"):
+				return value
+	if client.is_inside_tree():
+		for node in client.get_tree().get_nodes_in_group(&"game"):
+			if node != client and node.has_method(&"players"):
+				return node
+	return null
+
+
+func _watch_roster() -> void:
+	if _client == null:
+		return
+	for who in _roster():
+		if not _roster_seen.has(who.display_name):
+			_roster_seen[who.display_name] = snappedf(_now() - _start_at, 0.01)
+		var nb = _net_behaviour(who)
+		if nb != null and who != _client.get("player"):
+			var key := "%s %s %s" % [who.display_name, nb.get("net_alive"), nb.get("net_health")]
+			if _dbg.get(who.display_name, "") != key:
+				_dbg[who.display_name] = key
+				_dbg_log.append([snappedf(_now() - _start_at, 0.01), key, nb.get("last_state_tick")])
+
+
+func _watch_gap(delta: float) -> void:
+	if _client == null:
+		return
+	var cnet = _client.get("net")
+	if cnet == null:
+		return
+	var received: int = cnet.stats.snapshots_received
+	if received != _last_received:
+		_last_received = received
+		_gap_clock = 0.0
+	else:
+		_gap_clock += delta
+		_max_gap = maxf(_max_gap, _gap_clock)
+
+
+func _wait_until(unix: float) -> void:
+	var next_sample := 0.0
+	var last := Time.get_ticks_usec()
+	while _now() < unix and not _dropped:
+		await get_tree().process_frame
+		var now := Time.get_ticks_usec()
+		_watch_gap((now - last) / 1e6)
+		_watch_corrections()
+		_watch_roster()
+		last = now
+		next_sample -= (now - last) / 1e6 + get_process_delta_time()
+		if next_sample <= 0.0:
+			next_sample = 1.0
+			_sample()
+
+
+func _run() -> void:
+	var finish := _start_at + _active + _settle
+	var t0 := _now()
+	var ok := await _join()
+	# A refused connect is retried like a player pressing Connect again; the attempts are
+	# counted, and the first join's seconds run from the first attempt, so a
+	# handshake that a bandwidth cap breaks is still visible in the report.
+	var tries := 1
+	while not ok and tries < JOIN_ATTEMPTS and _now() < _start_at:
+		tries += 1
+		await _teardown()
+		ok = await _join()
+	_join_attempts = tries
+	if ok and tries > 1 and not _join_seconds.is_empty():
+		_join_seconds[0] = _now() - t0
+	if not ok:
+		_never_ready = true
+	var drops_started := 0.0
+	while ok and _now() < finish:
+		if _now() >= _start_at and _pilot == null and _now() < _start_at + _active:
+			_forget_join_snap()
+			_pilot = Pilot.new()
+			_pilot.fire = _fire and fire_action != &""
+			_pilot.fire_action = fire_action
+			_client.add_child(_pilot)
+		if _pilot != null and _now() >= _start_at + _active:
+			_pilot.queue_free()
+			_pilot = null
+		await _wait_until(minf(_now() + 1.0, finish))
+		if _dropped:
+			drops_started = _now()
+			_disconnects.append({"at": snappedf(drops_started - _start_at, 0.1), "reason": _gone_reason})
+			await _teardown()
+			var rejoined := false
+			for attempt in range(5):
+				if await _join():
+					rejoined = true
+					break
+				await _teardown()
+			if not rejoined:
+				_never_ready = true
+				ok = false
+			else:
+				_rejoin_seconds.append(snappedf(_now() - drops_started, 0.1))
+	_report(t0)
+	# Clients finish up to a few hundred ms apart; leaving at once had the first one's LEAVE
+	# reach the others before their own report, which read as a lost roster entry.
+	if ok:
+		await get_tree().create_timer(LINGER_SEC).timeout
+	# Free the pilot, client and link before quitting, so none is still alive when the engine exits.
+	await _teardown()
+	get_tree().quit()
+
+
+func _report(t0: float) -> void:
+	var out := {"name": _name, "server": _server, "unix": _now(), "start_at": _start_at,
+		"connected": not _never_ready and _client != null, "sessions": _sessions, "join_attempts": _join_attempts,
+		"join_seconds": _join_seconds, "disconnects": _disconnects, "rejoin_seconds": _rejoin_seconds,
+		"errors": _errors, "timeline": _timeline, "spikes": _spikes, "small_corrections": _small, "roster_seen": _roster_seen, "dbg": _dbg_log}
+	if _client != null:
+		_fold_prediction()
+		var cnet = _client.get("net")
+		var player = _client.get("player")
+		var game = _find_game(_client)
+		out["gate_open"] = _gate_is_open()
+		out["link_playing"] = _link != null and _link.is_playing()
+		out["clock_synced"] = cnet != null and cnet.clock.is_synced()
+		if player != null:
+			var pos: Vector3 = player.controller.state.position
+			out["self"] = {"pos": [pos.x, pos.y, pos.z], "alive": _alive(player), "name": player.display_name}
+		var others := {}
+		if game != null:
+			for who in _roster():
+				if who != player:
+					var gp: Vector3 = who.global_position
+					var nb = _net_behaviour(who)
+					others[who.display_name] = [gp.x, gp.y, gp.z, _alive(who),
+						nb != null and nb.get("net_alive") != false, nb.get("net_health") if nb != null else -1, true,
+						nb.get("last_state_tick") if nb != null else -2, nb.identity.is_authoritative if nb != null and nb.identity != null else null]
+				out["others"] = others
+		if cnet != null:
+			out["stats"] = {"snap_recv": cnet.stats.snapshots_received, "snap_lost": cnet.stats.snapshots_lost,
+				"loss_rate": cnet.stats.loss_rate(), "out_of_order": cnet.stats.out_of_order,
+				"decode_failures": cnet.stats.decode_failures, "rtt_p50": cnet.stats.rtt_percentile(0.5),
+				"rtt_p95": cnet.stats.rtt_percentile(0.95)}
+	out["prediction"] = {"corrections": _corrections, "replays": _replays, "worst_error_m": _worst_error}
+	if _client != null:
+		var pd := _prediction()
+		out["predictor"] = {"skipped": pd.get("skipped"), "mismatches": pd.get("mismatches"), "unpredicted": pd.get("unpredicted"),
+			"unpredicted_moves": pd.get("unpredicted_moves"), "last_mismatch": str(pd.get("last_mismatch"))}
+	out["contacts"] = _contacts()
+	for who in (_roster() if _client != null else []):
+		var nb = _net_behaviour(who)
+		if nb != null:
+			var rows := []
+			for d in (nb.get("net_vars") if nb.get("net_vars") != null else []):
+				if d.property in [&"net_alive", &"net_health", &"net_slot"]:
+					rows.append([str(d.property), int(d.audience), d.max_rate, d.interpolate])
+			out["vars_" + who.display_name] = rows
+	out["max_snapshot_gap_s"] = _max_gap
+	out["frames"] = _frame_stats()
+	var f := FileAccess.open(_out, FileAccess.WRITE)
+	f.store_string(JSON.stringify(out))
+	f.close()
+	print("netchaos client %s: report written (%d sessions, %d corrections, worst %.3f m, gap %.2f s)" % [
+		_name, _sessions, _corrections, _worst_error, _max_gap])
+
+
+class Pilot extends Node:
+	var fire := true
+	var fire_action := &""
+	var _t := 0.0
+	var _next := 0.0
+	var _rng := RandomNumberGenerator.new()
+
+	func _ready() -> void:
+		_rng.randomize()
+		Input.action_press(&"gs_fps_forward")
+		if fire:
+			Input.action_press(fire_action)
+
+	func _exit_tree() -> void:
+		for a: StringName in [&"gs_fps_forward", &"gs_fps_left", &"gs_fps_right", &"gs_fps_jump", fire_action]:
+			if a != &"":
+				Input.action_release(a)
+
+	func _process(delta: float) -> void:
+		_t += delta
+		var turn := InputEventMouseMotion.new()
+		turn.relative = Vector2(sin(_t * 0.7) * 6.0, sin(_t * 1.3) * 1.5)
+		Input.parse_input_event(turn)
+		if _t < _next:
+			return
+		_next = _t + _rng.randf_range(0.3, 1.2)
+		for a: StringName in [&"gs_fps_left", &"gs_fps_right", &"gs_fps_jump"]:
+			Input.action_release(a)
+		match _rng.randi_range(0, 3):
+			0: Input.action_press(&"gs_fps_left")
+			1: Input.action_press(&"gs_fps_right")
+			2: Input.action_press(&"gs_fps_jump")

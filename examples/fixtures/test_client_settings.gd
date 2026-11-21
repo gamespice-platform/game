@@ -26,7 +26,7 @@ class FakeMenu extends RefCounted:
 class FakeMaps extends RefCounted:
 	var title: String = ""
 	var noun: String = ""
-	var link_service: StringName = &"dot_client_link"
+	var link_service: StringName = &"gs_client_link"
 	var rows_fn: Callable
 	var change_fn: Callable
 

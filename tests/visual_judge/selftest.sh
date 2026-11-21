@@ -7,9 +7,9 @@
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../.." && pwd)
-judge=$repo/addons/dot_game/tools/dot_game_visual_judge.sh
-gate=$repo/addons/dot_game/tools/dot_game_visual_verdict.py
-post=$repo/addons/dot_game/tools/dot_game_visual_qa_post.sh
+judge=$repo/addons/gs_game/tools/gs_game_visual_judge.sh
+gate=$repo/addons/gs_game/tools/gs_game_visual_verdict.py
+post=$repo/addons/gs_game/tools/gs_game_visual_qa_post.sh
 t=$(mktemp -d /tmp/vjudge-selftest.XXXXXX)
 trap 'rm -rf "$t"' EXIT
 export VISUAL_JUDGE_TRANSCRIPTS=$t/transcripts VISUAL_JUDGE_CLAUDE="python3 $here/stub_judge.py"
@@ -128,12 +128,12 @@ expect 1 "audit of a pack with a null session says not ready" "UNSOUND" -- pytho
 expect 2 "the gate's usage" "" -- python3 "$gate" only-one-arg
 
 # 9. the post tool: the report's metric column no longer clobbers the verdict path, and it never trusts test transcripts.
-g=$t/game; mkdir -p "$g/addons/dot_game/tools" "$g/screenshots/visual_qa"
-cp "$repo/addons/dot_game/tools/"dot_game_visual_{qa_post.sh,verdict.py} "$g/addons/dot_game/tools/"
+g=$t/game; mkdir -p "$g/addons/gs_game/tools" "$g/screenshots/visual_qa"
+cp "$repo/addons/gs_game/tools/"gs_game_visual_{qa_post.sh,verdict.py} "$g/addons/gs_game/tools/"
 cp -r "$c/rifle" "$g/screenshots/visual_qa/"; cp -r "$t/o1" "$g/screenshots/visual_qa/judge"
 printf 'fps: 30\n| item | clip | verdict | why |\n| rifle | fire | PASS | ok |\n' > "$g/screenshots/visual_qa/report.md"
-expect 1 "the post tool refuses test transcripts (production lookup)" "refusing rifle fire.*Claude transcript" -- bash "$g/addons/dot_game/tools/dot_game_visual_qa_post.sh" test-key
-o=$(bash "$g/addons/dot_game/tools/dot_game_visual_qa_post.sh" test-key 2>&1)
+expect 1 "the post tool refuses test transcripts (production lookup)" "refusing rifle fire.*Claude transcript" -- bash "$g/addons/gs_game/tools/gs_game_visual_qa_post.sh" test-key
+o=$(bash "$g/addons/gs_game/tools/gs_game_visual_qa_post.sh" test-key 2>&1)
 grep -q "verdict at PASS" <<< "$o" && bad "the post tool passed the metric as the verdict path" "$o" || ok "the post tool keeps the verdict path"
 
 echo "$((n - fails))/$n passed"

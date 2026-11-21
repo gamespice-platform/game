@@ -137,7 +137,7 @@ func _test_npc_lod_cvars() -> void:
 	console.set_cvar("npc_lod", "1")
 	lod.follow(0.016)
 	var have_ai := ResourceLoader.exists(GSGameNpcLod.SCHEDULER_SCRIPT)
-	_check((lod.scheduler != null) == have_ai, "npc_lod builds the scheduler when dot-npc-ai is present (%s)" % str(have_ai))
+	_check((lod.scheduler != null) == have_ai, "npc_lod builds the scheduler when gs-npc-ai is present (%s)" % str(have_ai))
 	_check(not have_ai or lod.scheduler.config.enabled, "and enables it")
 	lod.release()
 	spawner.queue_free()
@@ -177,8 +177,8 @@ func _test_services_without_the_addons() -> void:
 
 	_check(ready_now.ok, "it sets up", str(ready_now.error) if not ready_now.ok else "")
 	_check(services.chat == null, "and builds no chat, because there is none to build")
-	_check(services.voice == null or ResourceLoader.exists("res://addons/dot_voice/runtime/dot_voice_manager.gd"), "no voice unless dot-voice is linked")
-	_check(services.moderation == null or ResourceLoader.exists(GSGameServices.MODERATION_SCRIPT), "and no moderation unless dot-moderation is linked")
+	_check(services.voice == null or ResourceLoader.exists("res://addons/gs_voice/runtime/gs_voice_manager.gd"), "no voice unless gs-voice is linked")
+	_check(services.moderation == null or ResourceLoader.exists(GSGameServices.MODERATION_SCRIPT), "and no moderation unless gs-moderation is linked")
 
 	_check(
 		services.check_admission(_fake_session(9, 9, "Ada")).ok,
@@ -253,7 +253,7 @@ func _test_auto_update_wiring() -> void:
 	_check(GSGameModule.watched_packs(null).is_empty(), "no server watches nothing")
 	_check(
 		GSGameModule.start_auto_update(_server) == null or ResourceLoader.exists(GSGameModule.AUTO_UPDATE_SCRIPT),
-		"a build without dot-cloud starts no updater"
+		"a build without gs-cloud starts no updater"
 	)
 	_done()
 
@@ -261,12 +261,12 @@ func _test_auto_update_wiring() -> void:
 ## The profiler placement is optional: with GameSpice Profiler absent it places nothing and parses.
 func _test_profiler_placement() -> void:
 	_section("profiler placement")
-	var prof := preload("res://addons/dot_game/runtime/dot_game_profiler.gd")
+	var prof := preload("res://addons/gs_game/runtime/gs_game_profiler.gd")
 	var host := Node.new()
 	add_child(host)
 	var placed: Node = prof.add(host)
 	if ResourceLoader.exists(prof.SCRIPT):
-		_check(placed != null and GSRegistry.get_service(&"dot_profiler") == placed, "placed and registered as dot_profiler")
+		_check(placed != null and GSRegistry.get_service(&"gs_profiler") == placed, "placed and registered as gs_profiler")
 		_check(prof.add(host) == null, "placing twice adds nothing")
 		var cfg: Variant = placed.get(&"config")
 		_check(cfg is Object and str((cfg as Object).get(&"perf_game_id")) != "", "the placed profiler knows the game id for its perf reports")
@@ -274,7 +274,7 @@ func _test_profiler_placement() -> void:
 		prof.net_cost(&"selftest", 1, 10)
 		prof.signal_emitted(host, &"ready")
 	else:
-		_check(placed == null and host.get_child_count() == 0, "a build without dot-profiler places nothing")
+		_check(placed == null and host.get_child_count() == 0, "a build without gs-profiler places nothing")
 	prof.install_server(null)
 	prof.net_cost(&"selftest", 0, 10)
 	prof.set_map(null, "x")
@@ -314,19 +314,19 @@ func _test_map_content() -> void:
 	_check(GSGameContent.map_keys(fake, false) == games.maps, "and without the server-only packs when asked")
 	_check(GSGameContent.map_keys(null).is_empty() and GSGameContent.map_keys(_FakeServer.new()).is_empty(),
 		"no server, or one without a manager, names nothing")
-	_check(GSGameContent.mount_of("me/course_a@1.0.0") == "res://dot_cloud/me/course_a/1.0.0",
-		"a key mounts where dot-cloud mounts it")
+	_check(GSGameContent.mount_of("me/course_a@1.0.0") == "res://gs_cloud/me/course_a/1.0.0",
+		"a key mounts where gs-cloud mounts it")
 
 	# One pack "already mounted" on the disk; the others are not and there is no client.
-	var root := "res://dot_cloud/me/course_a/1.0.0/courses"
+	var root := "res://gs_cloud/me/course_a/1.0.0/courses"
 	DirAccess.make_dir_recursive_absolute(root)
 	var dirs: PackedStringArray = await GSGameContent.map_dirs(fake, "courses")
 	_check(dirs == PackedStringArray([root]), "a mounted pack's subdirectory is handed over, the rest left out", str(dirs))
 	var missing: GSResult = await GSGameContent.ensure_one("me/shared@2")
 	_check(not missing.ok and missing.error.code == GSError.CODE_STATE,
 		"and with no content client a fetch fails with the reason, not a crash")
-	for d in ["res://dot_cloud/me/course_a/1.0.0/courses", "res://dot_cloud/me/course_a/1.0.0",
-			"res://dot_cloud/me/course_a", "res://dot_cloud/me", "res://dot_cloud"]:
+	for d in ["res://gs_cloud/me/course_a/1.0.0/courses", "res://gs_cloud/me/course_a/1.0.0",
+			"res://gs_cloud/me/course_a", "res://gs_cloud/me", "res://gs_cloud"]:
 		DirAccess.remove_absolute(d)
 	_done()
 

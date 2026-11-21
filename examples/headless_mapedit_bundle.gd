@@ -27,10 +27,10 @@ func _run() -> void:
 	var sections := {"spawns": {"version": 1, "points": []}, "nav_links": {"links": {}}}
 	var made: Variant = GSGameMapEditBundle.make("tg", map, "admin#7", sections, "note")
 	var d := GSGameMapEditBundle.as_dict(made)
-	print("dot-game: map edit bundle (native dot-map bundle: %s)" % (native != null))
+	print("gs-game: map edit bundle (native gs-map bundle: %s)" % (native != null))
 	_expected = 13 + (6 if native != null else 0)
-	_check((made is Dictionary) == (native == null), "a dictionary without dot-map, the class with it")
-	_check(d["format"] == "dot-map-data" and d["map"]["id"] == "dm_box" and d["map"]["version"] == "3", "the file shape is the plan's")
+	_check((made is Dictionary) == (native == null), "a dictionary without gs-map, the class with it")
+	_check(d["format"] == "gs-map-data" and d["map"]["id"] == "dm_box" and d["map"]["version"] == "3", "the file shape is the plan's")
 	_check(d["meta"]["author"] == "admin#7" and d["meta"]["note"] == "note" and d["sections"].has("spawns"), "author, note and sections")
 	var text := JSON.stringify(d)
 	var ok := GSGameMapEditBundle.check(text, map)
@@ -67,11 +67,11 @@ func _run() -> void:
 		_check(obj.get("map_id") == "dm_box" and obj.get("game") == "tg" and obj.get("meta")["author"] == "admin#7", "the class carries the map and meta")
 		var json: GSResult = obj.call("to_json")
 		_check(json.ok, "the class writes its own JSON")
-		var bad := GSGameMapEditBundle.check(JSON.stringify({"format": "dot-map-data", "schema": 1, "game": "../x", "map": {"id": "dm_box", "version": "3"}, "sections": {}}), map)
-		_check(not bad.ok, "dot-map's id rules apply to an import")
+		var bad := GSGameMapEditBundle.check(JSON.stringify({"format": "gs-map-data", "schema": 1, "game": "../x", "map": {"id": "dm_box", "version": "3"}, "sections": {}}), map)
+		_check(not bad.ok, "gs-map's id rules apply to an import")
 		var loadable: Dictionary = JSON.parse_string(text)
 		loadable["sections"]["cull"] = {"script": "res://addons/x.gd"}
-		_check(not GSGameMapEditBundle.check(JSON.stringify(loadable), map).ok, "dot-map refuses a loadable resource path")
+		_check(not GSGameMapEditBundle.check(JSON.stringify(loadable), map).ok, "gs-map refuses a loadable resource path")
 		_check(ok.value["bundle"] is Dictionary, "the checked bundle is handed on as a dictionary")
 		_check(GSGameMapEditBundle.as_dict(obj)["map"]["digest"] == "abc", "as_dict reads the class")
 

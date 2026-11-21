@@ -499,21 +499,21 @@ func _test_site_server() -> void:
 	_check(GSGameAvatarContent.server_id_from_rules({"sv_site_server": "17"}) == 17 and GSGameAvatarContent.server_id_from_rules({"sv_site_server": "-3"}) == 0
 		and GSGameAvatarContent.server_id_from_rules({}) == 0, "the rule parses, and nonsense is no id")
 	var auth := FakeAuthServer.new()
-	GSRegistry.register(&"dot_auth_server", auth)
+	GSRegistry.register(&"gs_auth_server", auth)
 	TestModule.site_server = -1
 	var loaded: GSResult = await _load_module()
 	if _check(loaded.ok, "the module loads", str(loaded.error)):
 		var module := loaded.value as GSGameModule
 		var cv := module.console.find_cvar(GSGameAvatarContent.SERVER_CVAR)
 		_check(cv != null and cv.get_string() == "0" and cv.has_flag(GSConVar.FLAG_NOTIFY) and cv.has_flag(GSConVar.FLAG_REPLICATED),
-			"advertised as a notify, replicated cvar, 0 while dot-auth has not read it")
+			"advertised as a notify, replicated cvar, 0 while gs-auth has not read it")
 		var timer := module.get_node_or_null("SiteServerRetry") as Timer
 		auth.audience = "server:42"
 		if _check(timer != null, "and looked for again"):
 			timer.timeout.emit()
-		_check(cv != null and cv.get_string() == "42", "it takes the audience dot-auth read", cv.get_string() if cv != null else "")
+		_check(cv != null and cv.get_string() == "42", "it takes the audience gs-auth read", cv.get_string() if cv != null else "")
 		_unload_module()
-	GSRegistry.unregister_instance(&"dot_auth_server", auth)
+	GSRegistry.unregister_instance(&"gs_auth_server", auth)
 
 	var pj := GSGamePrejoin.new()
 	pj.rules_fn = func(_a: String) -> Dictionary: return {"sv_avatar_content": "avatar/5/1", "sv_site_server": "42"}
@@ -522,7 +522,7 @@ func _test_site_server() -> void:
 	_check(pj.server_id == 42, "prejoin reads the server id from the rules", str(pj.server_id))
 
 	var ac := FakeAuthClient.new()
-	GSRegistry.register(&"dot_auth_client", ac)
+	GSRegistry.register(&"gs_auth_client", ac)
 	_check(GSGameAvatarContent.default_site_url() == "https://site.test", "the site defaults to the one the client signs in against")
 	var platform := GSGameClient.new()
 	var link := FakeLink.new()
@@ -539,7 +539,7 @@ func _test_site_server() -> void:
 	_check(GSGameClientAvatars.figure_of(5) == null, "and nothing once it is gone")
 	figure.free()
 	platform.free()
-	GSRegistry.unregister_instance(&"dot_auth_client", ac)
+	GSRegistry.unregister_instance(&"gs_auth_client", ac)
 	_done()
 
 
@@ -565,9 +565,9 @@ func _test_avatar_content() -> void:
 	_check(empty.ok, "nothing required is ready at once")
 	if not GSGameAvatarContent.available():
 		var missing: GSResult = await GSGameAvatarContent.prepare(host, ["avatar/5/1"], "https://site.test", 3, null, null)
-		_check(not missing.ok and missing.error.code == GSError.CODE_UNSUPPORTED, "required files without dot-user-avatar refuse the connect")
+		_check(not missing.ok and missing.error.code == GSError.CODE_UNSUPPORTED, "required files without gs-user-avatar refuse the connect")
 	else:
-		_check(true, "dot-user-avatar is present (its own suite covers the fetch)")
+		_check(true, "gs-user-avatar is present (its own suite covers the fetch)")
 	host.free()
 	_check(GSGameAvatarContent.format(["a/1/1", "b/2/1"]) == "a/1/1,b/2/1", "ids format back")
 	_done()

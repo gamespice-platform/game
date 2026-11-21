@@ -54,7 +54,7 @@ class StubSchema:
 
 func _test_slide_sounds() -> void:
 	_section("every client scrapes a slide: the server's switch, the player's volume, no per-game wiring")
-	var Sounds: GDScript = load("res://addons/dot_game/runtime/dot_game_slide_sounds.gd")
+	var Sounds: GDScript = load("res://addons/gs_game/runtime/gs_game_slide_sounds.gd")
 	_check(Sounds.cvar_spec()["name"] == "sv_slide_sounds" and Sounds.cvar_spec()["value"] == "1", "the cvar defaults on")
 
 	var link := StubSlideLink.new()
@@ -157,7 +157,7 @@ class StubConsoleSource:
 
 func _test_landing() -> void:
 	_section("every client thumps a landing and scales the camera kick: no per-game wiring")
-	var Landing: GDScript = load("res://addons/dot_game/runtime/dot_game_landing.gd")
+	var Landing: GDScript = load("res://addons/gs_game/runtime/gs_game_landing.gd")
 	var node: Node = Landing.new()
 	var rules := StubLandingRules.new()
 	var mgr := StubLandingManager.new()

@@ -2,7 +2,7 @@
 # Frame-time, memory and load budget per map, measured on the family's GPU box (the GTX 1660 Ti laptop by default).
 #   tools/perf_budget.sh [--maps a,b,c] [--runs 3] [--seconds 20] [--tolerance 0.10] [--out FILE]
 #                        [--update] [--post] [--from-runs DIR]
-# The shared script (dot-game/tools); a game's tools/perf_budget.sh cds to its root and execs it, and tools/qa.conf says
+# The shared script (gs-game/tools); a game's tools/perf_budget.sh cds to its root and execs it, and tools/qa.conf says
 # what to run: PERF_CASES (default cases), perf_run_case CASE SECONDS (prints one `PERF {json}` line with p50_ms, p95_ms,
 # p99_ms, stall_ms, load_s, rss_mb, gpu, resolution plus the game's own metrics), PERF_METRICS ("name:slack:cap ..."),
 # PERF_PACK_DIRS ("dir/{case} ...", summed into pack_mb, optional), perf_prepare (optional, the GPU box's import).

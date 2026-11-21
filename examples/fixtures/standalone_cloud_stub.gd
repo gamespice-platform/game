@@ -17,7 +17,7 @@ var keys := PackedStringArray()
 
 
 func _ready() -> void:
-	GSRegistry.register(&"dot_cloud_client", self)
+	GSRegistry.register(&"gs_cloud_client", self)
 
 
 func acquired_keys() -> PackedStringArray:

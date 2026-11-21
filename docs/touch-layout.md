@@ -1,12 +1,12 @@
 # Touch layout: GSGameTouchLayout
 
-`GSGameTouchLayout` (`addons/dot_game/runtime/dot_game_touch_layout.gd`) is the one place a touch button's id, place and size are decided. Eleven touch branches had each written their own: jump in five places at four radii, fire called `fire`, `attack` and `swing`, crouch called `crouch`, `duck` and `dot_fps_crouch`, the layout in a `*_touch.gd` static, a client const or a `GSTouchButtons` subclass, and three near-copies differing in one offset. It is data only: it never names dot-ui's `GSTouchButtons`, and it sizes through `GSGameClient.fit_touch_buttons` (`GSGameScreenFit`), so it is a layer under the routing proposal (`GSTouchControls`), not a replacement for it.
+`GSGameTouchLayout` (`addons/gs_game/runtime/gs_game_touch_layout.gd`) is the one place a touch button's id, place and size are decided. Eleven touch branches had each written their own: jump in five places at four radii, fire called `fire`, `attack` and `swing`, crouch called `crouch`, `duck` and `gs_fps_crouch`, the layout in a `*_touch.gd` static, a client const or a `GSTouchButtons` subclass, and three near-copies differing in one offset. It is data only: it never names gs-ui's `GSTouchButtons`, and it sizes through `GSGameClient.fit_touch_buttons` (`GSGameScreenFit`), so it is a layer under the routing proposal (`GSTouchControls`), not a replacement for it.
 
 ## The model
 
 - **Slots** (`SLOTS`): named places in the bottom-right cluster, offsets from the corner in design units of the 720-unit canvas. `primary` (80,84) r44, `secondary` (190,60) r30, `below` (80,172) r32, `outer` (262,60) r28, `inner` (190,150) r26, `corner` (262,140) r22, `row1`..`row4` along y 246 at r22; and `steer_near` / `steer_far` (r46) for a left steering strip. These are the wipeout family's numbers (wipeout, playlot, smash-copter, buses), the most tested set, with reload at 140.
 - **Homes** (`HOMES`): fire is always `primary`, jump `below`, crouch `outer`, reload `corner`, in every preset that has them. The suite checks it.
-- **Canonical ids**: `fire alt jump crouch reload use sprint next prev board chat gas brake handbrake respawn camera steer_left steer_right command maps gag mute`, each a constant (the last four, for a game with a command line, a map menu and voice look keys: `touch_look`, `touch_board`, `touch_maps` on GSGameClient do the key press). Labels default from `LABELS` (crouch is labelled DUCK; the id stays `crouch`). `ALIASES` maps the old ids (`attack`, `swing`, `duck`, `dot_fps_crouch`, `dot_fps_jump`, `dot_fps_sprint`, `run`, `tab`, `hand`) to canonical ones; `canonical_id(id)` is for a router that must accept both during a migration, and `validate()` refuses an alias in a layout.
+- **Canonical ids**: `fire alt jump crouch reload use sprint next prev board chat gas brake handbrake respawn camera steer_left steer_right command maps gag mute`, each a constant (the last four, for a game with a command line, a map menu and voice look keys: `touch_look`, `touch_board`, `touch_maps` on GSGameClient do the key press). Labels default from `LABELS` (crouch is labelled DUCK; the id stays `crouch`). `ALIASES` maps the old ids (`attack`, `swing`, `duck`, `gs_fps_crouch`, `gs_fps_jump`, `gs_fps_sprint`, `run`, `tab`, `hand`) to canonical ones; `canonical_id(id)` is for a router that must accept both during a migration, and `validate()` refuses an alias in a layout.
 - **Presets** (`PRESETS`), per cluster (`RIGHT`, `LEFT`):
 
 | Preset | Right cluster | Left cluster |
@@ -62,7 +62,7 @@ Hungario shares no ids with a preset (split, throw, eject, boost), so it takes `
  
  
 -## Offsets are from the bottom-right corner (see [GSTouchButtons]). Placed to leave the leaderboard's text columns and the minimap clear. Throw is disabled
-+## dot-game's canonical slots, so split sits where every other game's main button does. Throw is disabled
++## gs-game's canonical slots, so split sits where every other game's main button does. Throw is disabled
  ## (drawn as its label only) until something is carried.
 +static func touch_layout(throw_label: String) -> GSGameTouchLayout:
 +	return GSGameTouchLayout.custom() \
@@ -129,7 +129,7 @@ From the touch branches named in `game-dev/docs/touch-branches-status.md`; the c
 | mg-look-at-me | platformer `{sprint: null, flashlight: corner}` | none | use, jump, crouch move from the compact family | small layout, medium suite update |
 | mg-deathrun | platformer `{sprint: null}` | none | jump (60,238) r36 -> below r32; use r54 -> r44 (override radius if wanted) | small; layout leaves the client const |
 | game-murder-mystery | fps `{alt: null, reload: null, crouch: null, fire: {label: "HIT"}, holster: secondary}` and `use` stays `inner` | `attack` -> `fire` | HIT r50 -> r44, jump (60,200) -> below | small |
-| game-hide-n-seek | platformer `{use: {label: "DOOR"}, taunt: corner}` | `dot_fps_jump/sprint/crouch` -> `jump/sprint/crouch` | jump r54 -> r32 in `below`; its router reads action names, so it needs `canonical_id` or a map | medium: the `GSTouchButtons` subclass's `LAYOUT` and the id-is-action trick go |
+| game-hide-n-seek | platformer `{use: {label: "DOOR"}, taunt: corner}` | `gs_fps_jump/sprint/crouch` -> `jump/sprint/crouch` | jump r54 -> r32 in `below`; its router reads action names, so it needs `canonical_id` or a map | medium: the `GSTouchButtons` subclass's `LAYOUT` and the id-is-action trick go |
 | mg-dangerous-delivery | driving, right `{camera: null, respawn: null}`; left adds `respawn`, `camera`, `lot` by offset | `hand` -> `handbrake`, `left`/`right` -> `steer_left`/`steer_right` | gas r54 -> r44 | medium: two clusters, its input reads the ids |
 | game-hungario | `custom()` with four slots (above) | none | all four, by up to 12 units | small |
 | game-fatal-contact, game-airdrift, game-zombie-zone | fps, after their touch branches are rebased on `phone-scale` | per branch (not yet compared) | unknown | small each once rebased |

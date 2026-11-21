@@ -31,7 +31,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-game: screen fit")
+	print("gs-game: screen fit")
 	_plan()
 	_buttons()
 	_window()

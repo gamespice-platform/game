@@ -200,7 +200,7 @@ func _ctx_with(args: Array) -> Ctx:
 
 
 func _run() -> void:
-	print("dot-game: map edit commands")
+	print("gs-game: map edit commands")
 	_make()
 	await _bind_checks()
 	await _spawn_add_checks()
@@ -209,7 +209,7 @@ func _run() -> void:
 	await _import_checks()
 	await _bare_checks()
 	_check(_passed + _failed == CHECKS, "the check count is %d, ran %d" % [CHECKS, _passed + _failed])
-	print("dot-game map edit: %d passed, %d failed" % [_passed, _failed])
+	print("gs-game map edit: %d passed, %d failed" % [_passed, _failed])
 	for f in _failures:
 		print("  FAIL: ", f)
 	get_tree().quit(1 if _failed > 0 else 0)
@@ -374,7 +374,7 @@ func _nav_and_save_checks() -> void:
 	c = await _say(host, "mapdata_save", ["first pass"])
 	_check(c.last().contains("Saved") and not edit.dirty, "mapdata_save stores and clears dirty")
 	var secs: Dictionary = store.saved["sections"]
-	_check(store.saved["format"] == "dot-map-data" and store.saved["map"]["id"] == "dm_box", "the bundle has the plan's shape")
+	_check(store.saved["format"] == "gs-map-data" and store.saved["map"]["id"] == "dm_box", "the bundle has the plan's shape")
 	_check(secs["spawns"]["points"].size() == 2 and secs["nav_links"]["links"].has("lad"), "spawns and links are in it")
 	_check(store.saved["meta"]["author"] == "admin#7" and store.saved["meta"]["note"] == "first pass", "author and note recorded")
 

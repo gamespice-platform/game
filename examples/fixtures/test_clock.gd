@@ -1,6 +1,6 @@
 extends Node
 
-## Stands in for a dot-vote GSVoteDirector or a dot-map GSMapSession: anything under a
+## Stands in for a gs-vote GSVoteDirector or a gs-map GSMapSession: anything under a
 ## module that answers follow_hibernation(server). Neither addon is installed here, which is
 ## the point -- the module finds it by the method, not by a class.
 

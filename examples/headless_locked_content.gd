@@ -12,7 +12,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("dot-game: locked content")
+	print("gs-game: locked content")
 	GSGameLockedContent.lock_override = ""
 	var gate := GSLoadGate.new()
 	add_child(gate)
@@ -22,7 +22,7 @@ func _run() -> void:
 
 	var none: GSResult = await GSGameLockedContent.run(cloud, gate)
 	_check(none.ok and none.value == null, "no lock file: nothing to do")
-	_check(cloud.calls.is_empty() and not gate.is_holding(GSGameLockedContent.REASON), "no lock file: dot-cloud not called, gate untouched")
+	_check(cloud.calls.is_empty() and not gate.is_holding(GSGameLockedContent.REASON), "no lock file: gs-cloud not called, gate untouched")
 
 	GSPaths.write_bytes(DIR + "/content.lock.json", '{"format":1,"packs":[]}'.to_utf8_buffer())
 	GSGameLockedContent.lock_override = DIR + "/content.lock.json"
