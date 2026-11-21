@@ -3,7 +3,7 @@ extends Node
 
 ## A solo-client benchmark any game shares: its real client scene offline on a fixed map, mode, bot count and seed, recorded by the client's own GameSpice Profiler, so the report has the same per-system table as a player's `profiler_record`, plus a sidecar of engine numbers (draw calls, objects, physics, tick rate, renderer, adapter). A game's `tools/perf_bench.gd` extends this and sets `client_scene` in `_configure`; the hooks below cover the rest. Run it windowed on a GPU box with the game's `tools/perf_bench.sh` (which execs GameSpice Game's `tools/perf_bench.sh`), not headless: headless has no renderer, so the render cost reads as zero.
 ## Flags (after `--`): `--map ID --mode ID --bots N --seconds S --warmup S --seed N --out DIR --tag T --profiler record|idle|off`; every `--key value` pair is also in [member args] (without the dashes) for a subclass's own flags. `--first-use 1` runs the game's `_first_use` hook between the selection and the warm-up: it times each first use (first shot of each weapon, first explosion) with `time_first_use`, and the rows land in the sidecar's `first_use` list, which `dot_game_perf_bench_compare.py` prints per name (A/B: `--ab DIR DIR::--prewarm 0 -- --first-use 1`).
-## Prints `PERF_BENCH_REPORT {json}` (the profiler report without spikes and samples, as the run may be on another box), `PERF_BENCH_SIDECAR {json}` and `PERF_BENCH {json}` (paths and tag).
+## Prints `PERF_REPORT_V1 {json}` (the profiler's perf report v1, whole), `PERF_BENCH_REPORT {json}` (the profiler report without spikes and samples, as the run may be on another box), `PERF_BENCH_SIDECAR {json}` and `PERF_BENCH {json}` (paths and tag).
 
 ## The game's client scene (`res://game/x.tscn`). Required.
 var client_scene := ""
@@ -235,6 +235,10 @@ func _run() -> void:
 	_steps0 = Engine.get_physics_frames()
 	_usec0 = Time.get_ticks_usec()
 	if recording:
+		# What this run was, for the perf report (dot-profiler docs/perf-report.md): the Nightly Performance tab groups by these.
+		profiler.set_perf_option("map", map)
+		profiler.set_perf_option("bots", bots)
+		profiler.set_perf_option("tags", {"mode": mode, "tag": tag, "seed": str(seed_value)})
 		var started: DotResult = profiler.start_recording(seconds)
 		if not started.ok:
 			say("recording did not start: %s" % started.error.message)
@@ -304,6 +308,9 @@ func _write_out(game: Object, players0: int, recording: bool) -> void:
 		f.store_string(JSON.stringify(side, " "))
 		f.close()
 	print("PERF_BENCH_REPORT %s" % JSON.stringify(report))
+	if recording and profiler.has_method("last_perf_path") and profiler.last_perf_path() != "":
+		# The stable perf report v1, whole, so a caller on another box (tools/perf.sh) gets it from stdout.
+		print("PERF_REPORT_V1 %s" % JSON.stringify(JSON.parse_string(FileAccess.get_file_as_string(profiler.last_perf_path()))))
 	print("PERF_BENCH_SIDECAR %s" % JSON.stringify(side))
 	print("PERF_BENCH %s" % JSON.stringify({"report": ProjectSettings.globalize_path(path), "sidecar": side_path, "tag": tag}))
 
