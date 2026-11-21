@@ -12,8 +12,9 @@
 # native server: the game's headless dedicated-server scene (PERF_SERVER_SCENE; PERF_SERVER_BOTS_ARG and PERF_SERVER_MAP_ARG are printf
 #   formats for the scene's own flags) under dot-profiler's dot_profiler_run.tscn on this box. Headless has no renderer, so the report is
 #   the per-frame and per-system cost (the tick breakdown the scene reports through DotFrameCost), not a draw time.
-# web: the game's PERF_WEB_CMD (a command that writes a perf report v1 to $PERF_OUT), run through gpu.sh cdp-run so Chrome has real WebGL on
-#   the GPU box. A game without it exits 3 ("web capture not wired"), never a fake report.
+# web: dot_game_perf_web.mjs on the game's PERF_WEB_URL, or the game's own PERF_WEB_CMD (writes a perf report v1 to $PERF_OUT), run through
+#   gpu.sh cdp-run so Chrome has real WebGL on the GPU box; PERF_WEB_UP/PERF_WEB_DOWN start and stop the server and page host around it,
+#   PERF_WEB_SERVE is the port tunnelled to the box. A game with none of them exits 3 ("web capture not wired"), never a fake report.
 # Exit: 0 report written, 2 bad arguments, 3 not supported, 4 software renderer, 1 run failed. The report path is the last stdout line.
 # Environment: PERF_GAME (game_id), PERF_BENCH (default tools/perf_bench.sh), PERF_TIMEOUT (default 900 s), PERF_WARMUP (default 8 s),
 # PERF_BOX (default staging02), PERF_BENCH_ARGS (extra bench args), PERF_BUDGET_MS (server spike threshold, default 16.7).
@@ -88,10 +89,22 @@ case "$platform/$role" in
 			--profile-game "$game" --profile-map "$map" --profile-bots "$bots" --profile-role server "${sargs[@]}" "$@") > "$log" 2>&1 || true
 		;;
 	web/*)
-		[[ -n ${PERF_WEB_CMD:-} ]] || { echo "perf: web capture is not wired for $game (set PERF_WEB_CMD)" >&2; exit 3; }
+		# PERF_WEB_URL: the page of a game whose server is already up (or that PERF_WEB_UP starts); dot_game_perf_web.mjs measures it.
+		# PERF_WEB_CMD: a game's own capture instead (writes a perf report v1 to $PERF_OUT). PERF_WEB_UP / PERF_WEB_DOWN bring the server
+		# and the page's host up and down around it; PERF_WEB_SERVE is the local port cdp-run tunnels to the box's Chrome.
+		webcmd=${PERF_WEB_CMD:-}
+		if [[ -z $webcmd && -n ${PERF_WEB_URL:-} ]]; then
+			webcmd="node '$(dirname "$0")/dot_game_perf_web.mjs' --url \"\$PERF_WEB_URL\" --game '$game' --out \"\$PERF_OUT\" --duration \"\$PERF_DURATION\" --warmup $warm --bots \"\$PERF_BOTS\" --map \"\$PERF_MAP\" --role \"\$PERF_ROLE\" --commit '$(git -C "$here" rev-parse HEAD 2>/dev/null || true)'"
+		fi
+		[[ -n $webcmd ]] || { echo "perf: web capture is not wired for $game (set PERF_WEB_URL or PERF_WEB_CMD)" >&2; exit 3; }
 		export PERF_OUT=$out PERF_BOTS=$bots PERF_MAP=$map PERF_DURATION=$duration PERF_ROLE=$role
-		GPU_TIMEOUT=$tmo GPU_BOX=$box bash "${GPU_SH:-/home/gamedev/godot/dot-bootstrap/tools/gpu.sh}" cdp-run -- bash -c "$PERF_WEB_CMD" > "$log" 2>&1 || true
+		[[ -z ${PERF_WEB_UP:-} ]] || (cd "$here" && bash -c "$PERF_WEB_UP") > "$log" 2>&1 || { echo "perf: PERF_WEB_UP failed" >&2; tail -10 "$log" >&2; exit 1; }
+		serve=(); [[ -z ${PERF_WEB_SERVE:-} ]] || serve=(--serve "$PERF_WEB_SERVE")
+		GPU_TIMEOUT=$tmo GPU_BOX=$box bash "${GPU_SH:-/home/gamedev/godot/dot-bootstrap/tools/gpu.sh}" cdp-run "${serve[@]}" -- bash -c "$webcmd" >> "$log" 2>&1; wrc=$?
+		[[ -z ${PERF_WEB_DOWN:-} ]] || (cd "$here" && bash -c "$PERF_WEB_DOWN") >> "$log" 2>&1 || true
 		[[ -s $out ]] && { echo "$out"; exit 0; }
+		(( wrc == 4 )) && { echo "perf: refusing a software renderer in the web capture" >&2; exit 4; }
+		echo "perf: web capture wrote no report (exit $wrc)" >&2; tail -15 "$log" >&2; exit 1
 		;;
 esac
 
