@@ -1,8 +1,8 @@
 # Per-map settings in a game
 
-Every game gets dot-map's per-map settings (`DotMapConfig`, dot-map's docs/map-config.md: files, wildcards, precedence, the whitelist) from dot-game. A game declares two things, the keys a map may set and (optionally) their defaults; it copies no loading code. dot-map is found by path (`res://addons/dot_map/config/dot_map_config.gd`) and never named, so a build without it applies nothing and logs that once. It needs dot-core API level 19 (`DotAddonConfig.tier_dirs`).
+Every game gets dot-map's per-map settings (`GSMapConfig`, dot-map's docs/map-config.md: files, wildcards, precedence, the whitelist) from dot-game. A game declares two things, the keys a map may set and (optionally) their defaults; it copies no loading code. dot-map is found by path (`res://addons/dot_map/config/dot_map_config.gd`) and never named, so a build without it applies nothing and logs that once. It needs dot-core API level 19 (`GSAddonConfig.tier_dirs`).
 
-## On a `DotGameModule` (the server)
+## On a `GSGameModule` (the server)
 
 Override `_map_config_keys()` and call `report_map(map_id)` on every map change, which every game already does for the server list. `report_map` applies the new map's file after restoring the last map's values, and `_teardown` restores on unload.
 
@@ -15,22 +15,22 @@ func _map_config_keys() -> Dictionary:
 	}
 ```
 
-The other hooks default to what nearly every game wants: `_map_config_defaults()` (key to value for a map with no file, `{}`), `_map_config_game()` (the `cfg/game/<game>/` folder: `DotAddonConfig.game`, else `_module_name()`; set `DotAddonConfig.game` to the repository name, such as `game-fatal-contact`), and `_map_config_get(key)` / `_map_config_set(key, value)`, which read and set the server console's cvars. Override the last two for settings that are not cvars.
+The other hooks default to what nearly every game wants: `_map_config_defaults()` (key to value for a map with no file, `{}`), `_map_config_game()` (the `cfg/game/<game>/` folder: `GSAddonConfig.game`, else `_module_name()`; set `GSAddonConfig.game` to the repository name, such as `game-fatal-contact`), and `_map_config_get(key)` / `_map_config_set(key, value)`, which read and set the server console's cvars. Override the last two for settings that are not cvars.
 
-## On a `DotModule` not yet on `DotGameModule`
+## On a `GSModule` not yet on `GSGameModule`
 
 Build the helper once and call it from the map-change handler:
 
 ```gdscript
-var map_config: DotGameMapConfig
+var map_config: GSGameMapConfig
 func _on_map_changed(map) -> void:
 	if map_config == null:
-		map_config = DotGameMapConfig.for_console("game-fatal-contact", console, {"fc_surf": {"type": "int", "min": 0, "max": 1}})
+		map_config = GSGameMapConfig.for_console("game-fatal-contact", console, {"fc_surf": {"type": "int", "min": 0, "max": 1}})
 	map_config.apply(String(map.id))
 # and in the unload: map_config.restore()
 ```
 
-## On `DotGameClient`
+## On `GSGameClient`
 
 A client that predicts with a setting needs the same value: assign `map_config_keys` (and `map_config_defaults`, `map_config_game`) with `map_config_get_fn(key)` and `map_config_set_fn(key, value) -> bool` over its cvars, then call `client.map_changed(map_id)` when a map loads. It restores when the client leaves the tree. A client without the three assigned does nothing.
 
@@ -44,9 +44,9 @@ A client that predicts with a setting needs the same value: assign `map_config_k
 
 ## Map scripts (`script.*` events)
 
-A `DotMapWorld` replays a map's translated `lua_run` snippets to its `event_fn` as `script.set_player_speed {kind, value}`, `script.kill_players` and `script.cleanup_map {delay}` (GameSpice Map's docs/io.md, "Map scripts"). `DotGameMapScripts` handles them for any game: put `scripts.event_fn()` in the world's hooks (or call `scripts.handle(kind, data)` from your own `event_fn`), or assign `DotGameModule.map_scripts`, which also feeds the per-map switches into the whitelist, hands over the server console, and restores on a map change and on unload.
+A `GSMapWorld` replays a map's translated `lua_run` snippets to its `event_fn` as `script.set_player_speed {kind, value}`, `script.kill_players` and `script.cleanup_map {delay}` (GameSpice Map's docs/io.md, "Map scripts"). `GSGameMapScripts` handles them for any game: put `scripts.event_fn()` in the world's hooks (or call `scripts.handle(kind, data)` from your own `event_fn`), or assign `GSGameModule.map_scripts`, which also feeds the per-map switches into the whitelist, hands over the server console, and restores on a map change and on unload.
 
-- Every event is re-validated against GameSpice Map's `DotMapScript.valid_op` (found by path); without GameSpice Map everything is refused. A speed inside that range but outside `min_speed`/`max_speed` (50 to 1000 source units/s) is clamped.
+- Every event is re-validated against GameSpice Map's `GSMapScript.valid_op` (found by path); without GameSpice Map everything is refused. A speed inside that range but outside `min_speed`/`max_speed` (50 to 1000 source units/s) is clamped.
 - Speed: `sv_runspeed` for `run`; `walk` becomes `sv_walkspeed`, a fraction of the run speed. Replace with `speed_fn(kind, value) -> bool` or override `_set_speed`. The first value each cvar had is put back by `restore()`.
 - Kill: `kill_fn() -> int` (the game's damage or round API) or override `_kill_players`; the default logs and kills nobody. Cleanup: `cleanup_fn(delay)` or `_cleanup_map`; the default logs.
 - Off switches: `enabled`, `op_enabled["kill_players"] = false`, or per map in the yml with the bool keys `map_script_enabled`, `map_script_set_player_speed`, `map_script_kill_players`, `map_script_cleanup_map`.

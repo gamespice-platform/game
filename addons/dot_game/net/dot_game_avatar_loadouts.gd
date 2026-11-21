@@ -1,4 +1,4 @@
-class_name DotGameAvatarLoadouts
+class_name GSGameAvatarLoadouts
 extends Node
 
 ## The server's copy of every player's equipped emotes, poses and gestures, read from the backbone
@@ -7,7 +7,7 @@ extends Node
 
 const CHANNEL := "game.avatar_loadout"
 
-## The scoped key's shape (GameSpice User Avatar's DotAvatarKey), checked before it reaches a URL.
+## The scoped key's shape (GameSpice User Avatar's GSAvatarKey), checked before it reaches a URL.
 const _KEY_RE := "^[A-Za-z0-9_-]{8,128}$"
 const _CONTENT_RE := "^action/[1-9][0-9]{0,9}/[1-9][0-9]{0,9}$"
 const _WEARABLE_RE := "^wearable/[1-9][0-9]{0,9}/[1-9][0-9]{0,9}$"
@@ -23,7 +23,7 @@ const STARTER_LOOPS: PackedStringArray = ["dance", "clap", "sit", "salute", "arm
 ## The key [method parse_wearables] reads from the read's actions object.
 const WEARABLES_KEY := "WEARABLES"
 
-## A client's [DotGameAvatarLoadoutAsk] is answered at most this often per peer.
+## A client's [GSGameAvatarLoadoutAsk] is answered at most this often per peer.
 const ASK_MIN_SEC := 2.0
 
 ## Most equipped actions per kind this server accepts; 0 = unlimited (the site enforces
@@ -43,7 +43,7 @@ var auto_refresh_sec: float = 60.0
 
 ## The GameSpice Server whose sessions hold the identities; the key is the `scoped_key` claim.
 var server: Object = null
-var net: DotNetManager = null
+var net: GSNetManager = null
 var relay: RefCounted = null
 
 ## Overrides of the credential found as the registry's `dot_backbone_client`.
@@ -53,7 +53,7 @@ var token: String = ""
 ## func(peer_id: int) -> String: the player's backbone key, "" for none. Default: the session's claim.
 var key_fn: Callable = Callable()
 
-## func(key: String) -> DotResult (may await): the avatar read's `actions`, or null. Default: HTTP.
+## func(key: String) -> GSResult (may await): the avatar read's `actions`, or null. Default: HTTP.
 var fetch_fn: Callable = Callable()
 
 ## Milliseconds; replaced by a suite.
@@ -70,7 +70,7 @@ var _gen: Dictionary = {}
 var _read_at: Dictionary = {}
 var _queue: Array[int] = []
 var _in_flight := 0
-var _http: DotHttp = null
+var _http: GSHttp = null
 var _idle := 0.0
 var _asked_at: Dictionary = {}
 static var _key_re: RegEx = null
@@ -136,7 +136,7 @@ func refresh(peer_id: int, joining: bool = false) -> bool:
 	if not joining and _read_at.has(peer_id) and now - int(_read_at[peer_id]) < int(refresh_min_sec * 1000.0):
 		return false
 	if _queue.size() >= MAX_QUEUE:
-		DotLog.warn(CHANNEL, "loadout queue full; starter set", {"peer": peer_id})
+		GSLog.warn(CHANNEL, "loadout queue full; starter set", {"peer": peer_id})
 		return false
 	_read_at[peer_id] = now
 	_queue.append(peer_id)
@@ -163,7 +163,7 @@ func entry_for(peer_id: int, id: String) -> Dictionary:
 
 
 ## The equipped wearables' content ids from the read (`WEARABLES`, the backbone's `wearables` rows): well-formed
-## `wearable/<id>/<version>` only, one per slot, at most [constant DotGameAvatarLoadoutMessage.MAX_WEARABLES].
+## `wearable/<id>/<version>` only, one per slot, at most [constant GSGameAvatarLoadoutMessage.MAX_WEARABLES].
 static func parse_wearables(actions: Variant) -> PackedStringArray:
 	var out := PackedStringArray()
 	var rows: Variant = (actions as Dictionary).get(WEARABLES_KEY) if actions is Dictionary else null
@@ -181,7 +181,7 @@ static func parse_wearables(actions: Variant) -> PackedStringArray:
 			continue
 		slots[slot] = true
 		out.append(id)
-		if out.size() >= DotGameAvatarLoadoutMessage.MAX_WEARABLES:
+		if out.size() >= GSGameAvatarLoadoutMessage.MAX_WEARABLES:
 			break
 	return out
 
@@ -202,14 +202,14 @@ static func parse(actions: Variant) -> Variant:
 		_content_re = RegEx.create_from_string(_CONTENT_RE)
 	var out: Array = []
 	var seen := {}
-	for kind in DotGameAvatarLoadoutMessage.KINDS.size():
-		var key: String = DotGameAvatarLoadoutMessage.KINDS[kind].to_upper()
+	for kind in GSGameAvatarLoadoutMessage.KINDS.size():
+		var key: String = GSGameAvatarLoadoutMessage.KINDS[kind].to_upper()
 		var answered: bool = (actions as Dictionary).get(key) is Array
 		var rows: Variant = (actions as Dictionary).get(key, [])
 		var taken := 0
 		for row: Variant in (rows if rows is Array else []):
 			if max_per_kind > 0 and taken >= max_per_kind:
-				DotLog.warn(CHANNEL, "loadout over max_per_kind; refused", {"kind": key, "max": max_per_kind})
+				GSLog.warn(CHANNEL, "loadout over max_per_kind; refused", {"kind": key, "max": max_per_kind})
 				return null
 			if not row is Dictionary:
 				continue
@@ -221,7 +221,7 @@ static func parse(actions: Variant) -> Variant:
 					entry = {"id": b, "kind": kind, "loop": STARTER_LOOPS.has(b), "clip": ""}
 			elif d.get("contentId") is String and _content_re.search(d["contentId"]) != null \
 					and d.get("clip") is String and not (d["clip"] as String).is_empty() \
-					and (d["clip"] as String).length() <= DotGameAvatarLoadoutMessage.MAX_CLIP:
+					and (d["clip"] as String).length() <= GSGameAvatarLoadoutMessage.MAX_CLIP:
 				entry = {"id": d["contentId"], "kind": kind, "loop": d.get("loop") == true, "clip": d["clip"]}
 			if entry.is_empty() or seen.has(entry["id"]):
 				continue
@@ -245,7 +245,7 @@ func _pump() -> void:
 
 func _read(peer_id: int, gen: int) -> void:
 	var key := _key_for(peer_id)
-	var res: DotResult = DotResult.success(null)
+	var res: GSResult = GSResult.success(null)
 	if key != "":
 		reads += 1
 		if fetch_fn.is_valid():
@@ -259,10 +259,10 @@ func _read(peer_id: int, gen: int) -> void:
 	_pump()
 
 
-func _adopt(peer_id: int, res: DotResult) -> void:
+func _adopt(peer_id: int, res: GSResult) -> void:
 	if res == null or not res.ok:
 		refused += 1
-		DotLog.debug(CHANNEL, "loadout not read; starter set", {"peer": peer_id,
+		GSLog.debug(CHANNEL, "loadout not read; starter set", {"peer": peer_id,
 			"why": res.error.message if res != null and res.error != null else "no result"})
 		return
 	var entries: Variant = parse(res.value)
@@ -274,24 +274,24 @@ func _adopt(peer_id: int, res: DotResult) -> void:
 		return
 	_loadouts[peer_id] = entries
 	_wearing[peer_id] = worn
-	DotLog.debug(CHANNEL, "loadout read", {"peer": peer_id, "entries": (entries as Array).size()})
+	GSLog.debug(CHANNEL, "loadout read", {"peer": peer_id, "entries": (entries as Array).size()})
 	_send(peer_id, entries, 0)
 
 
 func _send(actor: int, entries: Array, to_peer: int) -> void:
 	if net == null:
 		return
-	var m := DotGameAvatarLoadoutMessage.new()
+	var m := GSGameAvatarLoadoutMessage.new()
 	m.actor = actor
 	m.entries = entries
 	m.wearables = _wearing.get(actor, PackedStringArray())
 	var targets: Array = [to_peer] if to_peer > 0 else _peers.keys()
 	for p: int in targets:
-		if not net.messages.peer_has(p, DotGameAvatarLoadoutMessage.NAME):
+		if not net.messages.peer_has(p, GSGameAvatarLoadoutMessage.NAME):
 			continue
 		var sent := net.send(m, p)
 		if not sent.ok:
-			DotLog.debug(CHANNEL, "loadout not sent", {"to": p, "why": sent.error.message})
+			GSLog.debug(CHANNEL, "loadout not sent", {"to": p, "why": sent.error.message})
 
 
 func _key_for(peer_id: int) -> String:
@@ -313,7 +313,7 @@ func _key_for(peer_id: int) -> String:
 func _credential() -> PackedStringArray:
 	if base_url != "" and token != "":
 		return PackedStringArray([base_url.trim_suffix("/"), token])
-	var client: Object = DotRegistry.get_service(&"dot_backbone_client")
+	var client: Object = GSRegistry.get_service(&"dot_backbone_client")
 	var cfg: Object = client.get("config") if client != null else null
 	if cfg == null or not cfg.has_method("integration_endpoint"):
 		return PackedStringArray()
@@ -323,21 +323,21 @@ func _credential() -> PackedStringArray:
 	return PackedStringArray([str(cfg.call("integration_endpoint", "")).trim_suffix("/"), t])
 
 
-func _fetch(key: String) -> DotResult:
+func _fetch(key: String) -> GSResult:
 	var cred := _credential()
 	if cred.is_empty():
-		return DotResult.success(null)
+		return GSResult.success(null)
 	if _http == null:
-		_http = DotHttp.new()
+		_http = GSHttp.new()
 		_http.name = "Http"
 		_http.timeout_sec = 8.0
 		_http.max_retries = 1
 		add_child(_http)
-	var res: DotResult = await _http.get_json("%s/user/%s/avatar" % [cred[0], key.uri_encode()],
+	var res: GSResult = await _http.get_json("%s/user/%s/avatar" % [cred[0], key.uri_encode()],
 		{"Authorization": "Bearer %s" % cred[1], "Accept": "application/json"})
 	if not res.ok:
 		if res.error != null and res.error.http_status == 404:
-			return DotResult.success(null)
+			return GSResult.success(null)
 		return res.wrap("reading avatar actions")
 	var body: Dictionary = res.value if res.value is Dictionary else {}
 	var actions: Variant = body.get("actions")
@@ -346,8 +346,8 @@ func _fetch(key: String) -> DotResult:
 		# Carried beside the kinds, which [method parse] never reads; no actions still means the starters.
 		var merged: Dictionary = (actions as Dictionary).duplicate() if actions is Dictionary else {}
 		merged[WEARABLES_KEY] = worn
-		return DotResult.success(merged)
-	return DotResult.success(actions)
+		return GSResult.success(merged)
+	return GSResult.success(actions)
 
 
 func describe() -> Dictionary:

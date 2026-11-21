@@ -1,13 +1,13 @@
-class_name DotGameAvatarActionClient
+class_name GSGameAvatarActionClient
 extends Node
 
 ## The client half of avatar actions: a key press plays on the local figure at once and is sent
 ## to the server; what the server relays plays on that peer's figure. An uploaded clip in a
-## told loadout is fetched once through [member content_fn]. Built by [method DotGameClient.add_avatar_actions].
+## told loadout is fetched once through [member content_fn]. Built by [method GSGameClient.add_avatar_actions].
 
 const CHANNEL := "game.avatar_action"
 
-var net: DotNetManager = null
+var net: GSNetManager = null
 var input: Object = null
 
 ## func(peer_id: int) -> Object with play_action(id: StringName, loop: bool, elapsed: float): the figure of that peer, or null.
@@ -16,7 +16,7 @@ var figure_fn: Callable = Callable()
 ## func() -> bool: true while a menu, a chat box or the like has the keyboard.
 var blocked_fn: Callable = Callable()
 
-## func(entry: Dictionary) -> DotResult (may await) of a Node3D holding the clip; the caller owns
+## func(entry: Dictionary) -> GSResult (may await) of a Node3D holding the clip; the caller owns
 ## it. Null leaves uploaded clips unplayed (built-ins still play).
 var content_fn: Callable = Callable()
 
@@ -26,7 +26,7 @@ var url_fn: Callable = Callable()
 ## func(id: String) -> Dictionary: the site library's row for a wearable id (slot, bone, offset, sha256, url), empty while unread.
 var wearable_row_fn: Callable = Callable()
 
-## func(rows: Dictionary) -> DotResult of the input's actions; default GameSpice User Avatar's `from_backbone`, by path.
+## func(rows: Dictionary) -> GSResult of the input's actions; default GameSpice User Avatar's `from_backbone`, by path.
 var actions_fn: Callable = Callable()
 
 ## Seconds between looks at whether a figure has appeared, or been rebuilt, since its wearables were last hung.
@@ -58,19 +58,19 @@ var _flags: Dictionary = {}
 
 
 ## [param p_net] is null offline: the action plays locally and goes nowhere.
-func attach(p_net: DotNetManager, p_input: Object, p_figure_fn: Callable) -> void:
+func attach(p_net: GSNetManager, p_input: Object, p_figure_fn: Callable) -> void:
 	net = p_net
 	input = p_input
 	figure_fn = p_figure_fn
 	input.connect(&"action_requested", _on_requested)
 	if net != null:
-		var on := net.messages.on(DotGameAvatarActionMessage.NAME, _on_message)
+		var on := net.messages.on(GSGameAvatarActionMessage.NAME, _on_message)
 		_online = on.ok
 		if not on.ok:
-			DotLog.warn(CHANNEL, "type not registered before the seal; actions stay local",
+			GSLog.warn(CHANNEL, "type not registered before the seal; actions stay local",
 				{"why": on.error.message})
-		var _l := net.messages.on(DotGameAvatarLoadoutMessage.NAME, _on_loadout)
-		if _online and net.messages.type_names().has(String(DotGameAvatarLoadoutAsk.NAME)):
+		var _l := net.messages.on(GSGameAvatarLoadoutMessage.NAME, _on_loadout)
+		if _online and net.messages.type_names().has(String(GSGameAvatarLoadoutAsk.NAME)):
 			_ask_tries = 5
 			_ask_gap = 1.0
 			_ask()
@@ -102,9 +102,9 @@ func _ask() -> void:
 	_ask_tries -= 1
 	_ask_wait = _ask_gap
 	_ask_gap *= 2.0
-	var sent := net.send(DotGameAvatarLoadoutAsk.new())
+	var sent := net.send(GSGameAvatarLoadoutAsk.new())
 	if not sent.ok:
-		DotLog.debug(CHANNEL, "loadout ask not sent", {"why": sent.error.message})
+		GSLog.debug(CHANNEL, "loadout ask not sent", {"why": sent.error.message})
 
 
 func _on_requested(entry: Dictionary) -> void:
@@ -113,24 +113,24 @@ func _on_requested(entry: Dictionary) -> void:
 	_play(net.local_peer_id if net != null else 0, id, loop, 0.0)
 	if not _online:
 		return
-	var request := DotGameAvatarActionMessage.new()
+	var request := GSGameAvatarActionMessage.new()
 	request.id = id
 	request.loop = loop
 	var sent := net.send(request)
 	if not sent.ok:
-		DotLog.debug(CHANNEL, "request not sent", {"why": sent.error.message})
+		GSLog.debug(CHANNEL, "request not sent", {"why": sent.error.message})
 
 
-func _on_message(message: DotNetMessage) -> void:
-	var m := message as DotGameAvatarActionMessage
+func _on_message(message: GSNetMessage) -> void:
+	var m := message as GSGameAvatarActionMessage
 	if m == null or m.actor == net.local_peer_id:
 		return
 	var late := maxi(0, net.clock.tick - m.start_tick)
 	_play(m.actor, m.id, m.loop, float(late) / float(maxi(1, net.clock.tick_rate)))
 
 
-func _on_loadout(message: DotNetMessage) -> void:
-	var m := message as DotGameAvatarLoadoutMessage
+func _on_loadout(message: GSNetMessage) -> void:
+	var m := message as GSGameAvatarLoadoutMessage
 	if m == null:
 		return
 	_ask_tries = 0
@@ -159,15 +159,15 @@ func apply_to_input(entries: Array) -> bool:
 		return false
 	var current: Object = input.get(&"actions")
 	_flags.clear()
-	var rows := DotGameAvatarActionSupport.input_rows(entries, current, url_fn, _flags)
+	var rows := GSGameAvatarActionSupport.input_rows(entries, current, url_fn, _flags)
 	var read: Variant = null
 	if actions_fn.is_valid():
 		read = actions_fn.call(rows)
 	else:
-		var script := DotGameAvatarActionSupport.script("res://addons/dot_user_avatar/actions/dot_avatar_actions.gd")
+		var script := GSGameAvatarActionSupport.script("res://addons/dot_user_avatar/actions/dot_avatar_actions.gd")
 		read = script.call(&"from_backbone", rows) if script != null else null
-	if read is DotResult and (read as DotResult).ok:
-		input.set(&"actions", (read as DotResult).value)
+	if read is GSResult and (read as GSResult).ok:
+		input.set(&"actions", (read as GSResult).value)
 		return true
 	return false
 
@@ -179,7 +179,7 @@ func fetch_clip(entry: Dictionary) -> bool:
 	if id == "" or _scenes.has(id) or _fetching.has(id) or not content_fn.is_valid():
 		return false
 	if _scenes.size() + _fetching.size() >= MAX_SCENES:
-		DotLog.debug(CHANNEL, "clip cap reached", {"id": id})
+		GSLog.debug(CHANNEL, "clip cap reached", {"id": id})
 		return false
 	_fetching[id] = true
 	_fetch_clip(entry)
@@ -192,17 +192,17 @@ func _fetch_clip(entry: Dictionary) -> void:
 	var _f := _fetching.erase(id)
 	if _flags.has("placeholder") and net != null and loadouts.has(net.local_peer_id):
 		var _a := apply_to_input(loadouts[net.local_peer_id])
-	if res is DotResult and (res as DotResult).ok and (res as DotResult).value is Node3D:
+	if res is GSResult and (res as GSResult).ok and (res as GSResult).value is Node3D:
 		if id.begins_with("wearable/"):
 			# The file is in the cache now; each figure builds its own copy from there.
-			((res as DotResult).value as Node3D).free()
+			((res as GSResult).value as Node3D).free()
 			for peer: int in worn:
 				var _w := wear(peer)
 		else:
-			_scenes[id] = (res as DotResult).value
+			_scenes[id] = (res as GSResult).value
 	else:
-		DotLog.debug(CHANNEL, "clip not fetched", {"id": id,
-			"why": (res as DotResult).error.message if res is DotResult and not (res as DotResult).ok else "no scene"})
+		GSLog.debug(CHANNEL, "clip not fetched", {"id": id,
+			"why": (res as GSResult).error.message if res is GSResult and not (res as GSResult).ok else "no scene"})
 
 
 ## The entry [param peer_id] has equipped under [param id], or empty.
@@ -231,11 +231,11 @@ func _play(peer_id: int, id: String, loop: bool, elapsed: float) -> void:
 		var _f := fetch_clip(entry)
 		return
 	var added: Variant = figure.call(&"add_action_scene", StringName(id), _scenes[id], String(entry["clip"]), bool(entry["loop"]))
-	if added is DotResult and (added as DotResult).ok:
+	if added is GSResult and (added as GSResult).ok:
 		figure.call(&"play_action", StringName(id), loop, elapsed)
 	else:
-		DotLog.debug(CHANNEL, "clip not playable on this figure", {"id": id,
-			"why": (added as DotResult).error.message if added is DotResult else "?"})
+		GSLog.debug(CHANNEL, "clip not playable on this figure", {"id": id,
+			"why": (added as GSResult).error.message if added is GSResult else "?"})
 
 
 ## Hangs [param peer_id]'s wearables on their figure's skeleton once per figure; a figure not drawn
@@ -257,17 +257,17 @@ func wear(peer_id: int) -> bool:
 			wearer.call(&"clear")
 		_worn_on[peer_id] = [figure.get_instance_id(), ids]
 		return true
-	var rows := DotGameAvatarActionSupport.wear_rows(ids, wearable_row_fn, _wear_tried, fetch_clip)
+	var rows := GSGameAvatarActionSupport.wear_rows(ids, wearable_row_fn, _wear_tried, fetch_clip)
 	if rows.size() < ids.size():
 		return false
 	if wearer == null:
-		wearer = DotGameAvatarActionSupport.new_wearer()
+		wearer = GSGameAvatarActionSupport.new_wearer()
 		if wearer == null:
 			return false
 		_wearers[peer_id] = wearer
-	var res: DotResult = wearer.call(&"apply", skeleton, rows)
+	var res: GSResult = wearer.call(&"apply", skeleton, rows)
 	if not res.ok:
-		DotLog.debug(CHANNEL, "wearables not hung", {"peer": peer_id, "why": res.error.message})
+		GSLog.debug(CHANNEL, "wearables not hung", {"peer": peer_id, "why": res.error.message})
 		return false
 	_worn_on[peer_id] = [figure.get_instance_id(), ids]
 	return true

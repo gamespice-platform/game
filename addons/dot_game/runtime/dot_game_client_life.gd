@@ -1,6 +1,6 @@
 extends RefCounted
 
-## [DotGameClient]'s gate, stepped setup, touch buttons, pointer holds and teardown; the client keeps the state and the overridable seams. No class_name: the client preloads it.
+## [GSGameClient]'s gate, stepped setup, touch buttons, pointer holds and teardown; the client keeps the state and the overridable seams. No class_name: the client preloads it.
 
 const _Profiler := preload("res://addons/dot_game/runtime/dot_game_profiler.gd")
 
@@ -16,8 +16,8 @@ static func wire_gate(c: Node) -> void:
 		c.gate.closed.connect(c._on_gate_cover.bind(true))
 
 
-static func make_gate(c: Node) -> DotLoadGate:
-	var made := DotLoadGate.new()
+static func make_gate(c: Node) -> GSLoadGate:
+	var made := GSLoadGate.new()
 	made.require_camera = c.require_camera
 	made.warm_up_on_open = c.warm_up and DisplayServer.get_name() != "headless"
 	if c.cover != null:
@@ -26,7 +26,7 @@ static func make_gate(c: Node) -> DotLoadGate:
 		made.cover_scene = c.cover_scene
 	if c.spawned_fn.is_valid():
 		made.require(c.REASON_SPAWNED, c.spawned_fn, c.spawned_text)
-	# Under the host: the gate marks its parent for DotLoadGate.of. A host still readying refuses a child, so wait a frame.
+	# Under the host: the gate marks its parent for GSLoadGate.of. A host still readying refuses a child, so wait a frame.
 	if c.host.is_node_ready():
 		c.host.add_child(made)
 	else:
@@ -34,7 +34,7 @@ static func make_gate(c: Node) -> DotLoadGate:
 	return made
 
 
-static func stepped(c: Node, between: Callable) -> DotResult:
+static func stepped(c: Node, between: Callable) -> GSResult:
 	var pieces: Array[StringName] = c._setup_pieces()
 	var stepping := between.is_valid() or (DisplayServer.get_name() != "headless" and c.is_inside_tree())
 	# GameSpice Profiler is the costly piece: its script compiles on a loader thread (from _ready) while the pieces before it run.
@@ -44,7 +44,7 @@ static func stepped(c: Node, between: Callable) -> DotResult:
 		if pieces[i] == &"profiler" and profiler_loading:
 			# With between, every frame boundary is the game's (it may hold the multiplayer poll across them): never end one here.
 			profiler_script = await _Profiler.await_script(c.get_tree(), between.is_valid())
-			DotLog.debug(c.CHANNEL, "profiler script loaded off the main thread", {"ok": profiler_script != null})
+			GSLog.debug(c.CHANNEL, "profiler script loaded off the main thread", {"ok": profiler_script != null})
 		c._run_setup_piece(pieces[i])
 		if i == pieces.size() - 1:
 			break
@@ -59,7 +59,7 @@ static func run_piece(c: Node, piece: StringName) -> void:
 	var started := Time.get_ticks_usec()
 	match piece:
 		&"chat":
-			DotGameClientExtras.wire_chat(c)
+			GSGameClientExtras.wire_chat(c)
 			c._wire_pointer_modals()
 		&"settings":
 			if c.use_settings and c.menu == null:
@@ -68,19 +68,19 @@ static func run_piece(c: Node, piece: StringName) -> void:
 			if c.use_console:
 				c.add_console()
 		&"profiler":
-			DotGameClientExtras.add_profiler(c)
+			GSGameClientExtras.add_profiler(c)
 		&"menu":
 			c._wire_menu()
 		&"look":
-			DotGameClientLook.build(c)
+			GSGameClientLook.build(c)
 		&"sounds":
-			DotGameClientExtras.collect_audio_scripts(c)
-			DotGameClientExtras.add_slide_sounds(c)
+			GSGameClientExtras.collect_audio_scripts(c)
+			GSGameClientExtras.add_slide_sounds(c)
 		&"landing":
-			DotGameClientExtras.add_landing(c)
+			GSGameClientExtras.add_landing(c)
 		&"quality":
-			DotGameClientExtras.add_render_quality(c)
-			DotGameClientExtras.watch_latency_net(c)
+			GSGameClientExtras.add_render_quality(c)
+			GSGameClientExtras.watch_latency_net(c)
 	c.setup_usec[piece] = Time.get_ticks_usec() - started
 
 
@@ -133,13 +133,13 @@ static func release_pointer(c: Node, key: Variant) -> void:
 	if not c._pointer_holds.erase(key):
 		return
 	c._refresh_blocked()
-	if c.capture_pointer and c._set_up and not c.gate_only and not DotPlatform.is_web() \
+	if c.capture_pointer and c._set_up and not c.gate_only and not GSPlatform.is_web() \
 			and not c.is_menu_open() and not c._chat_typing() and not c._busy() and c._pointer_wanted():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
-static func hit_flinch(sampler_fn: Callable, camera_fn: Callable, aim_fn: Callable, tunables_fn: Callable) -> DotGameHitFlinch:
-	var made := DotGameHitFlinch.new()
+static func hit_flinch(sampler_fn: Callable, camera_fn: Callable, aim_fn: Callable, tunables_fn: Callable) -> GSGameHitFlinch:
+	var made := GSGameHitFlinch.new()
 	made.sampler_fn = sampler_fn
 	made.camera_fn = camera_fn
 	made.aim_fn = aim_fn
@@ -149,11 +149,11 @@ static func hit_flinch(sampler_fn: Callable, camera_fn: Callable, aim_fn: Callab
 
 static func exit_tree(c: Node) -> void:
 	c.restore_map_config()
-	DotGameClientExtras.disconnect_registry_bus(c)
+	GSGameClientExtras.disconnect_registry_bus(c)
 	if c.user_tier_on:
 		# Process-wide flag: left on, it would hand the next server's addons the player's files.
 		c.user_tier_on = false
-		DotAddonConfig.set_user_tier(false)
-	DotGamePageGuard.clear(c, false)
+		GSAddonConfig.set_user_tier(false)
+	GSGamePageGuard.clear(c, false)
 	if c.screen_fit != null:
 		c.screen_fit.detach(true)

@@ -1,4 +1,4 @@
-class_name DotGameCheckSuite
+class_name GSGameCheckSuite
 extends Node
 
 ## Base for a game's `examples/headless_*.gd` suite: pass/fail counting, `_check`, and a summary that also fails when fewer checks ran than expected.

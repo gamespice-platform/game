@@ -18,14 +18,14 @@ var _elapsed := 0.0
 
 
 func _initialize() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	var size := DEFAULT_SIZE
 	var props := {}
 	_scene_path = str(ProjectSettings.get_setting("application/run/main_scene", ""))
 	for argument in OS.get_cmdline_user_args():
 		if argument == "--touch":
 			# Before the client exists: the menu reads it while building its Menu button.
-			DotPlatform.touch_override = 1
+			GSPlatform.touch_override = 1
 		elif argument.begins_with("--scene="):
 			_scene_path = argument.trim_prefix("--scene=")
 		elif argument.begins_with("--size="):

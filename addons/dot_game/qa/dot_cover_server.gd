@@ -1,12 +1,12 @@
-class_name DotCoverServer
+class_name GSCoverServer
 extends Node
 
 ## A headless dedicated server for a game's tools/render_cover.gd to join, left running: `godot --headless --path . res://tools/cover_server.tscn -- --port 27399`. Tool-only (a pack never calls it, so no API level).
-## Seven games each had their own copy of this boot; the DotServer and its config are the same in all of them, so a game's tools/cover_server.gd extends this and overrides only the hooks.
+## Seven games each had their own copy of this boot; the GSServer and its config are the same in all of them, so a game's tools/cover_server.gd extends this and overrides only the hooks.
 ## Name the scene's root CoverServer, like render_cover's, so the RPC path to "Server" is the same on both sides.
 
-## The DotServer this booted, named "Server".
-var server: DotServer = null
+## The GSServer this booted, named "Server".
+var server: GSServer = null
 ## The port serving; --port wins over [method _default_port].
 var port := 0
 
@@ -16,7 +16,7 @@ func _default_port() -> int:
 	return 27399
 
 
-## The server's max_players; 0 leaves DotServerConfig's default.
+## The server's max_players; 0 leaves GSServerConfig's default.
 func _max_players() -> int:
 	return 0
 
@@ -33,7 +33,7 @@ func _boot(_dir: String) -> void:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
@@ -46,23 +46,23 @@ func arg(name: String, fallback: String) -> String:
 
 ## The common game-module boot: add the descriptor [code]game_descriptor()[/code] of the script at
 ## [param module_path] to the game list, change to it, load the module. Returns the two results
-## as {"game": DotResult, "module": DotResult}.
+## as {"game": GSResult, "module": GSResult}.
 func boot_descriptor_module(module_path: String) -> Dictionary:
-	var descriptor: DotGameDescriptor = (load(module_path) as GDScript).call("game_descriptor")
+	var descriptor: GSGameDescriptor = (load(module_path) as GDScript).call("game_descriptor")
 	server.games.add_game(descriptor)
-	var changed: DotResult = await server.games.change_game(descriptor.game_id, "boot")
-	var loaded: DotResult = await server.modules.load_module(module_path)
+	var changed: GSResult = await server.games.change_game(descriptor.game_id, "boot")
+	var loaded: GSResult = await server.modules.load_module(module_path)
 	print("cover_server: game=%s module=%s port=%d" % [changed.ok, loaded.ok, port])
 	return {"game": changed, "module": loaded}
 
 
 func _run() -> void:
 	var dir := ProjectSettings.globalize_path("user://cover_server")
-	DotPaths.remove_tree(dir)
+	GSPaths.remove_tree(dir)
 	DirAccess.make_dir_recursive_absolute(dir)
 
 	port = int(arg("--port", str(_default_port())))
-	var config := DotServerConfig.new()
+	var config := GSServerConfig.new()
 	config.autoexec_config = ""
 	config.hostname = _hostname()
 	config.hibernate_when_empty = false
@@ -76,12 +76,12 @@ func _run() -> void:
 	config.audit_log_path = "%s/audit.jsonl" % dir
 	config.stdin_console_enabled = false
 
-	server = DotServer.new()
+	server = GSServer.new()
 	server.name = "Server"
 	server.config = config
 	add_child(server)
 	for _i in 60:
 		await get_tree().process_frame
-		if server.state == DotServer.State.RUNNING:
+		if server.state == GSServer.State.RUNNING:
 			break
 	await _boot(dir)

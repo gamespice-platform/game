@@ -1,4 +1,4 @@
-class_name DotGameClientBench
+class_name GSGameClientBench
 extends Node
 
 ## Measures a connected client's prediction (replays, skipped reconciles, mismatches) against a real
@@ -42,8 +42,8 @@ func _prepare(_label: String) -> Variant:
 
 
 ## Override (server role): build the game's dedicated server under this node, add [param bots] bots and
-## return its [DotNetManager]. [method make_server_config] gives a config that fits the bench.
-func _boot_server(_bots_wanted: int, _data_dir: String) -> DotNetManager:
+## return its [GSNetManager]. [method make_server_config] gives a config that fits the bench.
+func _boot_server(_bots_wanted: int, _data_dir: String) -> GSNetManager:
 	return null
 
 
@@ -55,8 +55,8 @@ func _client_playing() -> bool:
 
 
 ## A server config bound to loopback on the bench port with nothing optional running.
-func make_server_config(data_dir: String) -> DotServerConfig:
-	var config := DotServerConfig.new()
+func make_server_config(data_dir: String) -> GSServerConfig:
+	var config := GSServerConfig.new()
 	config.hostname = "client bench"
 	config.port = _port
 	config.bind_address = "127.0.0.1"
@@ -89,7 +89,7 @@ func _ready() -> void:
 			"--port": _port = int(args[i + 1])
 			"--tick": tick_rate = int(args[i + 1])
 	_play = "--play" in args
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_keepalive = _prepare("client_bench_" + _role)
 	if _role == "server":
 		_serve.call_deferred()
@@ -102,7 +102,7 @@ func _serve() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(data))
 	var net := await _boot_server(_bots, data)
 	if net == null:
-		printerr("client_bench server: _boot_server returned no DotNetManager")
+		printerr("client_bench server: _boot_server returned no GSNetManager")
 		get_tree().quit(1)
 		return
 	print("client_bench server: ready on %d with %d bots" % [_port, _bots])
@@ -185,11 +185,11 @@ func _run() -> void:
 	_relay.seed = 20261016
 	_relay.up.configure(0.0, _delay, _jitter)
 	_relay.down.configure(0.0, _delay, _jitter)
-	var relayed: DotResult = _relay.start(0, "127.0.0.1", _port)
+	var relayed: GSResult = _relay.start(0, "127.0.0.1", _port)
 	if not relayed.ok:
 		return _fail("relay: %s" % relayed.error)
 
-	var link := DotClientLink.new()
+	var link := GSClientLink.new()
 	link.name = "Server"
 	link.player_name = "Bench"
 	link.transport_preference = "udp"
@@ -262,7 +262,7 @@ func _print_mismatches() -> void:
 
 func _measure() -> void:
 	var args := OS.get_cmdline_user_args()
-	var net: DotNetManager = _client.get("net")
+	var net: GSNetManager = _client.get("net")
 	if net == null:
 		printerr("client_bench: the client scene has no `net`")
 		return

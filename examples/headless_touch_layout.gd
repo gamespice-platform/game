@@ -1,6 +1,6 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
-## DotGameTouchLayout: the presets, the canonical homes of fire, jump, crouch and reload, per-game overrides, validation, and the fit through DotGameClient.
+## GSGameTouchLayout: the presets, the canonical homes of fire, jump, crouch and reload, per-game overrides, validation, and the fit through GSGameClient.
 
 const EXPECTED_CHECKS := 42
 const SECTIONS := ["presets", "homes", "overrides", "validate", "apply"]
@@ -9,7 +9,7 @@ const L := preload("res://addons/dot_game/runtime/dot_game_touch_layout.gd")
 var _done: Array[String] = []
 
 
-## Stands in for GameSpice UI's DotTouchButtons, which this addon never names.
+## Stands in for GameSpice UI's GSTouchButtons, which this addon never names.
 class Buttons extends Control:
 	var button_scale := 1.0
 	var margin := 28.0
@@ -20,7 +20,7 @@ class Buttons extends Control:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 
@@ -41,16 +41,16 @@ func _presets() -> void:
 	for p: StringName in [L.FPS, L.DRIVING, L.PLATFORMER]:
 		var res := L.build(p)
 		_check(res.ok and not res.value.ids().is_empty(), "%s: builds and validates" % p)
-	var fps: DotGameTouchLayout = L.make(L.FPS).value
+	var fps: GSGameTouchLayout = L.make(L.FPS).value
 	_check(fps.ids() == [L.FIRE, L.ALT, L.JUMP, L.CROUCH, L.USE, L.RELOAD, L.NEXT, L.PREV, L.BOARD, L.CHAT], "fps: the ten buttons of the wipeout family")
 	var mini := L.make(L.MINIGAME)
 	_check(mini.ok and mini.value.preset_name == L.PLATFORMER and mini.value.has(L.USE), "minigame is the platformer preset")
-	var left: DotGameTouchLayout = L.build(L.DRIVING, {}, L.LEFT).value
+	var left: GSGameTouchLayout = L.build(L.DRIVING, {}, L.LEFT).value
 	_check(left.ids() == [L.STEER_RIGHT, L.STEER_LEFT], "driving: the left cluster steers")
 	var none := L.make(L.FPS, L.LEFT)
 	_check(none.ok and none.value.ids().is_empty(), "fps has no left cluster: empty, not an error")
 	var bad := L.make(&"racing")
-	_check(not bad.ok and bad.code() == DotError.CODE_INVALID, "an unknown preset is CODE_INVALID")
+	_check(not bad.ok and bad.code() == GSError.CODE_INVALID, "an unknown preset is CODE_INVALID")
 	_done.append("presets")
 
 
@@ -64,7 +64,7 @@ func _homes() -> void:
 				if not r.is_empty() and (r["offset"] != slot[0] or r["radius"] != slot[1]):
 					same = false
 		_check(same, "%s sits in one place, one size, in every preset" % id)
-	var fps: DotGameTouchLayout = L.make(L.FPS).value
+	var fps: GSGameTouchLayout = L.make(L.FPS).value
 	_check(fps.row(L.JUMP)["offset"] == Vector2(80, 172) and fps.row(L.JUMP)["radius"] == 32.0, "jump is under fire, (80,172) r32")
 	_check(fps.row(L.CROUCH)["label"] == "DUCK", "crouch is labelled DUCK, its id is crouch")
 	for extra: StringName in [L.COMMAND, L.MAPS, L.GAG, L.MUTE]:
@@ -78,7 +78,7 @@ func _homes() -> void:
 func _overrides() -> void:
 	var res := L.build(L.FPS, {&"alt": null, &"grab": &"inner", &"use": null, &"fire": {"radius": 46.0, "label": "HIT"}})
 	_check(res.ok, "wipeout-style overrides build: %s" % (res.error if not res.ok else ""))
-	var lay: DotGameTouchLayout = res.value
+	var lay: GSGameTouchLayout = res.value
 	_check(not lay.has(L.ALT) and lay.has(&"grab"), "null drops, a slot name adds")
 	_check(lay.row(&"grab")["offset"] == L.SLOTS[&"inner"][0], "grab takes the inner slot")
 	_check(lay.row(L.FIRE)["radius"] == 46.0 and lay.row(L.FIRE)["label"] == "HIT" and lay.row(L.FIRE)["offset"] == Vector2(80, 84), "radius and label change, the place does not")
@@ -87,9 +87,9 @@ func _overrides() -> void:
 	var custom := L.custom().put(&"split", &"primary", "SPLIT").put(&"throw", &"secondary", "THROW")
 	_check(custom.ids() == [&"split", &"throw"] and custom.row(&"split")["label"] == "SPLIT", "custom: a game's own ids in the canonical slots")
 	var before: Array = L.make(L.FPS).value.ids()
-	var fps: DotGameTouchLayout = L.make(L.FPS).value
+	var fps: GSGameTouchLayout = L.make(L.FPS).value
 	var bad := fps.override({&"alt": null, &"jump": &"nowhere"})
-	_check(not bad.ok and bad.code() == DotError.CODE_INVALID and fps.ids() == before, "a bad slot is CODE_INVALID and nothing changes")
+	_check(not bad.ok and bad.code() == GSError.CODE_INVALID and fps.ids() == before, "a bad slot is CODE_INVALID and nothing changes")
 	_check(not fps.override({&"new": {"label": "X"}}).ok, "a new button without a place is refused")
 	_check(not fps.override({&"jump": {"colour": 1}}).ok, "an unknown key is refused")
 	_check(not fps.override({&"jump": 3}).ok, "an override of the wrong type is refused")
@@ -98,7 +98,7 @@ func _overrides() -> void:
 
 func _validate() -> void:
 	var clash := L.build(L.FPS, {&"grab": {"offset": Vector2(84, 90), "radius": 24.0}})
-	_check(not clash.ok and clash.code() == DotError.CODE_INVALID, "two buttons on one spot are refused")
+	_check(not clash.ok and clash.code() == GSError.CODE_INVALID, "two buttons on one spot are refused")
 	var small := L.build(L.FPS, {&"reload": {"radius": 12.0}})
 	_check(not small.ok, "a radius under %d is refused" % int(L.MIN_RADIUS))
 	var alias := L.build(L.FPS, {&"crouch": null, &"duck": &"outer"})
@@ -107,14 +107,14 @@ func _validate() -> void:
 
 
 func _apply() -> void:
-	var lay: DotGameTouchLayout = L.build(L.FPS).value
+	var lay: GSGameTouchLayout = L.build(L.FPS).value
 	var b := Buttons.new()
 	_check(lay.apply(b) == 1.0 and b.rows.size() == 10 and b.button_scale == 1.0, "no client: rows set, scale left at 1")
-	_check(b.rows[0].keys() == ["id", "label", "offset", "radius"], "rows carry only what DotTouchButtons reads")
+	_check(b.rows[0].keys() == ["id", "label", "offset", "radius"], "rows carry only what GSTouchButtons reads")
 	var root := get_tree().root
 	var was := [root.content_scale_mode, root.content_scale_aspect, root.content_scale_size]
-	DotPlatform.touch_override = 1
-	var c := DotGameClient.new()
+	GSPlatform.touch_override = 1
+	var c := GSGameClient.new()
 	c.use_gate = false
 	c.force_offline = true
 	add_child(c)
@@ -134,7 +134,7 @@ func _apply() -> void:
 	_check(true, "the touch board button with no board does nothing")
 	b.free()
 	c.free()
-	DotPlatform.touch_override = -1
+	GSPlatform.touch_override = -1
 	await get_tree().process_frame  # the screen fit restores the stretch deferred
 	_check([root.content_scale_mode, root.content_scale_aspect, root.content_scale_size] == was, "the window's stretch is restored")
 	_done.append("apply")

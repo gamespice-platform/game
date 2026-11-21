@@ -1,6 +1,6 @@
 extends Node
 
-## DotGameNetchaosClient._find_game: the game node is looked up by `game`, by any other variable that has players(), and by
+## GSGameNetchaosClient._find_game: the game node is looked up by `game`, by any other variable that has players(), and by
 ## the `game` group; a client with none gives null (Playlot names its own `playlot`).
 
 const CHECKS := 7
@@ -40,7 +40,7 @@ func _check(ok: bool, what: String) -> void:
 
 
 func _run() -> void:
-	var find := DotGameNetchaosClient._find_game
+	var find := GSGameNetchaosClient._find_game
 	_check(find.call(null) == null, "null client gives null")
 	var world := World.new()
 	add_child(world)

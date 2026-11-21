@@ -17,7 +17,7 @@ static func web_defaults() -> Dictionary:
 
 ## Sets the web defaults for every variable still at -1; call once before the first frame.
 static func init_defaults() -> void:
-	if not DotPlatform.is_web():
+	if not GSPlatform.is_web():
 		return
 	var d := web_defaults()
 	for n: StringName in NAMES:
@@ -25,27 +25,27 @@ static func init_defaults() -> void:
 			values[n] = d[n]
 
 
-## Validates and stores [param v] for [param name]; a DotResult.
-static func set_value(name: StringName, v: Variant) -> DotResult:
+## Validates and stores [param v] for [param name]; a GSResult.
+static func set_value(name: StringName, v: Variant) -> GSResult:
 	var s := str(v)
 	if not s.is_valid_float():
-		return DotResult.fail(DotError.CODE_INVALID, "%s takes a number (-1 is the project's own)" % name)
+		return GSResult.fail(GSError.CODE_INVALID, "%s takes a number (-1 is the project's own)" % name)
 	var f := s.to_float()
 	if f < 0.0:
 		values[name] = -1.0
 	elif name == &"r_msaa" and not MSAA.has(int(f)):
-		return DotResult.fail(DotError.CODE_INVALID, "r_msaa is 0, 2, 4 or 8")
+		return GSResult.fail(GSError.CODE_INVALID, "r_msaa is 0, 2, 4 or 8")
 	elif name == &"r_scale" and (f < 0.25 or f > 2.0):
-		return DotResult.fail(DotError.CODE_INVALID, "r_scale is 0.25 to 2")
+		return GSResult.fail(GSError.CODE_INVALID, "r_scale is 0.25 to 2")
 	elif name == &"r_shadow_atlas" and (f < 1024.0 or f > 16384.0):
-		return DotResult.fail(DotError.CODE_INVALID, "r_shadow_atlas is a size from 1024 to 16384")
+		return GSResult.fail(GSError.CODE_INVALID, "r_shadow_atlas is a size from 1024 to 16384")
 	elif name == &"r_sun_shadow_size" and (f < 512.0 or f > 16384.0):
-		return DotResult.fail(DotError.CODE_INVALID, "r_sun_shadow_size is a size from 512 to 16384")
+		return GSResult.fail(GSError.CODE_INVALID, "r_sun_shadow_size is a size from 512 to 16384")
 	elif name == &"r_sun_shadow_splits" and not [1, 2, 4].has(int(f)):
-		return DotResult.fail(DotError.CODE_INVALID, "r_sun_shadow_splits is 1, 2 or 4")
+		return GSResult.fail(GSError.CODE_INVALID, "r_sun_shadow_splits is 1, 2 or 4")
 	else:
 		values[name] = f
-	return DotResult.success(values[name])
+	return GSResult.success(values[name])
 
 
 ## Pushes the stored values onto [param viewport] and every sun under [param root].
@@ -64,7 +64,7 @@ static func apply(viewport: Viewport, root: Node) -> void:
 	if root != null and (float(values[&"r_shadow_distance"]) > 0.0 or float(values[&"r_sun_shadow_splits"]) > 0.0):
 		for n in root.find_children("*", "DirectionalLight3D", true, false):
 			cap_sun(n as DirectionalLight3D)
-	DotLog.debug(CHANNEL, "render quality applied", {"values": values})
+	GSLog.debug(CHANNEL, "render quality applied", {"values": values})
 
 
 ## Limits one sun's shadow distance to `r_shadow_distance` and its split count to `r_sun_shadow_splits` (never raises either).
@@ -94,9 +94,9 @@ static func add_client_vars(local: Object, reapply: Callable) -> void:
 
 ## Applies `--r_msaa=2` style user arguments, and on the web the page's `?r_msaa=2` query.
 static func apply_cmdline() -> void:
-	if DotWeb.available():
+	if GSWeb.available():
 		for n: StringName in NAMES:
-			var q := DotWeb.query_param(n)
+			var q := GSWeb.query_param(n)
 			if q != "":
 				var _q := set_value(n, q)
 	for a in OS.get_cmdline_user_args():

@@ -1,4 +1,4 @@
-extends DotConfig
+extends GSConfig
 
 ## Fixture for headless_config: every kind of field the binder maps.
 
@@ -6,10 +6,10 @@ func env_prefix() -> String:
 	return "TGTEST_"
 
 
-func validate() -> DotResult:
+func validate() -> GSResult:
 	if count == 13:
-		return DotResult.fail(DotError.CODE_INVALID, "count 13 is unlucky")
-	return DotResult.success(null)
+		return GSResult.fail(GSError.CODE_INVALID, "count 13 is unlucky")
+	return GSResult.success(null)
 
 
 @export_group("Movement")

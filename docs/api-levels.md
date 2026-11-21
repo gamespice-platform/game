@@ -1,64 +1,64 @@
 # API levels
 
-What each `DotGameApi.LEVEL` added. The bump rule is on `DotAddonApi`.
+What each `GSGameApi.LEVEL` added. The bump rule is on `GSAddonApi`.
 
 - 1: everything before this file existed (an absent file reads as 1).
-- 2: DotGameModule _game_board_fields() and _game_board_extra(), the Tab board's columns.
-- 3: DotGameChatClient, the client's chat box and microphone.
-- 4: DotGameContent, the map packs a server names for the running game.
-- 5: DotGameChatClient draws GameSpice Server's own lines (server_lines, server_colour, link), window_settings, voice_method.
-- 6: DotGameChatClient honours the player's block list (self_mute, self_mute_enabled).
-- 7: voice: DotGameChatClient opens the microphone on the first press of dot-voice's dot_voice_talk action (not on attach), follows the replicated sv_voice_enable, publishes its manager as dot_voice_client, voice_available_changed, voice_position_fn; DotGameModule binds sv_voice_enable and sv_voice_mode on the services' router.
-- 8: DotGameClient, the platform layer a game client adds: load gate and cover, settings and the Escape menu, console, HUD theme, Tab, M, the chat's keyboard, the pointer, web sync.
-- 9: still loading. DotGameModule is_loading / is_peer_loading / can_be_harmed / can_peer_be_harmed / loading_seats / mark_reloading, loading_changed, load_timeout_sec, reload_grace_sec, report_map re-marks on a new map, the game's peer_loading_fn; DotGameRoster's loading state and COVER_KIND; DotGameClient report_loading and the static report_cover.
-- 10: DotGameLink.attach / retire, a game's RPC link under the server node, freed with its bridge.
-- 11: DotGameClient set_hud / set_chat (after setup), cover_scene / cover (the gate's cover), pointer_fn (when the pointer is taken back), public refresh_blocked().
-- 12: DotGameClient adopts a menu and board the game built (menu / board / board_prepare_fn / adopt_menu, no settings needed), add_console(), gate_only, escape_releases_pointer.
-- 13: DotGameClient user_cfg / listen_host_fn / user_cfg_files / open_user_cfg, the player's cfg tier for solo and listen-host play, and the editor entry on the Advanced page.
-- 14: DotGameClient look-to-gag and look-to-mute (use_look_mute, look_*_action, look_positions_fn, look_target_fn, look_chat_mute_fn, look_mute, look_conflicts), on G and K, default on.
-- 15: DotGameClient.restore_map_config, also run when the server connection drops (not only on EXIT_TREE).
-- 16: DotGameMapScripts, the handler for GameSpice Map's script.* events; DotGameModule.map_scripts.
-- 17: DotGameConfigBinder / DotGameConfigSchema, a DotConfig as layered load, cvars, `config` profile and yml diff.
-- 18: DotGameWorkbench and DotGameClient.add_workbench, the F9 tuning window.
-- 19: DotGameNoblock, built by DotGameModule for a game with body_rules (_noblock_enabled / _noblock_side / _noblock_runtime, noblock), DotGameClient.add_noblock, DotGameConfigBinder.profile_kind.
-- 20: DotGameWorkbenchAuth, and DotGameWorkbench accounts / account_resolver / account_permit_fn / account_gate: GameSpice Auth tickets admitted by default (admin_uids, admin_groups).
-- 21: DotGameAvatarActionMessage / Relay / Client, DotGameClient.add_avatar_actions, DotGameModule._avatar_actions_equipped and _avatar_action_veto.
-- 22: DotGameAvatarContent, DotGameModule._avatar_content_required (sv_avatar_content), DotGameClient.prepare_avatar_content / read_avatar_actions.
-- 23: DotGameAvatarLoadouts and DotGameAvatarLoadoutMessage (the server reads and relays every player's loadout), DotGameAvatarActionClient.content_fn / loadouts, DotGameAvatarContent.fetch_clip.
-- 24: DotGameAvatarLoadoutAsk (a client asks for the loadouts it missed; DotGameAvatarLoadouts.answer), DotGameAvatarContent.SERVER_CVAR (sv_site_server) / default_site_url, DotGameModule._site_server_id, DotGameClient.avatar_site / avatar_server; the module's avatar hooks now reach the relay.
-- 25: DotGameWorkbench thread_cvars / cvar_set / bind_cvar_set (the Server threads set), DotGameClient vis_mode / attach_visibility / detach_visibility / set_vis_mode.
-- 26: the net_interest_radius / net_far_every / net_far_distance server cvars (DotGameRelevance), DotGameWorkbench.relevance_cvars.
-- 27: DotGameCombatFeel (opt-in spread, recoil and spread-crosshair rules and cvars) and DotGameClient.add_combat_feel.
-- 28: DotGameCombatFeel sprint (sv_sprint*, sv_stamina*): sprint, sprint_defaults, track_tunables, the with_sprint argument.
-- 29: slide sounds for every first-person game: DotGameClient use_slide_sounds / slide_settings / slide_sounds, the sv_slide_sounds cvar bound by DotGameModule, the slide_volume setting.
-- 30: the remote workbench: DotGameWorkbenchMessage / Remote / RemoteClient, DotGameWorkbench remote_client / remote_fn / serve_remote / panel_built, local_allowed(remote), the sv_workbench_remote cvar.
-- 31: DotGamePrejoin.extra_steps (a game or addon adds async pre-join steps, such as a trail pack fetch).
-- 32: DotGameHitFlinch and DotGameClient.add_hit_flinch / note_hit (hit shake and aim wobble, sv_hit_*).
-- 33: DotGameStatsFeed.key_for / forget / open_sessions / scope_key_file (stable per-server stats key); DotGameClassImmunity.call_apply.
-- 34: DotGameClientAvatars.publish_figures / figure_of and the dot_game_client service (an addon finds a player's figure).
-- 35: DotGameStatsFeed.upgrade (a late profile key moves a seat's stats key, deliberately).
-- 36: DotGameSlideSounds.surf / surf_rules / surf_cvar_specs, DotGameLanding.surf_rules_fn, DotGameModuleWiring.bind_surf_sounds (the replicated sv_surf_* cvars).
-- 37: DotGameStoreEntitlements.attach / attach_tree (site store entitlements merged into a GameSpice Loadout manager; the module does it on every seat).
-- 38: DotGameStatsBoard / DotGameModule.stats_board (st_*, lt_* and stat_columns on the Tab board snapshot), DotGameStatsFeed.active_tracker; DotGameClient.show_stats / stats_ui / stats_panel and the cl_stats_ui cvar (DotGameClientStats).
-- 39: DotGameStorePanel (+ add_to_menu, DotGameClient.add_store_panel).
-- 40: DotGameClient.add_loadout_store / DotGameStoreEntitlements.wire_menu (locked store items in the loadout menu), DotGameStorePanel.default_store_url; attach sets the manager's store_url.
-- 41: DotGameModule.bind_stats_report / DotGameStatsReport (the family cvar stats_report, aliases for old names).
-- 42: DotGameClient.use_team_menu (the period-key Play/Spectate menu on by default).
-- 43: DotGameRenderQuality (the r_msaa, r_scale, r_shadow_atlas, r_shadow_distance cvars; web defaults cheaper, ?r_msaa= style query overrides).
+- 2: GSGameModule _game_board_fields() and _game_board_extra(), the Tab board's columns.
+- 3: GSGameChatClient, the client's chat box and microphone.
+- 4: GSGameContent, the map packs a server names for the running game.
+- 5: GSGameChatClient draws GameSpice Server's own lines (server_lines, server_colour, link), window_settings, voice_method.
+- 6: GSGameChatClient honours the player's block list (self_mute, self_mute_enabled).
+- 7: voice: GSGameChatClient opens the microphone on the first press of dot-voice's dot_voice_talk action (not on attach), follows the replicated sv_voice_enable, publishes its manager as dot_voice_client, voice_available_changed, voice_position_fn; GSGameModule binds sv_voice_enable and sv_voice_mode on the services' router.
+- 8: GSGameClient, the platform layer a game client adds: load gate and cover, settings and the Escape menu, console, HUD theme, Tab, M, the chat's keyboard, the pointer, web sync.
+- 9: still loading. GSGameModule is_loading / is_peer_loading / can_be_harmed / can_peer_be_harmed / loading_seats / mark_reloading, loading_changed, load_timeout_sec, reload_grace_sec, report_map re-marks on a new map, the game's peer_loading_fn; GSGameRoster's loading state and COVER_KIND; GSGameClient report_loading and the static report_cover.
+- 10: GSGameLink.attach / retire, a game's RPC link under the server node, freed with its bridge.
+- 11: GSGameClient set_hud / set_chat (after setup), cover_scene / cover (the gate's cover), pointer_fn (when the pointer is taken back), public refresh_blocked().
+- 12: GSGameClient adopts a menu and board the game built (menu / board / board_prepare_fn / adopt_menu, no settings needed), add_console(), gate_only, escape_releases_pointer.
+- 13: GSGameClient user_cfg / listen_host_fn / user_cfg_files / open_user_cfg, the player's cfg tier for solo and listen-host play, and the editor entry on the Advanced page.
+- 14: GSGameClient look-to-gag and look-to-mute (use_look_mute, look_*_action, look_positions_fn, look_target_fn, look_chat_mute_fn, look_mute, look_conflicts), on G and K, default on.
+- 15: GSGameClient.restore_map_config, also run when the server connection drops (not only on EXIT_TREE).
+- 16: GSGameMapScripts, the handler for GameSpice Map's script.* events; GSGameModule.map_scripts.
+- 17: GSGameConfigBinder / GSGameConfigSchema, a GSConfig as layered load, cvars, `config` profile and yml diff.
+- 18: GSGameWorkbench and GSGameClient.add_workbench, the F9 tuning window.
+- 19: GSGameNoblock, built by GSGameModule for a game with body_rules (_noblock_enabled / _noblock_side / _noblock_runtime, noblock), GSGameClient.add_noblock, GSGameConfigBinder.profile_kind.
+- 20: GSGameWorkbenchAuth, and GSGameWorkbench accounts / account_resolver / account_permit_fn / account_gate: GameSpice Auth tickets admitted by default (admin_uids, admin_groups).
+- 21: GSGameAvatarActionMessage / Relay / Client, GSGameClient.add_avatar_actions, GSGameModule._avatar_actions_equipped and _avatar_action_veto.
+- 22: GSGameAvatarContent, GSGameModule._avatar_content_required (sv_avatar_content), GSGameClient.prepare_avatar_content / read_avatar_actions.
+- 23: GSGameAvatarLoadouts and GSGameAvatarLoadoutMessage (the server reads and relays every player's loadout), GSGameAvatarActionClient.content_fn / loadouts, GSGameAvatarContent.fetch_clip.
+- 24: GSGameAvatarLoadoutAsk (a client asks for the loadouts it missed; GSGameAvatarLoadouts.answer), GSGameAvatarContent.SERVER_CVAR (sv_site_server) / default_site_url, GSGameModule._site_server_id, GSGameClient.avatar_site / avatar_server; the module's avatar hooks now reach the relay.
+- 25: GSGameWorkbench thread_cvars / cvar_set / bind_cvar_set (the Server threads set), GSGameClient vis_mode / attach_visibility / detach_visibility / set_vis_mode.
+- 26: the net_interest_radius / net_far_every / net_far_distance server cvars (GSGameRelevance), GSGameWorkbench.relevance_cvars.
+- 27: GSGameCombatFeel (opt-in spread, recoil and spread-crosshair rules and cvars) and GSGameClient.add_combat_feel.
+- 28: GSGameCombatFeel sprint (sv_sprint*, sv_stamina*): sprint, sprint_defaults, track_tunables, the with_sprint argument.
+- 29: slide sounds for every first-person game: GSGameClient use_slide_sounds / slide_settings / slide_sounds, the sv_slide_sounds cvar bound by GSGameModule, the slide_volume setting.
+- 30: the remote workbench: GSGameWorkbenchMessage / Remote / RemoteClient, GSGameWorkbench remote_client / remote_fn / serve_remote / panel_built, local_allowed(remote), the sv_workbench_remote cvar.
+- 31: GSGamePrejoin.extra_steps (a game or addon adds async pre-join steps, such as a trail pack fetch).
+- 32: GSGameHitFlinch and GSGameClient.add_hit_flinch / note_hit (hit shake and aim wobble, sv_hit_*).
+- 33: GSGameStatsFeed.key_for / forget / open_sessions / scope_key_file (stable per-server stats key); GSGameClassImmunity.call_apply.
+- 34: GSGameClientAvatars.publish_figures / figure_of and the dot_game_client service (an addon finds a player's figure).
+- 35: GSGameStatsFeed.upgrade (a late profile key moves a seat's stats key, deliberately).
+- 36: GSGameSlideSounds.surf / surf_rules / surf_cvar_specs, GSGameLanding.surf_rules_fn, GSGameModuleWiring.bind_surf_sounds (the replicated sv_surf_* cvars).
+- 37: GSGameStoreEntitlements.attach / attach_tree (site store entitlements merged into a GameSpice Loadout manager; the module does it on every seat).
+- 38: GSGameStatsBoard / GSGameModule.stats_board (st_*, lt_* and stat_columns on the Tab board snapshot), GSGameStatsFeed.active_tracker; GSGameClient.show_stats / stats_ui / stats_panel and the cl_stats_ui cvar (GSGameClientStats).
+- 39: GSGameStorePanel (+ add_to_menu, GSGameClient.add_store_panel).
+- 40: GSGameClient.add_loadout_store / GSGameStoreEntitlements.wire_menu (locked store items in the loadout menu), GSGameStorePanel.default_store_url; attach sets the manager's store_url.
+- 41: GSGameModule.bind_stats_report / GSGameStatsReport (the family cvar stats_report, aliases for old names).
+- 42: GSGameClient.use_team_menu (the period-key Play/Spectate menu on by default).
+- 43: GSGameRenderQuality (the r_msaa, r_scale, r_shadow_atlas, r_shadow_distance cvars; web defaults cheaper, ?r_msaa= style query overrides).
 - 44: r_sun_shadow_size and r_sun_shadow_splits (web: 2048 sun shadow map, at most 2 splits).
-- 45: DotGameModule.use_noblock (opt out of the default noblock wiring); _noblock_runtime defaults to the game's started workbench.
-- 46: DotGameClient.tune_replay (default on: sets DotNetConfig.reconcile_once_per_frame and skip_matching_replays on the client's netcode).
-- 47: DotGameClient.locked_content_offline (default off: an offline, forced-offline or headless client no longer mounts content.lock.json).
-- 48: DotGameTouchLayout (touch button presets fps, driving, platformer; canonical ids, slots and homes; `apply` through `DotGameClient.fit_touch_buttons`).
-- 49: DotGameToyNet (a map toy on the wire, duck-typed toy; replaces the byte-identical `*_toy_net.gd` in eleven games). Suite: `examples/headless_toy_net.tscn`.
-- 50: DotGameRequest (a client request: kind and body, the game subclass names it) and DotGamePaths (root_of, rebase_onto); replace the per-game *_request.gd and *_paths.gd. Suite: `examples/headless_net_plumbing.tscn`.
-- 51: DotGameNetIo (a bridge's _send, receive_event, receive_request, receive_snapshot and the net, link and rtt_source fields; replaces the identical copies in ten games' bridges). Suite: `examples/headless_net_io.tscn`.
-- 52: the net_skip_idle / net_visibility server cvars (DotGameRelevance.bind_toggles), DotGameModule.use_map_visibility (a GameSpice Map's PVS for snapshot interest).
-- 53: DotGameShardArgs (a sharded suite's `--shard` / `--merge` arguments, the round-robin `slice`, `missing`, `sections_entered`; replaces the per-game copies in FC, zombie-zone and prop-hunt). Tool-only, in `qa/`. Suite: `examples/headless_shard_args.tscn`.
-- 54: DotGameTouchLayout canonical ids `command`, `maps`, `gag`, `mute` (labels `/`, MAPS, GAG, MUTE) for the keys a phone lacks; slots unchanged. Suite: `examples/headless_touch_layout.tscn`.
-- 55: DotGameClient.local_link (a link to this machine's own server, a solo game hosted in a second process, survives `--offline`) and the static `offline_wanted`. Suite: `examples/game_selftest.tscn`.
-- 56: `DotGameModule._map_download_groups(map_id)`: the groups `report_map` passes to GameSpice Server's `set_current_map` (GameSpice Server API 19, per-map download groups); an older server is called with the map alone. Suite: `examples/game_selftest.tscn`.
-- 57: `DotGameClient.setup_stepped(between)`: `setup()` one piece per frame (`SETUP_PIECES`), the caller's `between` awaited after each; `setup_usec` times each piece. Suite: `examples/game_selftest.tscn`.
-- 58: `DotGameCheckSuite.cpu_usec()` / `cpu_is_real()`: the calling thread's CPU time (wall fallback), for tick-budget checks that must not fail on a loaded box. Suite: `examples/game_selftest.tscn`.
-- 59: `DotGameConfigSchemas.binder_of(script)`: a make_binder script's binder as a DotResult, its config from the script's static `make_config()` when it has one (the games' flashlight scripts), refused with the reason when the binder's first parameter would not take it. `schemas_for` and `qa/dot_game_cfg_templates.gd` use it, so the tool no longer stops on a flashlight script and idles. Suite: `examples/headless_config.tscn`.
-- 60: DotGameStorePanel buys in game and says when it cannot: `buy(item_id)` (POST `store/purchase`, STORE_WRITE) and `purchased`, `offers()` / `offers_from` (GET `store/items`), `points()` (the read now asks `include=points` and shows the balance), `error_text()` and `retry()` (a failed read shows the error and a Retry button, not "Nothing yet"), `audience_of` / `store_url_for` ("Get more" opens `/dashboard/store/app/<id>` or `/server/<id>` from the token's audience), ITEMS_PATH, PURCHASE_PATH, OWNER_KINDS. Suite: `examples/game_selftest.tscn`.
+- 45: GSGameModule.use_noblock (opt out of the default noblock wiring); _noblock_runtime defaults to the game's started workbench.
+- 46: GSGameClient.tune_replay (default on: sets GSNetConfig.reconcile_once_per_frame and skip_matching_replays on the client's netcode).
+- 47: GSGameClient.locked_content_offline (default off: an offline, forced-offline or headless client no longer mounts content.lock.json).
+- 48: GSGameTouchLayout (touch button presets fps, driving, platformer; canonical ids, slots and homes; `apply` through `GSGameClient.fit_touch_buttons`).
+- 49: GSGameToyNet (a map toy on the wire, duck-typed toy; replaces the byte-identical `*_toy_net.gd` in eleven games). Suite: `examples/headless_toy_net.tscn`.
+- 50: GSGameRequest (a client request: kind and body, the game subclass names it) and GSGamePaths (root_of, rebase_onto); replace the per-game *_request.gd and *_paths.gd. Suite: `examples/headless_net_plumbing.tscn`.
+- 51: GSGameNetIo (a bridge's _send, receive_event, receive_request, receive_snapshot and the net, link and rtt_source fields; replaces the identical copies in ten games' bridges). Suite: `examples/headless_net_io.tscn`.
+- 52: the net_skip_idle / net_visibility server cvars (GSGameRelevance.bind_toggles), GSGameModule.use_map_visibility (a GameSpice Map's PVS for snapshot interest).
+- 53: GSGameShardArgs (a sharded suite's `--shard` / `--merge` arguments, the round-robin `slice`, `missing`, `sections_entered`; replaces the per-game copies in FC, zombie-zone and prop-hunt). Tool-only, in `qa/`. Suite: `examples/headless_shard_args.tscn`.
+- 54: GSGameTouchLayout canonical ids `command`, `maps`, `gag`, `mute` (labels `/`, MAPS, GAG, MUTE) for the keys a phone lacks; slots unchanged. Suite: `examples/headless_touch_layout.tscn`.
+- 55: GSGameClient.local_link (a link to this machine's own server, a solo game hosted in a second process, survives `--offline`) and the static `offline_wanted`. Suite: `examples/game_selftest.tscn`.
+- 56: `GSGameModule._map_download_groups(map_id)`: the groups `report_map` passes to GameSpice Server's `set_current_map` (GameSpice Server API 19, per-map download groups); an older server is called with the map alone. Suite: `examples/game_selftest.tscn`.
+- 57: `GSGameClient.setup_stepped(between)`: `setup()` one piece per frame (`SETUP_PIECES`), the caller's `between` awaited after each; `setup_usec` times each piece. Suite: `examples/game_selftest.tscn`.
+- 58: `GSGameCheckSuite.cpu_usec()` / `cpu_is_real()`: the calling thread's CPU time (wall fallback), for tick-budget checks that must not fail on a loaded box. Suite: `examples/game_selftest.tscn`.
+- 59: `GSGameConfigSchemas.binder_of(script)`: a make_binder script's binder as a GSResult, its config from the script's static `make_config()` when it has one (the games' flashlight scripts), refused with the reason when the binder's first parameter would not take it. `schemas_for` and `qa/dot_game_cfg_templates.gd` use it, so the tool no longer stops on a flashlight script and idles. Suite: `examples/headless_config.tscn`.
+- 60: GSGameStorePanel buys in game and says when it cannot: `buy(item_id)` (POST `store/purchase`, STORE_WRITE) and `purchased`, `offers()` / `offers_from` (GET `store/items`), `points()` (the read now asks `include=points` and shows the balance), `error_text()` and `retry()` (a failed read shows the error and a Retry button, not "Nothing yet"), `audience_of` / `store_url_for` ("Get more" opens `/dashboard/store/app/<id>` or `/server/<id>` from the token's audience), ITEMS_PATH, PURCHASE_PATH, OWNER_KINDS. Suite: `examples/game_selftest.tscn`.

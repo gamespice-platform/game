@@ -1,9 +1,9 @@
-class_name DotGameMapConfig
+class_name GSGameMapConfig
 extends RefCounted
 
 ## A game's per-map settings: the whitelist and defaults a game declares, applied through GameSpice Map's
-## [code]DotMapConfig[/code] (looked up by path; absent applies nothing) on every map change and put back on the next.
-## [method for_console] builds one for a game not on [DotGameModule]; then call [method apply] and [method restore].
+## [code]GSMapConfig[/code] (looked up by path; absent applies nothing) on every map change and put back on the next.
+## [method for_console] builds one for a game not on [GSGameModule]; then call [method apply] and [method restore].
 
 const CHANNEL := "game.map_config"
 const SCRIPT_PATH := "res://addons/dot_map/config/dot_map_config.gd"
@@ -18,16 +18,16 @@ var defaults: Dictionary = {}
 var get_fn: Callable = Callable()
 ## `(key: String, value: Variant) -> bool`; false means the game refused it.
 var set_fn: Callable = Callable()
-## Extra config root, as [code]DotMapConfig.config_dir[/code].
+## Extra config root, as [code]GSMapConfig.config_dir[/code].
 var config_dir: String = ""
 
 var _cfg: Object = null
 var _warned := false
 
 
-## One over a [DotConsole]-shaped object (`find_cvar`, `set_cvar`), which is what a server's cvars are.
-static func for_console(p_game: String, console: Object, p_keys: Dictionary, p_defaults: Dictionary = {}) -> DotGameMapConfig:
-	var out := DotGameMapConfig.new()
+## One over a [GSConsole]-shaped object (`find_cvar`, `set_cvar`), which is what a server's cvars are.
+static func for_console(p_game: String, console: Object, p_keys: Dictionary, p_defaults: Dictionary = {}) -> GSGameMapConfig:
+	var out := GSGameMapConfig.new()
 	out.game_id = p_game
 	out.keys = p_keys
 	out.defaults = p_defaults
@@ -47,7 +47,7 @@ func apply(map_id: String) -> PackedStringArray:
 	var cfg := _config()
 	if cfg == null:
 		return PackedStringArray()
-	var res: DotResult = cfg.call("apply", map_id)
+	var res: GSResult = cfg.call("apply", map_id)
 	return res.value if res.ok else PackedStringArray()
 
 
@@ -63,18 +63,18 @@ func applied() -> Dictionary:
 
 func describe_lines() -> PackedStringArray:
 	if _cfg == null:
-		return PackedStringArray(["DotGameMapConfig game=%s (not built)" % game_id])
+		return PackedStringArray(["GSGameMapConfig game=%s (not built)" % game_id])
 	return _cfg.call("describe_lines")
 
 
-## The [code]DotMapConfig[/code] under this, built on first use; null without GameSpice Map.
+## The [code]GSMapConfig[/code] under this, built on first use; null without GameSpice Map.
 func _config() -> Object:
 	if _cfg != null:
 		return _cfg
 	if not ResourceLoader.exists(SCRIPT_PATH):
 		if not _warned:
 			_warned = true
-			DotLog.info(CHANNEL, "dot-map is not in this build: maps change no settings", {"game": game_id})
+			GSLog.info(CHANNEL, "dot-map is not in this build: maps change no settings", {"game": game_id})
 		return null
 	var script: Variant = load(SCRIPT_PATH)
 	if script == null or not script.has_method("new"):

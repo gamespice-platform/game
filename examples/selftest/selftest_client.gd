@@ -1,8 +1,8 @@
 extends "selftest_netcfg.gd"
 
-## The DotGameClient and DotGameLink sections of game_selftest.gd.
+## The GSGameClient and GSGameLink sections of game_selftest.gd.
 
-## A cover of the game's own, in the shape DotLoadGate drives.
+## A cover of the game's own, in the shape GSLoadGate drives.
 class ClientCover extends Control:
 	func show_cover() -> void: pass
 	func hide_cover() -> void: pass
@@ -19,7 +19,7 @@ func _test_client_platform() -> void:
 	add_child(host)
 	var spawned := [false]
 	var blocked_seen: Array = []
-	var client := DotGameClient.new()
+	var client := GSGameClient.new()
 	client.require_camera = false
 	client.spawned_fn = func() -> bool: return spawned[0]
 	client.input_blocked_changed.connect(func(on: bool) -> void: blocked_seen.append(on))
@@ -27,7 +27,7 @@ func _test_client_platform() -> void:
 
 	_check(client.gate != null and client.gate.get_parent() == host,
 		"the load gate is up the moment the client is added, under the client root")
-	_check(DotLoadGate.of(host) == client.gate, "and DotLoadGate.of finds it from the root")
+	_check(GSLoadGate.of(host) == client.gate, "and GSLoadGate.of finds it from the root")
 	_check(client.offline and client.link == null, "no link in the registry is offline")
 	_check(client.is_input_blocked() and not client.is_shown(), "covered is input off")
 
@@ -41,7 +41,7 @@ func _test_client_platform() -> void:
 	client.hud = hud
 	client.board_snapshot_fn = snapshot
 	client.maps_rows_fn = func() -> Array: return []
-	client.maps_change_fn = func(_id: StringName) -> DotResult: return DotResult.success(null)
+	client.maps_change_fn = func(_id: StringName) -> GSResult: return GSResult.success(null)
 	client.maps_title = "Change FC map"
 	client.maps_noun = "FC maps"
 	client.console_kit_path = CONSOLE_KIT_FIXTURE
@@ -54,9 +54,9 @@ func _test_client_platform() -> void:
 	_check(menu != null and (menu.get(&"followed") as Array).size() == 1 \
 			and (menu.get(&"followed") as Array)[0][0] == hud,
 		"the HUD follows the menu's theme")
-	_check(menu != null and menu.get(&"scoreboard_action") == DotGameClient.SCOREBOARD_ACTION \
-			and InputMap.has_action(DotGameClient.SCOREBOARD_ACTION)
-			and InputMap.action_get_events(DotGameClient.SCOREBOARD_ACTION).any(func(e: InputEvent) -> bool:
+	_check(menu != null and menu.get(&"scoreboard_action") == GSGameClient.SCOREBOARD_ACTION \
+			and InputMap.has_action(GSGameClient.SCOREBOARD_ACTION)
+			and InputMap.action_get_events(GSGameClient.SCOREBOARD_ACTION).any(func(e: InputEvent) -> bool:
 				return e is InputEventKey and (e as InputEventKey).physical_keycode == KEY_TAB),
 		"Tab is the board's key, made when the game's table has none")
 	_check(client.board != null and client.board.get(&"source") == snapshot,
@@ -99,7 +99,7 @@ func _test_client_platform() -> void:
 		"and every change was signalled, ending live", str(blocked_seen))
 
 	var again := client.setup()
-	_check(not again.ok and again.error.code == DotError.CODE_STATE, "a second setup is refused")
+	_check(not again.ok and again.error.code == GSError.CODE_STATE, "a second setup is refused")
 	_check(client.describe().get("console", false) == true and client.describe_lines().size() >= 4,
 		"describe says what was built")
 
@@ -134,7 +134,7 @@ func _test_client_platform() -> void:
 	var custom_cover := ClientCover.new()
 	var cover_host := Node.new()
 	add_child(cover_host)
-	var covered := DotGameClient.new()
+	var covered := GSGameClient.new()
 	covered.require_camera = false
 	covered.cover = custom_cover
 	cover_host.add_child(covered)
@@ -146,7 +146,7 @@ func _test_client_platform() -> void:
 	# A settings file that will not load costs the menu, not the game.
 	var refused_host := Node.new()
 	add_child(refused_host)
-	var refused := DotGameClient.new()
+	var refused := GSGameClient.new()
 	refused.use_gate = false
 	refused.use_console = false
 	refused.capture_pointer = false
@@ -160,7 +160,7 @@ func _test_client_platform() -> void:
 
 	# A client inside a scene readying its children: the gate waits a frame for the root.
 	var scene := Node.new()
-	var nested := DotGameClient.new()
+	var nested := GSGameClient.new()
 	nested.require_camera = false
 	scene.add_child(nested)
 	add_child(scene)
@@ -175,7 +175,7 @@ func _test_client_platform() -> void:
 	_done()
 
 
-## A menu the game built itself, in GameSpice Menu's DotMenu shape (overlays_changed, is_open).
+## A menu the game built itself, in GameSpice Menu's GSMenu shape (overlays_changed, is_open).
 class OwnMenu extends RefCounted:
 	signal overlays_changed(open: bool)
 	var busy: Callable = Callable()
@@ -209,8 +209,8 @@ class TeamsMenu extends OwnMenu:
 		return teams
 
 
-func _team_menu_client(host: Node, menu: TeamsMenu, unwired: bool) -> DotGameClient:
-	var c := DotGameClient.new()
+func _team_menu_client(host: Node, menu: TeamsMenu, unwired: bool) -> GSGameClient:
+	var c := GSGameClient.new()
 	c.use_gate = false
 	c.use_console = false
 	c.capture_pointer = false
@@ -218,7 +218,7 @@ func _team_menu_client(host: Node, menu: TeamsMenu, unwired: bool) -> DotGameCli
 	c.team_menu_default_when_unwired = unwired
 	c.board_snapshot_fn = func() -> Dictionary: return {}
 	c.maps_rows_fn = func() -> Array: return []
-	c.maps_change_fn = func(_id: StringName) -> DotResult: return DotResult.success(null)
+	c.maps_change_fn = func(_id: StringName) -> GSResult: return GSResult.success(null)
 	c.hud = Control.new()
 	host.add_child(c)
 	var _r := c.setup()
@@ -229,7 +229,7 @@ func _test_client_team_menu_default() -> void:
 	_section("team_menu_default_when_unwired: on by default, and the unwired team menu honours it")
 	var host := Node.new()
 	add_child(host)
-	var fresh := DotGameClient.new()
+	var fresh := GSGameClient.new()
 	_check(fresh.team_menu_default_when_unwired, "the Play and Spectate offer is on by default")
 	fresh.free()
 	var on_menu := TeamsMenu.new()
@@ -243,7 +243,7 @@ func _test_client_team_menu_default() -> void:
 	var _c := _team_menu_client(host, own_menu, false)
 	_check(own_menu.used == 0 and own_menu.teams.default_when_unwired, "a game's own team menu is left alone")
 	var no_teams := TeamsMenu.new()
-	var off := DotGameClient.new()
+	var off := GSGameClient.new()
 	off.use_team_menu = false
 	off.use_gate = false
 	off.use_console = false
@@ -252,7 +252,7 @@ func _test_client_team_menu_default() -> void:
 	off.hud = Control.new()
 	off.board_snapshot_fn = func() -> Dictionary: return {}
 	off.maps_rows_fn = func() -> Array: return []
-	off.maps_change_fn = func(_id: StringName) -> DotResult: return DotResult.success(null)
+	off.maps_change_fn = func(_id: StringName) -> GSResult: return GSResult.success(null)
 	host.add_child(off)
 	var _d := off.setup()
 	_check(no_teams.used == 0, "use_team_menu off wires nothing")
@@ -270,7 +270,7 @@ func _test_client_hooks_menu() -> void:
 	var own := OwnMenu.new()
 	var own_board := RefCounted.new()
 	var prepared: Array = []
-	var client := DotGameClient.new()
+	var client := GSGameClient.new()
 	client.use_gate = false
 	client.use_console = false
 	client.capture_pointer = false
@@ -279,7 +279,7 @@ func _test_client_hooks_menu() -> void:
 	client.board_prepare_fn = func(b: Object) -> void: prepared.append(b)
 	client.board_snapshot_fn = func() -> Dictionary: return {}
 	client.maps_rows_fn = func() -> Array: return []
-	client.maps_change_fn = func(_id: StringName) -> DotResult: return DotResult.success(null)
+	client.maps_change_fn = func(_id: StringName) -> GSResult: return GSResult.success(null)
 	var hud := Control.new()
 	client.hud = hud
 	host.add_child(client)
@@ -290,7 +290,7 @@ func _test_client_hooks_menu() -> void:
 		"a menu assigned before setup is kept, and no settings are built over it")
 	_check(client.board == own_board and prepared == [own_board],
 		"an assigned board is kept instead of the menu's, and prepared first")
-	_check(own.followed.size() == 1 and own.scoreboard_action == DotGameClient.SCOREBOARD_ACTION,
+	_check(own.followed.size() == 1 and own.scoreboard_action == GSGameClient.SCOREBOARD_ACTION,
 		"the HUD theme and Tab reach the adopted menu")
 	_check(own.maps_made == 1 and client.maps != null, "M is made on the menu when there are no settings")
 	own.set_open(true)
@@ -300,7 +300,7 @@ func _test_client_hooks_menu() -> void:
 	_check(not client.is_menu_open() and relayed == [true, false], "and closing it is relayed")
 
 	# Adopted after setup, with a console built later around it.
-	var late := DotGameClient.new()
+	var late := GSGameClient.new()
 	late.use_gate = false
 	late.use_settings = false
 	late.use_console = false
@@ -320,7 +320,7 @@ func _test_client_hooks_menu() -> void:
 	_check(late.add_console() == console, "and a second call keeps the first")
 
 	# Gate-only: setup builds nothing, the block still works.
-	var bare := DotGameClient.new()
+	var bare := GSGameClient.new()
 	bare.gate_only = true
 	bare.require_camera = false
 	bare.console_kit_path = CONSOLE_KIT_FIXTURE
@@ -387,7 +387,7 @@ func _test_client_reports_cover() -> void:
 	var host := Node.new()
 	add_child(host)
 	var link := _CoverLink.new()
-	var client := DotGameClient.new()
+	var client := GSGameClient.new()
 	client.require_camera = false
 	client.capture_pointer = false
 	client.link = link
@@ -397,13 +397,13 @@ func _test_client_reports_cover() -> void:
 		if client.is_shown():
 			break
 		await get_tree().process_frame
-	_check(link.sent == [[DotGameRoster.COVER_KIND, {"covered": false}]],
+	_check(link.sent == [[GSGameRoster.COVER_KIND, {"covered": false}]],
 		"the cover lifting is sent once", str(link.sent))
 	client.gate.hold(&"map", "Loading the map")
-	_check(link.sent.size() == 2 and link.sent[1] == [DotGameRoster.COVER_KIND, {"covered": true}],
+	_check(link.sent.size() == 2 and link.sent[1] == [GSGameRoster.COVER_KIND, {"covered": true}],
 		"a map change's cover going up is sent too", str(link.sent))
-	_check(DotGameClient.report_cover(link, false) and not DotGameClient.report_cover(null, false),
-		"report_cover is the same send for a client not on DotGameClient")
+	_check(GSGameClient.report_cover(link, false) and not GSGameClient.report_cover(null, false),
+		"report_cover is the same send for a client not on GSGameClient")
 	host.queue_free()
 	await get_tree().process_frame
 	_done()
@@ -415,7 +415,7 @@ func _test_client_hooks_rewire(host: Node) -> void:
 	var b := OwnMenu.new()
 	var hud := Control.new()
 	var prepared: Array = []
-	var c := DotGameClient.new()
+	var c := GSGameClient.new()
 	c.use_gate = false
 	c.use_settings = false
 	c.use_console = false
@@ -446,7 +446,7 @@ func _test_client_hooks_rewire(host: Node) -> void:
 	# A board assigned before setup, then adopt_menu: prepared once.
 	var once: Array = []
 	var pre := OwnMenu.new()
-	var c2 := DotGameClient.new()
+	var c2 := GSGameClient.new()
 	c2.use_gate = false
 	c2.use_settings = false
 	c2.use_console = false
@@ -461,7 +461,7 @@ func _test_client_hooks_rewire(host: Node) -> void:
 
 	# Adopted after setup with settings present: it blocks input and relays, beside the settings.
 	var settings := ClientSettings.new()
-	var c3 := DotGameClient.new()
+	var c3 := GSGameClient.new()
 	c3.use_gate = false
 	c3.use_console = false
 	c3.capture_pointer = false
@@ -487,7 +487,7 @@ func _test_client_without_the_addons() -> void:
 	_section("the client's platform, in a build with neither dot-menu nor dot-console")
 	var host := Node.new()
 	add_child(host)
-	var client := DotGameClient.new()
+	var client := GSGameClient.new()
 	client.require_camera = false
 	client.capture_pointer = false
 	host.add_child(client)
@@ -506,7 +506,7 @@ func _test_client_stepped_setup() -> void:
 	_section("the client's platform, set up one piece a frame")
 	var host := Node.new()
 	add_child(host)
-	var client := DotGameClient.new()
+	var client := GSGameClient.new()
 	client.require_camera = false
 	client.capture_pointer = false
 	client.console_kit_path = CONSOLE_KIT_FIXTURE
@@ -518,8 +518,8 @@ func _test_client_stepped_setup() -> void:
 	var between := func(piece: StringName) -> void:
 		seen.append(piece)
 		await get_tree().process_frame
-	var stepped: DotResult = await client.setup_stepped(between)
-	var expected := DotGameClient.SETUP_PIECES.slice(0, DotGameClient.SETUP_PIECES.size() - 1)
+	var stepped: GSResult = await client.setup_stepped(between)
+	var expected := GSGameClient.SETUP_PIECES.slice(0, GSGameClient.SETUP_PIECES.size() - 1)
 	_check(stepped.ok and seen == expected,
 		"the caller's step runs after every piece but the last, in order", str(seen))
 	_check(Engine.get_process_frames() - frame0 >= expected.size(),
@@ -529,25 +529,25 @@ func _test_client_stepped_setup() -> void:
 	_check(settings.setups == 1 and client.menu != null and client.console != null \
 			and client.console.get_meta(&"menu") == client.menu,
 		"it builds what setup builds: the settings once, the menu, the console over it")
-	_check(client.setup_usec.keys() == Array(DotGameClient.SETUP_PIECES),
+	_check(client.setup_usec.keys() == Array(GSGameClient.SETUP_PIECES),
 		"and times every piece", str(client.setup_usec))
-	var again: DotResult = await client.setup_stepped(between)
-	_check(not again.ok and again.error.code == DotError.CODE_STATE and not client.setup().ok,
+	var again: GSResult = await client.setup_stepped(between)
+	_check(not again.ok and again.error.code == GSError.CODE_STATE and not client.setup().ok,
 		"a second setup, either way, is refused")
 
-	var bare := DotGameClient.new()
+	var bare := GSGameClient.new()
 	bare.gate_only = true
 	bare.require_camera = false
 	host.add_child(bare)
 	seen.clear()
-	var bare_up: DotResult = await bare.setup_stepped(between)
+	var bare_up: GSResult = await bare.setup_stepped(between)
 	_check(bare_up.ok and seen.is_empty() and bare.setup_usec.keys() == [&"chat"] and bare.menu == null,
 		"gate_only steps only the chat, with nothing between")
 	host.queue_free()
 	await get_tree().process_frame
 	_done()
 
-# 9. DotGameLink
+# 9. GSGameLink
 
 ## Catches every engine-level error while attached. A deliberate error elsewhere in this suite
 ## cannot reach it: it is attached only for this section.
@@ -565,7 +565,7 @@ func _links_named(parent: Node, wanted: StringName) -> Array[Node]:
 	for child in parent.get_children():
 		# A retired link stays in the tree for a grace period (in-flight RPCs from clients that
 		# have not heard of the new game yet); only a live one counts.
-		if child.get_script() == TestLink and not String(child.name).begins_with(DotGameLink.RETIRED):
+		if child.get_script() == TestLink and not String(child.name).begins_with(GSGameLink.RETIRED):
 			found.append(child)
 	return found
 
@@ -574,18 +574,18 @@ func _links_named(parent: Node, wanted: StringName) -> Array[Node]:
 func _open_bridge(host: Node, parent: Node) -> Node:
 	var bridge := Node.new()
 	host.add_child(bridge)
-	DotGameLink.attach(TestLink.new(), parent, bridge, TestLink.NODE_NAME)
+	GSGameLink.attach(TestLink.new(), parent, bridge, TestLink.NODE_NAME)
 	return bridge
 
 
 func _drop_bridge(host: Node, bridge: Node) -> void:
-	# Exactly DotGameModule._drop.
+	# Exactly GSGameModule._drop.
 	host.remove_child(bridge)
 	bridge.queue_free()
 
 
 func _test_link_survives_reload() -> void:
-	_section("DotGameLink: one live link after a reload, and a clean teardown")
+	_section("GSGameLink: one live link after a reload, and a clean teardown")
 	var catcher := ErrorCatcher.new()
 	OS.add_logger(catcher)
 
@@ -613,7 +613,7 @@ func _test_link_survives_reload() -> void:
 		str(links[0].name) if links.size() == 1 else "")
 	var retired_count := 0
 	for child in server.get_children():
-		if String(child.name).begins_with(DotGameLink.RETIRED):
+		if String(child.name).begins_with(GSGameLink.RETIRED):
 			retired_count += 1
 	_check(server.get_child_count() - retired_count == 2, "and nothing else live was left under the server",
 		str(server.get_children()))
@@ -626,16 +626,16 @@ func _test_link_survives_reload() -> void:
 	var game_a := TestLink.new()
 	var owner_a := Node.new()
 	holder.add_child(owner_a)
-	DotGameLink.attach(game_a, holder, owner_a, &"GameA")
+	GSGameLink.attach(game_a, holder, owner_a, &"GameA")
 	owner_a.free()
 	await get_tree().process_frame
 	var game_b := TestLink.new()
 	var owner_b := Node.new()
 	holder.add_child(owner_b)
-	DotGameLink.attach(game_b, holder, owner_b, &"GameB")
+	GSGameLink.attach(game_b, holder, owner_b, &"GameB")
 	await _frames(2)
 	_check(is_instance_valid(game_a) and game_a.is_inside_tree() and not game_a.is_queued_for_deletion()
-		and String(game_a.name).begins_with(DotGameLink.RETIRED + "GameA_"),
+		and String(game_a.name).begins_with(GSGameLink.RETIRED + "GameA_"),
 		"a link retired by an attach under a different name survives for the grace period")
 	_check(is_instance_valid(game_b) and game_b.name == &"GameB", "and the new link has its own name")
 	holder.queue_free()
@@ -691,7 +691,7 @@ func _test_link_survives_reload() -> void:
 	server2.free()
 	_check(catcher.errors.size() == errors_before, "and freeing the module before the tree logs none")
 	# The retire timers of the links freed early above fire now, on nodes that are gone.
-	await get_tree().create_timer(DotGameLink.RETIRED_SECONDS + 1.0).timeout
+	await get_tree().create_timer(GSGameLink.RETIRED_SECONDS + 1.0).timeout
 	_check(catcher.errors.is_empty(), "no engine ERROR in the whole section, nor when the retire timers fire", str(catcher.errors))
 
 	OS.remove_logger(catcher)

@@ -1,6 +1,6 @@
 extends Node
 
-## A stand-in for GameSpice Menu's DotMenuSettings, in the shape DotGameClient duck-types: setup(),
+## A stand-in for GameSpice Menu's GSMenuSettings, in the shape GSGameClient duck-types: setup(),
 ## menu, settings, is_open(), use_maps() and menu_state_changed. The suite runs without
 ## GameSpice Menu, so this is how the wiring is asserted at all; the real menu is in each game's.
 
@@ -39,13 +39,13 @@ var open_now: bool = false
 var setups: int = 0
 
 
-func setup() -> DotResult:
+func setup() -> GSResult:
 	setups += 1
 	if refuse:
-		return DotResult.fail(DotError.CODE_IO, "The settings file would not load.")
+		return GSResult.fail(GSError.CODE_IO, "The settings file would not load.")
 	menu = FakeMenu.new()
 	settings = RefCounted.new()
-	return DotResult.success(self)
+	return GSResult.success(self)
 
 
 func is_open() -> bool:

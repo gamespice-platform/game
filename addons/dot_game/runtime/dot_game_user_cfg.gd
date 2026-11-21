@@ -1,7 +1,7 @@
-class_name DotGameUserCfg
+class_name GSGameUserCfg
 extends RefCounted
 
-## The "Your mods" row of [DotGameClient] and the cfg editor it opens, both by path so a build without GameSpice Menu's editor has no entry.
+## The "Your mods" row of [GSGameClient] and the cfg editor it opens, both by path so a build without GameSpice Menu's editor has no entry.
 
 const CHANNEL := "game.client"
 const ROW_SCRIPT := "res://addons/dot_menu/core/dot_menu_row.gd"
@@ -13,7 +13,7 @@ static func add_entry(c: Node) -> void:
 	if not c.user_tier_on or c.user_cfg_files.is_empty() or c.menu == null or not c.menu.has_method(&"page"):
 		return
 	if not ResourceLoader.exists(ROW_SCRIPT) or not ResourceLoader.exists(EDITOR_SCRIPT):
-		DotLog.info(CHANNEL, "dot-menu has no cfg editor: no mods entry")
+		GSLog.info(CHANNEL, "dot-menu has no cfg editor: no mods entry")
 		return
 	var page: Variant = c.menu.call(&"page", USER_CFG_PAGE)
 	var row_script: Variant = load(ROW_SCRIPT)

@@ -1,7 +1,7 @@
-class_name DotGameMapScripts
+class_name GSGameMapScripts
 extends RefCounted
 
-## Handles the events a GameSpice Map [code]DotMapScript[/code] replays: `script.set_player_speed`,
+## Handles the events a GameSpice Map [code]GSMapScript[/code] replays: `script.set_player_speed`,
 ## `script.kill_players`, `script.cleanup_map`. Every operation is re-validated against GameSpice Map's table, so
 ## a forged event gains nothing. Assign [method handle] as the world's `event_fn`; each operation has a hook Callable.
 
@@ -43,7 +43,7 @@ var cleanup_fn := Callable()
 var _saved := {}
 
 
-## The Callable to hand a DotMapWorld as [code]event_fn[/code]: [code](kind, data)[/code].
+## The Callable to hand a GSMapWorld as [code]event_fn[/code]: [code](kind, data)[/code].
 func event_fn() -> Callable:
 	return handle
 
@@ -63,7 +63,7 @@ func handle(kind: String, data: Dictionary) -> bool:
 				return _refuse(kind, "the game refused the speed")
 		"kill_players":
 			var n := int(kill_fn.call()) if kill_fn.is_valid() else _kill_players()
-			DotLog.info(CHANNEL, "map script killed players", {"count": n})
+			GSLog.info(CHANNEL, "map script killed players", {"count": n})
 		"cleanup_map":
 			if cleanup_fn.is_valid():
 				cleanup_fn.call(float(data["delay"]))
@@ -88,7 +88,7 @@ func restore() -> int:
 	return n
 
 
-## The per-map keys for [method DotGameModule._map_config_keys] and friends.
+## The per-map keys for [method GSGameModule._map_config_keys] and friends.
 func config_keys() -> Dictionary:
 	return CONFIG_KEYS.duplicate(true)
 
@@ -116,18 +116,18 @@ func config_set(key: String, value: Variant) -> bool:
 
 
 func describe_lines() -> PackedStringArray:
-	return PackedStringArray(["DotGameMapScripts enabled=%s ops_off=%s speeds_changed=%d" % [enabled, op_enabled.keys().filter(func(k: String) -> bool: return not op_enabled[k]), _saved.size()]])
+	return PackedStringArray(["GSGameMapScripts enabled=%s ops_off=%s speeds_changed=%d" % [enabled, op_enabled.keys().filter(func(k: String) -> bool: return not op_enabled[k]), _saved.size()]])
 
 
 ## Override: kill every player. Default logs and kills nobody.
 func _kill_players() -> int:
-	DotLog.info(CHANNEL, "map script asked to kill players; no kill_fn is assigned")
+	GSLog.info(CHANNEL, "map script asked to kill players; no kill_fn is assigned")
 	return 0
 
 
 ## Override: clean the map up. Default logs and does nothing.
 func _cleanup_map(delay: float) -> void:
-	DotLog.info(CHANNEL, "map script asked to clean up the map; no cleanup_fn is assigned", {"delay": delay})
+	GSLog.info(CHANNEL, "map script asked to clean up the map; no cleanup_fn is assigned", {"delay": delay})
 
 
 ## Override to set speeds some other way than cvars.
@@ -169,7 +169,7 @@ func _write(cvar: String, value: Variant) -> bool:
 
 
 func _refuse(kind: String, reason: String) -> bool:
-	DotLog.info(CHANNEL, "map script event refused", {"kind": kind, "reason": reason})
+	GSLog.info(CHANNEL, "map script event refused", {"kind": kind, "reason": reason})
 	refused.emit(kind, reason)
 	return false
 

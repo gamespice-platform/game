@@ -1,7 +1,7 @@
-class_name DotGameWorkbenchAuth
+class_name GSGameWorkbenchAuth
 extends RefCounted
 
-## GameSpice Auth accounts for a [DotGameWorkbench]: a connect ticket is accepted as the bearer when its uid is listed in `workbench.admin_uids` / `admin_groups`.
+## GameSpice Auth accounts for a [GSGameWorkbench]: a connect ticket is accepted as the bearer when its uid is listed in `workbench.admin_uids` / `admin_groups`.
 ##
 ## GameSpice Auth and GameSpice Workbench are reached by path and `call`, so a build without either has no account login and no error.
 
@@ -39,7 +39,7 @@ static func ticket_resolver(auth: Object) -> Callable:
 		return Callable()
 	# An empty server_id makes verify skip the audience check, so any server's ticket would pass.
 	if str(cfg.get("server_id")).strip_edges().is_empty():
-		DotLog.warn(CHANNEL, "ticket sign-in is off: server_id is empty, so the audience cannot be checked")
+		GSLog.warn(CHANNEL, "ticket sign-in is off: server_id is empty, so the audience cannot be checked")
 		return Callable()
 	var key: String = cfg.get("ticket_public_key")
 	var sid: String = cfg.get("server_id")
@@ -51,9 +51,9 @@ static func ticket_resolver(auth: Object) -> Callable:
 static func identity_of_ticket(token: String, public_key: String, server_id: String, leeway: int) -> Variant:
 	if not ResourceLoader.exists(TICKET_SCRIPT):
 		return null
-	var res: DotResult = (load(TICKET_SCRIPT) as GDScript).call("verify", token, public_key, server_id, leeway)
+	var res: GSResult = (load(TICKET_SCRIPT) as GDScript).call("verify", token, public_key, server_id, leeway)
 	if not res.ok:
-		DotLog.debug(CHANNEL, "ticket refused", {"code": res.error.code})
+		GSLog.debug(CHANNEL, "ticket refused", {"code": res.error.code})
 		return null
 	var who: Object = (res.value as Dictionary).get("identity")
 	return who if who != null and int(who.get("expires_at")) > 0 else null

@@ -1,8 +1,8 @@
-class_name DotGamePaths
+class_name GSGamePaths
 extends RefCounted
 
 ## Where a game's own files are, wherever this copy of it happens to live. Thirteen games had each written this file (identical bar the name); a game keeps a three-line paths script and the logic is here. A delivered pack mounts at [code]res://dot_cloud/<id>/<version>/[/code], so an absolute [code]res://[/code] path to the game's OWN files resolves against the host project. A script knows where it is: its [code]resource_path[/code] is the mounted path, so the game's root is that script's directory with its [code]game/[/code] segment taken off.
-## The game's script (game/wo_paths.gd): [code]extends RefCounted[/code], [code]const _SELF := preload("wo_paths.gd")[/code], [code]static func root() -> String: return DotGamePaths.root_of(_SELF)[/code], [code]static func rebase(path: String) -> String: return DotGamePaths.rebase_onto(path, root())[/code].
+## The game's script (game/wo_paths.gd): [code]extends RefCounted[/code], [code]const _SELF := preload("wo_paths.gd")[/code], [code]static func root() -> String: return GSGamePaths.root_of(_SELF)[/code], [code]static func rebase(path: String) -> String: return GSGamePaths.rebase_onto(path, root())[/code].
 ## Built in, [method rebase_onto] returns its argument, so nothing changes there; hold paths in a [code]static var[/code], not a [code]const[/code].
 
 

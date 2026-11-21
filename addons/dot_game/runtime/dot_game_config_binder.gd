@@ -1,7 +1,7 @@
-class_name DotGameConfigBinder
+class_name GSGameConfigBinder
 extends RefCounted
 
-## Makes a game's [DotConfig] operator-reachable: one layered load with the layer each value came
+## Makes a game's [GSConfig] operator-reachable: one layered load with the layer each value came
 ## from, a cvar per field, a `config` profile kind the workbench edits, and the yml diff.
 ## Layers, weakest first: code defaults, [member json_path], the `config` profile, env and argv, then cvars.
 
@@ -12,7 +12,7 @@ const DEFAULT_ID := "game"
 ## Emitted when a field changes after load: [param source] is `cvar` or `workbench`.
 signal field_changed(key: String, value: Variant, source: String)
 
-var config: DotConfig
+var config: GSConfig
 var game_id := ""
 ## cvars are `<cvar_prefix>_<field>`.
 var cvar_prefix := ""
@@ -36,7 +36,7 @@ var grouped := false
 var group_files := {}
 
 var _schema: Array = []
-var _set: DotProfileSet = null
+var _set: GSProfileSet = null
 var _sets: Array = []
 var _defaults := {}
 var _base := {}
@@ -46,12 +46,12 @@ var _cvars := {}
 var _skipped := {}
 var _syncing := false
 var _rt_keys := {}
-var _runtime: DotProfileRuntime = null
+var _runtime: GSProfileRuntime = null
 
 
 ## [param p_prefix] is the cvar prefix without the underscore (`hs`).
-static func create(p_config: DotConfig, p_game: String, p_prefix: String, p_json := "") -> DotGameConfigBinder:
-	var b := DotGameConfigBinder.new()
+static func create(p_config: GSConfig, p_game: String, p_prefix: String, p_json := "") -> GSGameConfigBinder:
+	var b := GSGameConfigBinder.new()
 	b.config = p_config
 	b.game_id = p_game
 	b.cvar_prefix = p_prefix
@@ -73,27 +73,27 @@ static func default_strict() -> bool:
 
 
 ## Logs [param res] as an ERROR and quits with a non-zero code. The one exit a strict boot takes.
-static func fail_boot(tree: SceneTree, res: DotResult, code := 2) -> void:
-	DotLog.error(CHANNEL, "configuration refused, not starting", {"why": res.error.message})
+static func fail_boot(tree: SceneTree, res: GSResult, code := 2) -> void:
+	GSLog.error(CHANNEL, "configuration refused, not starting", {"why": res.error.message})
 	if tree != null:
 		tree.quit(code)
 
 
 ## [param requested] against [param known] map ids: failure when strict and unknown (and non-empty).
-func check_map(requested: String, known: Array) -> DotResult:
+func check_map(requested: String, known: Array) -> GSResult:
 	if requested == "" or known.has(requested):
-		return DotResult.success(requested)
+		return GSResult.success(requested)
 	var msg := "unknown map '%s' (known: %s)" % [requested, ", ".join(PackedStringArray(known))]
 	if strict:
-		return DotResult.fail(DotError.CODE_INVALID, msg)
-	DotLog.warn(CHANNEL, msg)
-	return DotResult.success("")
+		return GSResult.fail(GSError.CODE_INVALID, msg)
+	GSLog.warn(CHANNEL, msg)
+	return GSResult.success("")
 
 
-## The exposed fields: see [method DotGameConfigSchema.of].
+## The exposed fields: see [method GSGameConfigSchema.of].
 func schema() -> Array:
 	if _schema.is_empty():
-		_schema = DotGameConfigSchema.of(config, skip_keys)
+		_schema = GSGameConfigSchema.of(config, skip_keys)
 		for e: Dictionary in _schema:
 			if e["description"] == "":
 				e["description"] = _shipped_docs().get(e["key"], "")
@@ -101,7 +101,7 @@ func schema() -> Array:
 
 
 ## The `config` profile set over [method schema] (id [member profile_id], never needs a file). Grouped, the first of [method profile_sets].
-func profile_set() -> DotProfileSet:
+func profile_set() -> GSProfileSet:
 	return profile_sets()[0]
 
 
@@ -122,16 +122,16 @@ func profile_sets() -> Array:
 			for k in ["min", "max", "enum", "group", "description", "options", "step"]:
 				if e.has(k) and (k != "description" or e[k] != ""):
 					opts[k] = e[k]
-			fields.append(DotProfileSet.field(e["key"], e["type"], e["default"], opts))
+			fields.append(GSProfileSet.field(e["key"], e["type"], e["default"], opts))
 		var kind := profile_kind if file == "" else "%s_%s" % [profile_kind, file]
-		var made := DotProfileSet.create("", game_id, kind, fields)
+		var made := GSProfileSet.create("", game_id, kind, fields)
 		made.implicit_ids = PackedStringArray([profile_id])
 		made.strict = strict
 		if not roots.is_empty():
 			made.roots = roots
 		_sets.append(made)
 	if _sets.is_empty():
-		_sets.append(DotProfileSet.create("", game_id, profile_kind, []))
+		_sets.append(GSProfileSet.create("", game_id, profile_kind, []))
 	_set = _sets[0]
 	return _sets
 
@@ -150,7 +150,7 @@ func file_of(group: String) -> String:
 
 
 ## Runs every layer and validates. Value: self. See the class doc for the order.
-func load_layers() -> DotResult:
+func load_layers() -> GSResult:
 	var problems := PackedStringArray()
 	_sources.clear()
 	_layer_log.clear()
@@ -161,11 +161,11 @@ func load_layers() -> DotResult:
 			_note("json", res.value, json_path)
 		else:
 			problems.append(res.error.message)
-	for set: DotProfileSet in profile_sets():
+	for set: GSProfileSet in profile_sets():
 		if _file_present(set):
 			var p := set.load_profile(profile_id)
 			if p.ok:
-				_apply_profile(p.value as DotProfile, problems, set)
+				_apply_profile(p.value as GSProfile, problems, set)
 			else:
 				problems.append(p.error.message)
 	_note("env", config.apply_env(), "")
@@ -178,15 +178,15 @@ func load_layers() -> DotResult:
 	_base = config.to_dictionary()
 	_dump()
 	if problems.is_empty():
-		return DotResult.success(self)
+		return GSResult.success(self)
 	for p in problems:
-		DotLog.error(CHANNEL, p, {"game": game_id, "strict": strict})
+		GSLog.error(CHANNEL, p, {"game": game_id, "strict": strict})
 	if strict:
-		return DotResult.fail(DotError.CODE_INVALID, "; ".join(problems))
-	return DotResult.success(self)
+		return GSResult.fail(GSError.CODE_INVALID, "; ".join(problems))
+	return GSResult.success(self)
 
 
-func _file_present(set: DotProfileSet) -> bool:
+func _file_present(set: GSProfileSet) -> bool:
 	return not set._files_for(profile_id).is_empty() or _has_override(set.rel_path)
 
 
@@ -197,14 +197,14 @@ func _has_override(kind: String) -> bool:
 	return false
 
 
-func _apply_profile(p: DotProfile, problems: PackedStringArray, set: DotProfileSet) -> void:
+func _apply_profile(p: GSProfile, problems: PackedStringArray, set: GSProfileSet) -> void:
 	var names := {}
 	for f: Dictionary in set.schema:
 		names[f["name"]] = true
 	var file := {}
 	for path in p.file_keys:
 		var top := String(path).split(".")[0]
-		if top == DotProfileSet.EXTRA_KEY:
+		if top == GSProfileSet.EXTRA_KEY:
 			continue
 		if names.has(top):
 			file[top] = true
@@ -234,9 +234,9 @@ func _note(layer: String, keys: PackedStringArray, from: String) -> void:
 func _dump() -> void:
 	for l in _layer_log:
 		if not (l["keys"] as PackedStringArray).is_empty():
-			DotLog.info(CHANNEL, "layer applied", {"game": game_id, "layer": l["layer"], "from": l["from"], "keys": ", ".join(l["keys"])})
+			GSLog.info(CHANNEL, "layer applied", {"game": game_id, "layer": l["layer"], "from": l["from"], "keys": ", ".join(l["keys"])})
 	for line in report_lines():
-		DotLog.debug(CHANNEL, line)
+		GSLog.debug(CHANNEL, line)
 
 
 ## Every exposed field with its effective value and the layer it came from (`default` when none).
@@ -254,9 +254,9 @@ func source_of(key: String) -> String:
 
 
 ## Registers `<prefix>_<field>` for every exposed field not already a cvar. [param add_cvar] is
-## the module's (name, default, description, flags) -> DotConVar; [param exists] (name) -> bool
+## the module's (name, default, description, flags) -> GSConVar; [param exists] (name) -> bool
 ## skips a name the game already binds by hand. Returns the made cvars.
-func bind_cvars(add_cvar: Callable, flags := DotConVar.FLAG_ARCHIVE, exists := Callable()) -> Array:
+func bind_cvars(add_cvar: Callable, flags := GSConVar.FLAG_ARCHIVE, exists := Callable()) -> Array:
 	var made: Array = []
 	for e: Dictionary in schema():
 		var key: String = e["key"]
@@ -266,11 +266,11 @@ func bind_cvars(add_cvar: Callable, flags := DotConVar.FLAG_ARCHIVE, exists := C
 			continue
 		var f := flags
 		if replicate_keys.has(key) or replicate_groups.has(e["group"]):
-			f |= DotConVar.FLAG_REPLICATED
+			f |= GSConVar.FLAG_REPLICATED
 		var desc: String = e["description"]
 		if desc.length() > 200:
 			desc = desc.substr(0, 197) + "..."
-		var c: DotConVar = add_cvar.call(name, _to_text(config.get(key)), desc, f)
+		var c: GSConVar = add_cvar.call(name, _to_text(config.get(key)), desc, f)
 		if c == null:
 			continue
 		if e.has("min") and e.has("max"):
@@ -282,19 +282,19 @@ func bind_cvars(add_cvar: Callable, flags := DotConVar.FLAG_ARCHIVE, exists := C
 		c.changed.connect(_on_cvar.bind(key))
 		_cvars[key] = c
 		made.append(c)
-	DotLog.info(CHANNEL, "config cvars bound", {"game": game_id, "cvars": made.size(), "skipped": _skipped.size()})
+	GSLog.info(CHANNEL, "config cvars bound", {"game": game_id, "cvars": made.size(), "skipped": _skipped.size()})
 	return made
 
 
-func cvar_for(key: String) -> DotConVar:
+func cvar_for(key: String) -> GSConVar:
 	return _cvars.get(key)
 
 
-static func _enum_check(text: String, name: String, allowed: Array) -> DotResult:
+static func _enum_check(text: String, name: String, allowed: Array) -> GSResult:
 	var v: Variant = int(text) if text.is_valid_int() else text
 	if allowed.has(v):
-		return DotResult.success(text)
-	return DotResult.fail(DotError.CODE_INVALID, "%s must be one of %s" % [name, str(allowed)])
+		return GSResult.success(text)
+	return GSResult.fail(GSError.CODE_INVALID, "%s must be one of %s" % [name, str(allowed)])
 
 
 static func _to_text(v: Variant) -> String:
@@ -326,9 +326,9 @@ func _on_cvar(_old: String, text: String, key: String) -> void:
 
 
 ## Adds the `config` kind to [param runtime]; an edit there writes the field and its cvar.
-func attach(runtime: DotProfileRuntime) -> void:
+func attach(runtime: GSProfileRuntime) -> void:
 	_runtime = runtime
-	for set: DotProfileSet in profile_sets():
+	for set: GSProfileSet in profile_sets():
 		runtime.add_set(set)
 	if not runtime.profile_changed.is_connected(_on_profile):
 		runtime.profile_changed.connect(_on_profile)
@@ -337,8 +337,8 @@ func attach(runtime: DotProfileRuntime) -> void:
 func _on_profile(kind: String, id: String, _rev: int) -> void:
 	if id != profile_id:
 		return
-	var set: DotProfileSet = null
-	for s: DotProfileSet in profile_sets():
+	var set: GSProfileSet = null
+	for s: GSProfileSet in profile_sets():
 		if s.rel_path == kind:
 			set = s
 	if set == null:
@@ -350,7 +350,7 @@ func _on_profile(kind: String, id: String, _rev: int) -> void:
 	var loaded := set.load_profile(profile_id)
 	if not loaded.ok:
 		return
-	var p: DotProfile = loaded.value
+	var p: GSProfile = loaded.value
 	for k in _rt_keys.get(kind, PackedStringArray()):
 		if not now.has(k):
 			_assign(k, _base.get(k), "workbench")
@@ -365,7 +365,7 @@ func _assign(key: String, v: Variant, source: String) -> void:
 		return
 	config.apply_dictionary({key: v}, source)
 	_sources[key] = source
-	var c: DotConVar = _cvars.get(key)
+	var c: GSConVar = _cvars.get(key)
 	if c != null:
 		_syncing = true
 		c.force_set(_to_text(config.get(key)))
@@ -409,7 +409,7 @@ func diff_yaml() -> String:
 func diff_files() -> Dictionary:
 	var out := {}
 	var d := diff()
-	for set: DotProfileSet in profile_sets():
+	for set: GSProfileSet in profile_sets():
 		var part := {}
 		for f: Dictionary in set.schema:
 			if d.has(f["name"]):
@@ -420,22 +420,22 @@ func diff_files() -> Dictionary:
 
 
 ## Writes [method template_files] under `root` and reads each file back; the failure names the first file whose content is not what was written.
-func write_templates(root: String = "res://") -> DotResult:
+func write_templates(root: String = "res://") -> GSResult:
 	var files := template_files()
 	for path: String in files:
 		var target := root.path_join(path)
-		var res := DotPaths.write_text(target, files[path])
+		var res := GSPaths.write_text(target, files[path])
 		if not res.ok:
 			return res
 		if FileAccess.get_file_as_string(target) != files[path]:
-			return DotResult.failure(DotError.make(DotError.CODE_IO, "'%s' differs from what was written" % target))
-	return DotResult.success(files.size())
+			return GSResult.failure(GSError.make(GSError.CODE_IO, "'%s' differs from what was written" % target))
+	return GSResult.success(files.size())
 
 
 ## Path (`cfg/game/<game>/<kind>/<id>.yml`) -> a template for every profile set: each key commented out at its code default, with its group, bounds and first doc line. Nothing changes until a line is uncommented; ship them as the game's cfg/ files.
 func template_files() -> Dictionary:
 	var out := {}
-	for set: DotProfileSet in profile_sets():
+	for set: GSProfileSet in profile_sets():
 		var text := "# %s: every key of this file at its code default, commented out. Uncomment a line to change it;\n" % game_id
 		text += "# an operator overrides in cfg/server/game/%s/%s/%s.yml. Layers: defaults < this < env < argv.\n" % [game_id, set.rel_path, profile_id]
 		var group := ""
@@ -482,11 +482,11 @@ static func _yaml(v: Variant) -> String:
 	return "\"" + String(v).replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\""
 
 
-func write_diff(path: String) -> DotResult:
-	var dir := DotPaths.ensure_parent_dir(path)
+func write_diff(path: String) -> GSResult:
+	var dir := GSPaths.ensure_parent_dir(path)
 	if not dir.ok:
 		return dir
-	return DotPaths.write_text(path, diff_yaml())
+	return GSPaths.write_text(path, diff_yaml())
 
 
 ## Registers `<prefix>_config_diff [save]` and `<prefix>_config_dump` through the module's
@@ -503,7 +503,7 @@ func diff_path() -> String:
 	return "user://config_diff_%s.yml" % game_id
 
 
-func _cmd_diff(ctx: DotCmdContext) -> void:
+func _cmd_diff(ctx: GSCmdContext) -> void:
 	if ctx.argc() > 0 and ctx.args[0] == "save":
 		var res := write_diff(diff_path())
 		ctx.reply("wrote %s" % ProjectSettings.globalize_path(diff_path()) if res.ok else res.error.message)
@@ -511,21 +511,21 @@ func _cmd_diff(ctx: DotCmdContext) -> void:
 	ctx.reply_lines(diff_yaml().split("\n"))
 
 
-func _cmd_dump(ctx: DotCmdContext) -> void:
+func _cmd_dump(ctx: GSCmdContext) -> void:
 	ctx.reply_lines(report_lines())
 
 
 ## Writes name -> description JSON beside the game, for a build whose scripts carry no source.
-func write_schema(path: String) -> DotResult:
+func write_schema(path: String) -> GSResult:
 	var d := {}
 	for e: Dictionary in schema():
 		d[e["key"]] = e["description"]
-	return DotPaths.write_json(path, d)
+	return GSPaths.write_json(path, d)
 
 
 func _shipped_docs() -> Dictionary:
 	var path := "res://cfg/game/%s/config/schema.json" % game_id
 	if not FileAccess.file_exists(path):
 		return {}
-	var res := DotPaths.read_json(path)
+	var res := GSPaths.read_json(path)
 	return res.value if res.ok and res.value is Dictionary else {}

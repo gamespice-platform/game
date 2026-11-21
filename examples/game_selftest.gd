@@ -2,16 +2,16 @@ extends "selftest/selftest_client.gd"
 
 ## GameSpice Game: the sequence, the roster, the tick, and every way it has to unwind.
 ##
-## Sections 1-9: refusal without a game, the full sequence, the roster, tick order, reverse teardown, failure unwinding, the services hooks, still-loading seats, DotGameLink and DotGameClient. Deliberate errors: three "module refused to load" lines (sections 1 and 6) and an engine `Attempt to call RPC with unknown peer ID: 3` from section 3's admission refusal, since sessions are built by hand.
+## Sections 1-9: refusal without a game, the full sequence, the roster, tick order, reverse teardown, failure unwinding, the services hooks, still-loading seats, GSGameLink and GSGameClient. Deliberate errors: three "module refused to load" lines (sections 1 and 6) and an engine `Attempt to call RPC with unknown peer ID: 3` from section 3's admission refusal, since sessions are built by hand.
 
 ## Every check this suite runs, the section guard's own included.
 ## A runtime error aborts a section after it announced itself, so the section counter alone misses lost checks. See docs/testing.md.
 const CHECKS := 626
 
 func _ready() -> void:
-	DotLog.set_level(
-		DotLog.Level.DEBUG if "--verbose" in OS.get_cmdline_user_args()
-		else DotLog.Level.ERROR
+	GSLog.set_level(
+		GSLog.Level.DEBUG if "--verbose" in OS.get_cmdline_user_args()
+		else GSLog.Level.ERROR
 	)
 	_run.call_deferred()
 
@@ -118,7 +118,7 @@ func _run_wiring() -> void:
 func _boot() -> bool:
 	_section("a server boots")
 
-	var config := DotServerConfig.new()
+	var config := GSServerConfig.new()
 	config.hostname = "dot-game selftest"
 	config.port = PORT
 	config.max_players = 4
@@ -133,7 +133,7 @@ func _boot() -> bool:
 		# `quit()`; a terminal is still read, and a suite takes no commands from either.
 	config.stdin_console_enabled = false
 
-	_server = DotServer.new()
+	_server = GSServer.new()
 	_server.name = "Server"
 	_server.config = config
 	_server.config_file = ""
@@ -156,7 +156,7 @@ func _boot() -> bool:
 func _test_it_refuses_without_a_game() -> void:
 	_section("it refuses to load without a game object")
 
-	var loaded: DotResult = await _load_module()
+	var loaded: GSResult = await _load_module()
 
 	if not _check(not loaded.ok, "the module refuses"):
 		_unload_module()
@@ -164,7 +164,7 @@ func _test_it_refuses_without_a_game() -> void:
 		return
 
 	_check(
-		loaded.error.code == DotError.CODE_STATE,
+		loaded.error.code == GSError.CODE_STATE,
 		"with CODE_STATE rather than something a retry would fix",
 		"got %s" % loaded.error.code
 	)
@@ -188,13 +188,13 @@ func _test_it_refuses_without_a_game() -> void:
 func _test_the_sequence() -> bool:
 	_section("the whole sequence, in order")
 
-	var loaded: DotResult = await _load_module()
+	var loaded: GSResult = await _load_module()
 
 	if not _check(loaded.ok, "the module loads", str(loaded.error)):
 		_done()
 		return false
 
-	_module = loaded.value as DotGameModule
+	_module = loaded.value as GSGameModule
 
 	_check(_module.game == _game, "it found the game")
 	_check(_module.net != null, "it built the netcode")
@@ -242,7 +242,7 @@ func _test_the_sequence() -> bool:
 	)
 	_module.report_map("")
 	_check(_server.games.current_map() == "", "and \"\" clears it")
-	_check(_module._server_takes_map_groups() == (DotAddonApi.build_level("dot_server") >= 19),
+	_check(_module._server_takes_map_groups() == (GSAddonApi.build_level("dot_server") >= 19),
 		"report_map passes groups exactly when the server's set_current_map takes them")
 
 	_done()
@@ -288,12 +288,12 @@ func _test_the_roster() -> void:
 	# is no real session table to find one in. Substituting it is also what makes the
 	# next check mean anything -- see below.
 	_sessions[session.userid] = session
-	_module.roster.session_fn = func(userid: int) -> DotClientSession:
+	_module.roster.session_fn = func(userid: int) -> GSClientSession:
 		return _sessions.get(userid)
 
 		# [b]The regression guard.[/b] `client_spawn` carries `userid` and `name` but NOT `peer_id`;
 		# reading it found session 0, and nobody joined with nothing erroring.
-	var event := DotEvent.new(
+	var event := GSEvent.new(
 		"client_spawn",
 		{"userid": session.userid, "name": session.display_name}
 	)
@@ -305,7 +305,7 @@ func _test_the_roster() -> void:
 		# [b]The guard proper.[/b] An event carrying only `peer_id` must add nobody; with the
 		# lookup substituted, a handler reading `peer_id` would find session 2 and seat them.
 	_sessions[2] = _fake_session(2, 2, "Wrong")
-	var peer_only := DotEvent.new("client_spawn", {"peer_id": 2, "name": "Wrong"})
+	var peer_only := GSEvent.new("client_spawn", {"peer_id": 2, "name": "Wrong"})
 	_module._on_client_spawn(peer_only)
 	_check(
 		not _module.roster.has(2),
@@ -334,7 +334,7 @@ func _test_the_roster() -> void:
 	_module.services.refuse_admission = true
 	var banned := _fake_session(3, 42, "Banned")
 	_sessions[banned.userid] = banned
-	var banned_event := DotEvent.new(
+	var banned_event := GSEvent.new(
 		"client_spawn",
 		{"userid": banned.userid, "name": banned.display_name}
 	)
@@ -377,7 +377,7 @@ var _warnings: Array[Dictionary] = []
 
 
 func _capture_warning(record: Dictionary) -> void:
-	if int(record.get("level", 0)) >= DotLog.Level.WARN:
+	if int(record.get("level", 0)) >= GSLog.Level.WARN:
 		_warnings.append(record)
 
 
@@ -399,9 +399,9 @@ func _test_still_loading() -> void:
 	var bea := _fake_session(6, 52, "Bea")
 	var bot := _fake_session(0, 53, "Bot")
 	bot.local = true
-	for one: DotClientSession in [ada, bea, bot]:
+	for one: GSClientSession in [ada, bea, bot]:
 		_sessions[one.userid] = one
-		_module._on_client_spawn(DotEvent.new("client_spawn", {"userid": one.userid, "name": one.display_name}))
+		_module._on_client_spawn(GSEvent.new("client_spawn", {"userid": one.userid, "name": one.display_name}))
 
 	_check(_module.is_loading(51) and _module.is_peer_loading(5) and not _module.can_be_harmed(51)
 			and not _module.can_peer_be_harmed(5),
@@ -416,13 +416,13 @@ func _test_still_loading() -> void:
 	var described: Dictionary = _module.describe()
 	_check(described.get("loading", []) == [51, 52], "describe() names the loading seats", str(described.get("loading")))
 
-	_check(env.knows(DotGameRoster.COVER_KIND), "the server advertises the cover kind")
-	_check(env.dispatch(5, DotGameRoster.COVER_KIND, {"covered": "no"}) and _module.is_loading(51),
+	_check(env.knows(GSGameRoster.COVER_KIND), "the server advertises the cover kind")
+	_check(env.dispatch(5, GSGameRoster.COVER_KIND, {"covered": "no"}) and _module.is_loading(51),
 		"a malformed report changes nothing")
-	_check(env.dispatch(5, DotGameRoster.COVER_KIND, {"covered": false})
+	_check(env.dispatch(5, GSGameRoster.COVER_KIND, {"covered": false})
 			and not _module.is_loading(51) and _module.can_be_harmed(51) and heard.has([51, false]),
 		"the client saying its cover lifted ends it, through the envelope")
-	env.dispatch(5, DotGameRoster.COVER_KIND, {"covered": true})
+	env.dispatch(5, GSGameRoster.COVER_KIND, {"covered": true})
 	_check(not _module.is_loading(51),
 		"a cover going up never makes a loaded seat loading: only the server starts one")
 
@@ -440,12 +440,12 @@ func _test_still_loading() -> void:
 
 	clock[0] += int(_module.load_timeout_sec * 1000.0)
 	_warnings.clear()
-	DotLog.set_channel_level(DotGameRoster.CHANNEL, DotLog.Level.WARN)
-	DotLog.add_sink(_capture_warning)
+	GSLog.set_channel_level(GSGameRoster.CHANNEL, GSLog.Level.WARN)
+	GSLog.add_sink(_capture_warning)
 	var before := roster.load_timeouts
 	_module._physics_process(1.0 / 60.0)
-	DotLog.remove_sink(_capture_warning)
-	DotLog.clear_channel_level(DotGameRoster.CHANNEL)
+	GSLog.remove_sink(_capture_warning)
+	GSLog.clear_channel_level(GSGameRoster.CHANNEL)
 	_check(not _module.is_loading(51) and not _module.is_loading(52) and roster.load_timeouts > before,
 		"the timeout releases a client that never says, from the module's own tick")
 	_check(_warnings.size() >= 1 and str(_warnings[0].get("message", "")).contains("never said"),
@@ -464,7 +464,7 @@ func _test_still_loading() -> void:
 	heard.clear()
 	_module.roster.on_client_disconnected(ada, "quit")
 	_check(not _module.is_loading(51) and heard.has([51, false]), "leaving while loading ends it")
-	for one: DotClientSession in [bea, bot]:
+	for one: GSClientSession in [bea, bot]:
 		_module.roster.on_client_disconnected(one, "quit")
 		_sessions.erase(one.userid)
 	_sessions.erase(ada.userid)
@@ -563,7 +563,7 @@ func _test_the_teardown() -> void:
 
 	# The Tab board: the game's columns reach GameSpice Server's roster through the module.
 	var fields: Callable = _server.scoreboard_fields
-	var row: Dictionary = fields.call(DotClientSession.new(42)) if fields.is_valid() else {}
+	var row: Dictionary = fields.call(GSClientSession.new(42)) if fields.is_valid() else {}
 	_check(int(row.get("kills", 0)) == 3 and int(row.get("who", 0)) == 42,
 		"the game's own board columns are the server's, per session", str(row))
 	var snap := _server.scoreboard_snapshot()
@@ -621,24 +621,24 @@ func _test_noblock_wired() -> void:
 
 	var body := NoblockBody.new()
 	_game.set("body_rules", body)
-	var loaded: DotResult = await _load_module()
+	var loaded: GSResult = await _load_module()
 	_check(loaded.ok, "the module loads")
-	var module: DotGameModule = _server.modules.get_module("testgame") if loaded.ok else null
-	var wired := DotGameNoblock.available()
+	var module: GSGameModule = _server.modules.get_module("testgame") if loaded.ok else null
+	var wired := GSGameNoblock.available()
 	_check(
 		module != null and (module.noblock != null) == wired,
 		"noblock is built exactly when dot-team is in the build"
 	)
 	_check(body.pair_fn.is_valid() == wired, "and feeds the body's pair_fn")
-	var slide_cvar: DotConVar = module.console.find_cvar("sv_slide_sounds") if module != null else null
+	var slide_cvar: GSConVar = module.console.find_cvar("sv_slide_sounds") if module != null else null
 	_check(
-		slide_cvar != null and slide_cvar.get_string() == "1" and slide_cvar.has_flag(DotConVar.FLAG_REPLICATED),
+		slide_cvar != null and slide_cvar.get_string() == "1" and slide_cvar.has_flag(GSConVar.FLAG_REPLICATED),
 		"every game's module binds sv_slide_sounds, on and replicated"
 	)
 	var surf_specs: Array = load("res://addons/dot_game/runtime/dot_game_slide_sounds.gd").surf_cvar_specs()
-	var surf_cvar: DotConVar = module.console.find_cvar("sv_surf_volume") if module != null else null
+	var surf_cvar: GSConVar = module.console.find_cvar("sv_surf_volume") if module != null else null
 	_check(
-		(surf_cvar != null and surf_cvar.has_flag(DotConVar.FLAG_REPLICATED)) == (not surf_specs.is_empty()),
+		(surf_cvar != null and surf_cvar.has_flag(GSConVar.FLAG_REPLICATED)) == (not surf_specs.is_empty()),
 		"the module binds the replicated sv_surf_* cvars exactly when dot-audio is in the build"
 	)
 	var stub_rt := RefCounted.new()
@@ -648,7 +648,7 @@ func _test_noblock_wired() -> void:
 
 	TestModule.no_noblock = true
 	var opted := await _load_module()
-	var opted_module: DotGameModule = _server.modules.get_module("testgame") if opted.ok else null
+	var opted_module: GSGameModule = _server.modules.get_module("testgame") if opted.ok else null
 	_check(opted.ok and opted_module != null and opted_module.noblock == null, "use_noblock = false opts out: nothing built")
 	_check(not body.pair_fn.is_valid() or not wired, "and the body's pair_fn is left alone")
 	_unload_module()
@@ -663,7 +663,7 @@ func _test_a_refused_game_load_unwinds() -> void:
 	_section("a game that refuses to load leaves nothing running")
 
 	TestModule.refuse_game_load = true
-	var loaded: DotResult = await _load_module()
+	var loaded: GSResult = await _load_module()
 	TestModule.refuse_game_load = false
 
 	_check(not loaded.ok, "the module refuses")
@@ -679,7 +679,7 @@ func _test_a_refused_game_load_unwinds() -> void:
 	# host has freed goes on ticking, and an open link goes on answering.
 	var strays := 0
 	for child in _server.get_children():
-		if child is DotNetManager:
+		if child is GSNetManager:
 			strays += 1
 
 	_check(strays == 0, "and left no netcode ticking behind it")
@@ -691,7 +691,7 @@ func _test_a_refused_attach_unwinds() -> void:
 	_section("a bridge that will not attach unwinds the netcode")
 
 	TestModule.refuse_attach = true
-	var loaded: DotResult = await _load_module()
+	var loaded: GSResult = await _load_module()
 	TestModule.refuse_attach = false
 
 	_check(not loaded.ok, "the module refuses")

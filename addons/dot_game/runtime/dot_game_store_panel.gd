@@ -1,9 +1,9 @@
-class_name DotGameStorePanel
+class_name GSGameStorePanel
 extends PanelContainer
 
 ## The site store in game: the points balance, what the player owns, what they can buy with a Buy button, and a link to the store page. Plain controls, so any game's menu or HUD can parent it.
 ##
-## The same read the server's [DotGameStoreEntitlements] merges into the loadout, here with names for the player to see. A failed read shows the error and a Retry button.
+## The same read the server's [GSGameStoreEntitlements] merges into the loadout, here with names for the player to see. A failed read shows the error and a Retry button.
 
 const CHANNEL := "game.store"
 const PATH := "store/entitlements"
@@ -77,7 +77,7 @@ static func offers_from(body: Dictionary) -> Array:
 
 ## The `aud` of a store token, read without checking the signature: it only picks which store page to link.
 static func audience_of(token: String) -> String:
-	var payload: Variant = JSON.parse_string(DotHash.base64url_decode_text(token.get_slice(".", 0))) if token.contains(".") else null
+	var payload: Variant = JSON.parse_string(GSHash.base64url_decode_text(token.get_slice(".", 0))) if token.contains(".") else null
 	return str((payload as Dictionary).get("aud", "")) if payload is Dictionary else ""
 
 
@@ -96,16 +96,16 @@ static func store_url_for(site: String, audience: String) -> String:
 static func add_to_menu(menu: Object, player_key_fn: Callable, client_fn: Callable = Callable(), before: StringName = &"") -> Object:
 	if menu == null or not menu.has_method(&"add_page"):
 		return null
-	var page_script: Script = (load("uid://bihmsrfo1d7x7") as GDScript)._class_script("DotMenuPage")  # DotGameStoreEntitlements, loaded so the two parsers do not hold each other
+	var page_script: Script = (load("uid://bihmsrfo1d7x7") as GDScript)._class_script("GSMenuPage")  # GSGameStoreEntitlements, loaded so the two parsers do not hold each other
 	if page_script == null:
 		return null
 	var cache: Array = []
 	var page: Object = page_script.call("make", &"store", "Store", "Your points, what you own and what you can buy.")
 	page.set("build", func(_kit: Object, body: Control) -> void:
-		var panel := DotGameStorePanel.new()
+		var panel := GSGameStorePanel.new()
 		panel.set_owned(cache)
 		body.add_child(panel)
-		var client: Object = client_fn.call() if client_fn.is_valid() else DotRegistry.get_service(&"dot_backbone_client")
+		var client: Object = client_fn.call() if client_fn.is_valid() else GSRegistry.get_service(&"dot_backbone_client")
 		var key: String = str(player_key_fn.call()) if player_key_fn.is_valid() else ""
 		if client == null or key == "":
 			return
@@ -181,24 +181,24 @@ func error_text() -> String:
 
 
 ## Reads the player's entitlements and points, then what they can buy, through a backbone client (`get_integration`, GameSpice Auth's). A failed read is returned, logged and shown with a Retry button; the list is left as it was. A store without the `store/items` read only hides the Buy list.
-func refresh(client: Object, player_key: String) -> DotResult:
+func refresh(client: Object, player_key: String) -> GSResult:
 	_client = client
 	_player_key = player_key
 	if client == null or not client.has_method("get_integration"):
-		return _failed(DotResult.fail(DotError.CODE_STATE, "No backbone client with get_integration."), "read")
-	var res: DotResult = await client.call("get_integration", PATH, {"player": player_key, "include": "points"})
+		return _failed(GSResult.fail(GSError.CODE_STATE, "No backbone client with get_integration."), "read")
+	var res: GSResult = await client.call("get_integration", PATH, {"player": player_key, "include": "points"})
 	if res.ok and not res.value is Dictionary:
-		res = DotResult.fail(DotError.CODE_INVALID, "The entitlements response is not an object.")
+		res = GSResult.fail(GSError.CODE_INVALID, "The entitlements response is not an object.")
 	if not res.ok:
 		return _failed(res, "read")
 	_error = ""
 	_apply(res.value)
-	var shop: DotResult = await client.call("get_integration", ITEMS_PATH, {"player": player_key})
+	var shop: GSResult = await client.call("get_integration", ITEMS_PATH, {"player": player_key})
 	_offers = offers_from(shop.value) if shop.ok and shop.value is Dictionary else []
 	if not shop.ok:
-		DotLog.debug(CHANNEL, "store items not readable; buying in game is hidden", {"error": str(shop.error)})
+		GSLog.debug(CHANNEL, "store items not readable; buying in game is hidden", {"error": str(shop.error)})
 	_rebuild()
-	return DotResult.success(_owned.size())
+	return GSResult.success(_owned.size())
 
 
 ## Reads again with the last client and player; what the Retry button does.
@@ -208,18 +208,18 @@ func retry() -> void:
 
 
 ## Buys [param item_id] with the player's points through the backbone client's `post_integration`. On success the owned list and balance come from TMC's answer and [signal purchased] fires; a refusal (not enough points, not for sale) is shown and returned. One purchase at a time.
-func buy(item_id: String) -> DotResult:
+func buy(item_id: String) -> GSResult:
 	if _busy:
-		return DotResult.fail(DotError.CODE_STATE, "A purchase is already running.")
+		return GSResult.fail(GSError.CODE_STATE, "A purchase is already running.")
 	if _client == null or not _client.has_method("post_integration") or _player_key == "":
-		return _failed(DotResult.fail(DotError.CODE_STATE, "Buying needs a signed-in player and a backbone client with post_integration."), "buy")
+		return _failed(GSResult.fail(GSError.CODE_STATE, "Buying needs a signed-in player and a backbone client with post_integration."), "buy")
 	_busy = true
 	_rebuild()
-	var res: DotResult = await _client.call("post_integration", PURCHASE_PATH, {"player": _player_key, "itemId": item_id,
+	var res: GSResult = await _client.call("post_integration", PURCHASE_PATH, {"player": _player_key, "itemId": item_id,
 		"idemKey": "%s:%s:%d" % [_player_key, item_id, Time.get_ticks_usec()], "include": "points"})
 	_busy = false
 	if res.ok and not res.value is Dictionary:
-		res = DotResult.fail(DotError.CODE_INVALID, "The purchase response is not an object.")
+		res = GSResult.fail(GSError.CODE_INVALID, "The purchase response is not an object.")
 	if not res.ok:
 		return _failed(res, "buy")
 	_error = ""
@@ -228,7 +228,7 @@ func buy(item_id: String) -> DotResult:
 			o["owned"] = true
 	_apply(res.value)
 	purchased.emit(item_id, res.value)
-	return DotResult.success(res.value)
+	return GSResult.success(res.value)
 
 
 func _apply(body: Dictionary) -> void:
@@ -240,8 +240,8 @@ func _apply(body: Dictionary) -> void:
 	set_owned(owned_from(body))
 
 
-func _failed(res: DotResult, what: String) -> DotResult:
-	DotLog.warn(CHANNEL, "store panel %s failed" % what, {"error": str(res.error)})
+func _failed(res: GSResult, what: String) -> GSResult:
+	GSLog.warn(CHANNEL, "store panel %s failed" % what, {"error": str(res.error)})
 	var msg := res.error.message if res.error != null else "unknown error"
 	_error = ("Could not buy: %s" if what == "buy" else "The store is unavailable: %s") % msg
 	_rebuild()
@@ -252,12 +252,12 @@ func _failed(res: DotResult, what: String) -> DotResult:
 func resolved_store_url() -> String:
 	if store_url != "":
 		return store_url
-	return store_url_for(DotGameAvatarContent.default_site_url(), _audience)
+	return store_url_for(GSGameAvatarContent.default_site_url(), _audience)
 
 
 ## The sign-in site's store page; empty when the site is not known. Shared with the loadout menu's locked items.
 static func default_store_url() -> String:
-	var site := DotGameAvatarContent.default_site_url()
+	var site := GSGameAvatarContent.default_site_url()
 	return site + STORE_PATH if site != "" else ""
 
 

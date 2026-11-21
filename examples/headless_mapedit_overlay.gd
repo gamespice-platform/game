@@ -1,6 +1,6 @@
 extends Node
 
-## DotGameMapEditOverlay and DotGameMapEditForm: markers by kind, team and state, picking, the form built from a schema, and a form edit sent as commands and applied by the real DotGameMapEdit.
+## GSGameMapEditOverlay and GSGameMapEditForm: markers by kind, team and state, picking, the form built from a schema, and a form edit sent as commands and applied by the real GSGameMapEdit.
 
 const CHECKS := 50
 
@@ -8,9 +8,9 @@ var _passed := 0
 var _failed := 0
 var _failures := PackedStringArray()
 var _sent: Array[String] = []
-var _ov: DotGameMapEditOverlay
+var _ov: GSGameMapEditOverlay
 var _pts: Array
-var _form: DotGameMapEditForm
+var _form: GSGameMapEditForm
 
 
 func _schema() -> Array:
@@ -49,7 +49,7 @@ func _point(id: String, kind: String, pos: Array, extra: Dictionary = {}) -> Dic
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 
@@ -63,7 +63,7 @@ func _check(ok: bool, what: String) -> void:
 
 func _run() -> void:
 	print("dot-game: map edit overlay")
-	var ov := DotGameMapEditOverlay.new()
+	var ov := GSGameMapEditOverlay.new()
 	ov.schema = _schema()
 	ov.send_fn = func(line: String) -> void: _sent.append(line)
 	add_child(ov)
@@ -77,7 +77,7 @@ func _run() -> void:
 	_pts = pts
 	ov.set_points({"version": 1, "points": pts})
 	_check(ov.marker_count() == 4, "one marker per point")
-	_check(ov.color_of(pts[2]) == DotGameMapEditOverlay.DISABLED, "a disabled point is grey")
+	_check(ov.color_of(pts[2]) == GSGameMapEditOverlay.DISABLED, "a disabled point is grey")
 	_check(ov.color_of(pts[0]) != ov.color_of(pts[1]), "kinds differ in colour")
 	_check(ov.color_of(pts[1]) != ov.color_of(pts[3]), "a team tints the colour")
 	_check(ov.color_of(pts[3]) == ov.color_of(pts[3]), "a team colour is stable")
@@ -92,7 +92,7 @@ func _run() -> void:
 	_check(verts.size() == 6 and verts[1].is_equal_approx(Vector3(0, 0.1, -1.2)), "yaw 0 faces forward (-Z)")
 	var arrow_b := (ov.marker(&"b").get_child(1) as MeshInstance3D).mesh as ArrayMesh
 	var vb: PackedVector3Array = arrow_b.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
-	_check(vb.size() == 6 + DotGameMapEditOverlay.RING_SEGMENTS * 2 and vb[1].x < -0.9, "yaw turns the arrow and a radius adds a ring")
+	_check(vb.size() == 6 + GSGameMapEditOverlay.RING_SEGMENTS * 2 and vb[1].x < -0.9, "yaw turns the arrow and a radius adds a ring")
 
 	await _link_checks()
 	_pick_checks()
@@ -158,13 +158,13 @@ func _panel_checks() -> void:
 	_check((ov.get_node("Markers").get_child_count()) == 4 and ov.selected == &"b", "the picked point is selected")
 	var ring := (ov.marker(&"b").get_child(1) as MeshInstance3D).mesh as ArrayMesh
 	var rv: PackedVector3Array = ring.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
-	_check(rv.size() == 6 + DotGameMapEditOverlay.RING_SEGMENTS * 4, "the selected marker has a highlight ring")
+	_check(rv.size() == 6 + GSGameMapEditOverlay.RING_SEGMENTS * 4, "the selected marker has a highlight ring")
 
 
 func _schema_checks() -> void:
 	var extra := _schema()
 	extra.append({"name": "brand_new", "type": "float", "default": 2.5})
-	var f2 := DotGameMapEditForm.new()
+	var f2 := GSGameMapEditForm.new()
 	f2.build(extra, _point("z", "both", [0, 0, 0], {"brand_new": 3.0}))
 	_check(f2.widget("brand_new") is SpinBox and (f2.widget("brand_new") as SpinBox).value == 3.0, "a new schema field is a new row with no UI change")
 	(f2.widget("brand_new") as SpinBox).value = 4.0
@@ -178,7 +178,7 @@ func _round_trip_checks() -> void:
 	# The round trip: edit the form, send the line, let the real command set apply it.
 	var fakes: Dictionary = (load("res://examples/headless_mapedit.gd") as GDScript).get_script_constant_map()
 	var host: RefCounted = fakes["Host"].new()
-	var edit := DotGameMapEdit.new()
+	var edit := GSGameMapEdit.new()
 	edit.server = fakes["FakeServer"].new()
 	edit.points = fakes["PointSet"].new()
 	edit.def_factory = func() -> Object: return fakes["Def"].new()
@@ -230,7 +230,7 @@ func _button_checks() -> void:
 	ov.open_panel(&"a")
 	ov.set_points({"points": [pts[1]]})
 	_check(not ov.panel.visible, "a point that vanishes closes its panel")
-	_check(DotGameMapEditForm.word(true, "bool") == "1" and DotGameMapEditForm.word([1, 2.5, 3], "vec3") == "1,2.5,3", "word formats bool and vec3")
-	_check(DotGameMapEditForm.word([&"a", &"b"], "list") == "a,b", "word formats lists")
+	_check(GSGameMapEditForm.word(true, "bool") == "1" and GSGameMapEditForm.word([1, 2.5, 3], "vec3") == "1,2.5,3", "word formats bool and vec3")
+	_check(GSGameMapEditForm.word([&"a", &"b"], "list") == "a,b", "word formats lists")
 	ov.queue_free()
 	await get_tree().process_frame

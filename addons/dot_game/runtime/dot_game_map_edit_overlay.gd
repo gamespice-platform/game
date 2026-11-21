@@ -1,9 +1,9 @@
-class_name DotGameMapEditOverlay
+class_name GSGameMapEditOverlay
 extends Node3D
 
 ## The admin's view of a map's spawn points and navigation links, and a form to edit a point by looking at it.
-## Markers are coloured by kind and team, with a disc for the radius, an arrow for the facing and grey when disabled. A point picked by looking opens a form built from the point definition's own schema; its buttons send the [DotGameMapEdit] commands through [member send_fn], so the server validates and logs every edit and the overlay holds no rules.
-## Data comes in as dictionaries (`DotSpawnPointSet.to_dict()` and `links_dict()`), so a client can feed it from a replicated copy and GameSpice Game names no addon. The game places it in the world, supplies [member schema] and [member send_fn], and keeps the mouse free while the panel is open.
+## Markers are coloured by kind and team, with a disc for the radius, an arrow for the facing and grey when disabled. A point picked by looking opens a form built from the point definition's own schema; its buttons send the [GSGameMapEdit] commands through [member send_fn], so the server validates and logs every edit and the overlay holds no rules.
+## Data comes in as dictionaries (`GSSpawnPointSet.to_dict()` and `links_dict()`), so a client can feed it from a replicated copy and GameSpice Game names no addon. The game places it in the world, supplies [member schema] and [member send_fn], and keeps the mouse free while the panel is open.
 
 signal picked(id: StringName)
 signal command_sent(line: String)
@@ -14,13 +14,13 @@ const POLE := 1.8
 const PICK_RADIUS := 0.7
 const RING_SEGMENTS := 48
 
-## `DotSpawnPointDef.schema()`: the form is built from it.
+## `GSSpawnPointDef.schema()`: the form is built from it.
 var schema: Array = []
 
 ## `func(line: String)`: sends a command line (without any prefix) to the server.
 var send_fn: Callable = Callable()
 
-## Prepended to every command sent, matching [member DotGameMapEdit.prefix].
+## Prepended to every command sent, matching [member GSGameMapEdit.prefix].
 var command_prefix: String = ""
 
 ## `team` -> Color; a team not listed gets a hue from its name.
@@ -34,7 +34,7 @@ var show_mesh: bool = false: set = _set_show_mesh
 
 var selected: StringName = &""
 var panel: PanelContainer = null
-var form: DotGameMapEditForm = null
+var form: GSGameMapEditForm = null
 
 var _points: Array = []
 var _links: Array = []
@@ -195,7 +195,7 @@ func test_selected() -> String:
 
 
 func describe() -> String:
-	return "DotGameMapEditOverlay(points=%d, links=%d, selected=%s)" % [_points.size(), _links.size(), selected]
+	return "GSGameMapEditOverlay(points=%d, links=%d, selected=%s)" % [_points.size(), _links.size(), selected]
 
 
 func _send(line: String) -> String:
@@ -387,7 +387,7 @@ func _ensure_panel() -> void:
 	var title := Label.new()
 	title.name = "Title"
 	box.add_child(title)
-	form = DotGameMapEditForm.new()
+	form = GSGameMapEditForm.new()
 	form.name = "Form"
 	box.add_child(form)
 	var buttons := HBoxContainer.new()

@@ -4,7 +4,7 @@ extends "selftest_extra.gd"
 
 func _test_thread_defaults_off() -> void:
 	_section("snapshot threads default on, NPC threads off; each changes only through its own switch")
-	var sc := DotServerConfig.new()
+	var sc := GSServerConfig.new()
 	_check(sc.threads_net and not sc.threads_npc, "snapshot workers default on, NPC workers off")
 	_check(sc.npc_workers() == 0, "no NPC workers asked for while off")
 	sc.threads_net = false
@@ -12,8 +12,8 @@ func _test_thread_defaults_off() -> void:
 	sc.threads_net = true
 	sc.worker_threads = 3
 	_check(sc.net_snapshot_workers() == 3 and sc.npc_workers() == 0, "one switch enables only its own subsystem")
-	_check(DotParallel.resolve_workers(0) == 0, "0 workers is the main thread")
-	_check(DotParallel.resolve_workers(3) == (3 if DotParallel.available() else 0), "workers only where DotParallel.available() (never web)")
+	_check(GSParallel.resolve_workers(0) == 0, "0 workers is the main thread")
+	_check(GSParallel.resolve_workers(3) == (3 if GSParallel.available() else 0), "workers only where GSParallel.available() (never web)")
 	sc.worker_threads = 0
 	_check(sc.net_snapshot_workers() == 0, "sv_worker_threads 0 rules every subsystem out")
 	_done()
@@ -30,28 +30,28 @@ func _test_map_load_threads() -> void:
 	_section("map_load_threads reaches dot-map's default worker count, on the server and the client")
 	var threads := load("res://addons/dot_game/runtime/dot_game_map_threads.gd")
 	var have_map := ResourceLoader.exists(threads.BUILD_SCRIPT)
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
-	DotGameNetcode.follow_map_threads(console)
+	GSGameNetcode.follow_map_threads(console)
 	var cv := console.find_cvar("map_load_threads")
 	_check(cv != null, "the server cvar is registered")
 	_check(cv != null and cv.get_int() == 0, "and defaults to 0 (inline)")
 	_check(threads.current() == 0, "so dot-map starts with no workers (dot-map: %s)" % str(have_map))
 	var _r := console.set_cvar("map_load_threads", "3")
-	DotGameNetcode.follow_map_threads(console)
-	_check(threads.current() == (3 if have_map else 0), "setting it reaches DotMapParallelBuild.default_workers")
+	GSGameNetcode.follow_map_threads(console)
+	_check(threads.current() == (3 if have_map else 0), "setting it reaches GSMapParallelBuild.default_workers")
 	_r = console.set_cvar("map_load_threads", "-1")
-	DotGameNetcode.follow_map_threads(console)
-	_check(DotParallel.resolve_workers(threads.current()) == (DotParallel.resolve_workers(-1) if have_map else 0), "-1 resolves through DotParallel (automatic)")
-	_check(DotParallel.available() or DotParallel.resolve_workers(threads.current()) == 0, "where DotParallel.available() is false (web, no threads) the count stays 0 whatever the cvar says")
+	GSGameNetcode.follow_map_threads(console)
+	_check(GSParallel.resolve_workers(threads.current()) == (GSParallel.resolve_workers(-1) if have_map else 0), "-1 resolves through GSParallel (automatic)")
+	_check(GSParallel.available() or GSParallel.resolve_workers(threads.current()) == 0, "where GSParallel.available() is false (web, no threads) the count stays 0 whatever the cvar says")
 	var src := _FakeVarSource.new()
 	threads.add_client_var(src)
 	var setter: Callable = src.vars[&"map_load_threads"][1]
-	var good: DotResult = setter.call("2")
-	var bad: DotResult = setter.call("99")
-	_check(good.ok and (not bad.ok and bad.error.code == DotError.CODE_INVALID) and threads.current() == (2 if have_map else 0), "the client variable sets it and refuses a count over 64")
+	var good: GSResult = setter.call("2")
+	var bad: GSResult = setter.call("99")
+	_check(good.ok and (not bad.ok and bad.error.code == GSError.CODE_INVALID) and threads.current() == (2 if have_map else 0), "the client variable sets it and refuses a count over 64")
 	_r = console.set_cvar("map_load_threads", "0")
-	DotGameNetcode.follow_map_threads(console)
+	GSGameNetcode.follow_map_threads(console)
 	threads.client_value = 0
 	_check(threads.current() == 0, "back to 0 puts dot-map back inline")
 	console.queue_free()
@@ -60,36 +60,36 @@ func _test_map_load_threads() -> void:
 
 func _test_workbench_thread_cvars() -> void:
 	_section("the workbench edits and saves the server's thread cvars")
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
-	console.cvar("sv_worker_threads", "0", "Workers.", DotConVar.FLAG_ARCHIVE).with_range(-1, 64)
-	console.cvar("sv_threads_net", "0", "Net threads.", DotConVar.FLAG_ARCHIVE)
-	var types := DotGameWorkbench.THREAD_CVARS.duplicate()
+	console.cvar("sv_worker_threads", "0", "Workers.", GSConVar.FLAG_ARCHIVE).with_range(-1, 64)
+	console.cvar("sv_threads_net", "0", "Net threads.", GSConVar.FLAG_ARCHIVE)
+	var types := GSGameWorkbench.THREAD_CVARS.duplicate()
 	types["sv_no_such_cvar"] = "int"
-	var set := DotGameWorkbench.cvar_set(console, types, "threads", "dot_server")
+	var set := GSGameWorkbench.cvar_set(console, types, "threads", "dot_server")
 	var root := "user://wb_thread_cvars_%d" % OS.get_process_id()
 	set.roots = PackedStringArray([root])
 	var names: Array = set.schema.map(func(f: Dictionary) -> String: return f["name"])
 	_check(names == ["sv_worker_threads", "sv_threads_net"], "only cvars that exist become fields", str(names))
 	_check(set.schema[0].get("max") == 64.0, "a cvar's range is the field's")
-	var runtime := DotProfileRuntime.new()
+	var runtime := GSProfileRuntime.new()
 	runtime.save_root = root
 	runtime.permit = func(_a: Variant, _f: String) -> bool: return true
 	runtime.add_set(set)
-	_check(DotGameWorkbench.bind_cvar_set(set, runtime, console) == 0, "no saved file applies nothing")
+	_check(GSGameWorkbench.bind_cvar_set(set, runtime, console) == 0, "no saved file applies nothing")
 	console.set_cvar("sv_threads_net", "1")
-	var r := runtime.handle_request("t", DotProfileRuntime.make_request("set", "threads", "server", "sv_worker_threads", 4))
+	var r := runtime.handle_request("t", GSProfileRuntime.make_request("set", "threads", "server", "sv_worker_threads", 4))
 	_check(r.ok and console.get_int("sv_worker_threads") == 4, "an edit sets the cvar", str(r.error.message if not r.ok else ""))
 	_check(console.get_bool("sv_threads_net"), "a cvar changed at the console is not reverted by an edit of another")
-	var saved := runtime.handle_request("t", DotProfileRuntime.make_request("save", "threads", "server"))
+	var saved := runtime.handle_request("t", GSProfileRuntime.make_request("save", "threads", "server"))
 	_check(saved.ok and str(saved.value.get("saved", "")).ends_with("server/addon/dot_server/threads/server.yml"), "save writes the server tier", str(saved.value if saved.ok else saved.error.message))
-	var fresh := DotConsole.new()
+	var fresh := GSConsole.new()
 	add_child(fresh)
-	fresh.cvar("sv_worker_threads", "0", "Workers.", DotConVar.FLAG_ARCHIVE).with_range(-1, 64)
-	fresh.cvar("sv_threads_net", "0", "Net threads.", DotConVar.FLAG_ARCHIVE)
-	var again := DotGameWorkbench.cvar_set(fresh, DotGameWorkbench.THREAD_CVARS, "threads", "dot_server")
+	fresh.cvar("sv_worker_threads", "0", "Workers.", GSConVar.FLAG_ARCHIVE).with_range(-1, 64)
+	fresh.cvar("sv_threads_net", "0", "Net threads.", GSConVar.FLAG_ARCHIVE)
+	var again := GSGameWorkbench.cvar_set(fresh, GSGameWorkbench.THREAD_CVARS, "threads", "dot_server")
 	again.roots = PackedStringArray([root])
-	_check(DotGameWorkbench.bind_cvar_set(again, null, fresh) == 1 and fresh.get_int("sv_worker_threads") == 4, "the saved file is applied at the next start")
+	_check(GSGameWorkbench.bind_cvar_set(again, null, fresh) == 1 and fresh.get_int("sv_worker_threads") == 4, "the saved file is applied at the next start")
 	var file := root.path_join("server/addon/dot_server/threads/server.yml")
 	DirAccess.remove_absolute(file)
 	console.queue_free()
@@ -100,11 +100,11 @@ func _test_workbench_thread_cvars() -> void:
 func _test_relevance_cvars() -> void:
 	_section("the relevance settings are server cvars that drive the default interest strategy")
 	var Rel: GDScript = load("res://addons/dot_game/net/dot_game_relevance.gd")
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
-	var net := DotNetManager.new()
-	net.config = DotNetConfig.new()
-	var distance := DotNetInterestDistance.new()
+	var net := GSNetManager.new()
+	net.config = GSNetConfig.new()
+	var distance := GSNetInterestDistance.new()
 	distance.radius = 100.0
 	distance.far_every = 2
 	distance.far_distance = 30.0
@@ -122,13 +122,13 @@ func _test_relevance_cvars() -> void:
 	var listeners := console.find_cvar("net_far_every").changed.get_connections().size()
 	Rel.bind(console, net, {"interest_radius": 80.0})
 	_check(console.find_cvar("net_far_every").changed.get_connections().size() == listeners, "binding again adds no second listener")
-	var early := DotConsole.new()
+	var early := GSConsole.new()
 	add_child(early)
 	Rel.ensure_cvars(early)
-	var set := DotGameWorkbench.cvar_set(early, Rel.TYPES, "relevance", "dot_server")
+	var set := GSGameWorkbench.cvar_set(early, Rel.TYPES, "relevance", "dot_server")
 	_check(set != null and set.schema.size() == 3, "the workbench set exists even when it starts before the netcode")
-	var late := DotNetInterestDistance.new()
-	var late_net := DotNetManager.new()
+	var late := GSNetInterestDistance.new()
+	var late_net := GSNetManager.new()
 	late_net.interest = late
 	Rel.bind(early, late_net, {"interest_radius": 60.0})
 	_check(is_equal_approx(late.radius, 60.0), "a cvar made early still takes the operator's ceiling")
@@ -142,10 +142,10 @@ func _test_relevance_cvars() -> void:
 	console.set_cvar("net_skip_idle", "0")
 	_check(not net.config.skip_idle_snapshots, "net_skip_idle 0 prepares every snapshot tick")
 	console.set_cvar("net_skip_idle", "1")
-	distance.visibility = DotNetVisibility.new()
+	distance.visibility = GSNetVisibility.new()
 	_check(not Rel.attach_visibility(net, null) and distance.visibility == null, "a map with no visibility data clears the set")
-	var other := DotNetManager.new()
-	other.interest = DotNetInterestGrid.new()
+	var other := GSNetManager.new()
+	other.interest = GSNetInterestGrid.new()
 	_check(not Rel.bind(console, other), "a game's own strategy is left alone")
 	console.queue_free()
 	net.free()
@@ -207,7 +207,7 @@ func _test_sun_shadow_cvars() -> void:
 
 func _test_render_quality() -> void:
 	_section("every client applies render quality (dot-fx) from the menu's keys, no per-game wiring")
-	var c := DotGameClient.new()
+	var c := GSGameClient.new()
 	c.use_gate = false
 	c.use_settings = false
 	c.use_console = false
@@ -230,7 +230,7 @@ func _test_render_quality() -> void:
 		_check(vp.anisotropic_filtering_level == Viewport.ANISOTROPY_8X, "the menu's aniso reaches the viewport")
 		_check(is_equal_approx(vp.texture_mipmap_bias, -0.5), "and mip_bias")
 	c.use_render_quality = false
-	var off := DotGameClient.new()
+	var off := GSGameClient.new()
 	off.use_render_quality = false
 	off.use_gate = false
 	off.use_settings = false
@@ -255,21 +255,21 @@ class LatencyLink extends RefCounted:
 
 func _test_client_latency() -> void:
 	_section("cl_latency_baseline on the client and sv_allow_client_latency on the server, switch reaching the client")
-	var loaded: DotResult = await _load_module()
+	var loaded: GSResult = await _load_module()
 	if _check(loaded.ok, "the module loads", str(loaded.error)):
-		var module := loaded.value as DotGameModule
+		var module := loaded.value as GSGameModule
 		var sv := module.console.find_cvar("sv_allow_client_latency")
-		_check(sv != null and sv.get_string() == "1" and sv.has_flag(DotConVar.FLAG_REPLICATED), "the server cvar exists, defaults to 1 and replicates")
+		_check(sv != null and sv.get_string() == "1" and sv.has_flag(GSConVar.FLAG_REPLICATED), "the server cvar exists, defaults to 1 and replicates")
 		_check(module.net != null and module.net.latency.allowed, "and the server's latency allows it")
 		if sv != null:
 			var _r := module.console.set_cvar("sv_allow_client_latency", "0")
 			_check(not module.net.latency.allowed, "setting it to 0 reaches the server's latency")
 		_unload_module()
-	var c := DotGameClient.new()
+	var c := GSGameClient.new()
 	c.use_gate = false
 	add_child(c)
-	var net := DotNetManager.new()
-	net.config = DotNetConfig.new()
+	var net := GSNetManager.new()
+	net.config = GSNetConfig.new()
 	var link := LatencyLink.new()
 	c.link = link
 	var local := VisLocal.new()
@@ -280,9 +280,9 @@ func _test_client_latency() -> void:
 	_check(net.config.reconcile_once_per_frame and net.config.skip_matching_replays, "the client turns on reconcile_once_per_frame and skip_matching_replays")
 	_check(local.vars.has(&"cl_latency_baseline"), "the client console gets cl_latency_baseline")
 	var res: Variant = (local.vars[&"cl_latency_baseline"][1] as Callable).call("0.2")
-	_check(res is DotResult and (res as DotResult).ok and is_equal_approx(net.latency.requested, 0.2) and is_equal_approx(net.latency.effective(), 0.2), "typing seconds sets the baseline")
+	_check(res is GSResult and (res as GSResult).ok and is_equal_approx(net.latency.requested, 0.2) and is_equal_approx(net.latency.effective(), 0.2), "typing seconds sets the baseline")
 	res = (local.vars[&"cl_latency_baseline"][1] as Callable).call("fast")
-	_check(res is DotResult and not (res as DotResult).ok, "a non-number is refused")
+	_check(res is GSResult and not (res as GSResult).ok, "a non-number is refused")
 	link.replicated_cvar_changed.emit("sv_allow_client_latency", "0")
 	_check(not net.latency.allowed and net.latency.effective() == 0.0 and is_equal_approx(net.latency.requested, 0.2), "the server's switch at 0 forces the client to 0 and keeps the request")
 	link.replicated_cvar_changed.emit("sv_allow_client_latency", "1")
@@ -293,7 +293,7 @@ func _test_client_latency() -> void:
 	con.free()
 	net.free()
 	c.queue_free()
-	var auto := DotGameClient.new()
+	var auto := GSGameClient.new()
 	auto.use_gate = false
 	add_child(auto)
 	var local2 := VisLocal.new()
@@ -302,11 +302,11 @@ func _test_client_latency() -> void:
 	auto.console = con2
 	auto.link = LatencyLink.new()
 	auto.setup()
-	var net2 := DotNetManager.new()
+	var net2 := GSNetManager.new()
 	add_child(net2)
 	_check(local2.vars.has(&"cl_latency_baseline"), "setup finds the client's registered net by itself")
 	net2.queue_free()
-	var srv := DotNetManager.new()
+	var srv := GSNetManager.new()
 	srv.is_server = true
 	srv.service_scope = &"latency_test_srv"
 	add_child(srv)
@@ -321,26 +321,26 @@ func _test_client_latency() -> void:
 func _test_client_replay_tuning() -> void:
 	await get_tree().process_frame
 	_section("a client that never calls setup() still tunes its netcode's replay settings, and tune_replay off opts out")
-	var c := DotGameClient.new()
+	var c := GSGameClient.new()
 	c.use_gate = false
 	add_child(c)
-	var early := DotNetManager.new()
-	early.config = DotNetConfig.new()
+	var early := GSNetManager.new()
+	early.config = GSNetConfig.new()
 	add_child(early)
 	_check(early.config.reconcile_once_per_frame and early.config.skip_matching_replays, "a net registered after _ready is tuned without setup()")
-	var srv := DotNetManager.new()
+	var srv := GSNetManager.new()
 	srv.is_server = true
 	srv.service_scope = &"replay_tune_srv"
-	srv.config = DotNetConfig.new()
+	srv.config = GSNetConfig.new()
 	add_child(srv)
 	_check(not srv.config.reconcile_once_per_frame and not srv.config.skip_matching_replays, "a server's manager is left alone")
-	var off := DotGameClient.new()
+	var off := GSGameClient.new()
 	off.use_gate = false
 	off.tune_replay = false
 	add_child(off)
-	var late := DotNetManager.new()
+	var late := GSNetManager.new()
 	late.service_scope = &"replay_tune_off"
-	late.config = DotNetConfig.new()
+	late.config = GSNetConfig.new()
 	late.config.reconcile_once_per_frame = false
 	c.tune_replay = false
 	add_child(late)
@@ -355,13 +355,13 @@ func _test_client_replay_tuning() -> void:
 
 func _test_client_vis_mode() -> void:
 	_section("map culling is opt-in, and the console's vis_mode drives it")
-	var c := DotGameClient.new()
+	var c := GSGameClient.new()
 	c.use_gate = false
 	add_child(c)
 	_check(c.vis_mode == "off", "off by default")
 	var drawn := Node3D.new()
 	add_child(drawn)
-	var mesh := DotMapBspMesh.new()
+	var mesh := GSMapBspMesh.new()
 	_check(c.attach_visibility(mesh, drawn) == null and drawn.get_child_count() == 0, "off builds nothing")
 	_check(not c.set_vis_mode("bogus") and c.vis_mode == "off", "an unknown mode is refused")
 	_check(c.set_vis_mode(" PVS ") and c.vis_mode == "pvs" and c.visibility == null, "a map with no visibility data stays drawn whole")
@@ -369,11 +369,11 @@ func _test_client_vis_mode() -> void:
 	var con := VisConsole.new()
 	con.list = [local]
 	c.console = con
-	_check(DotGameClient._Vis.add_console_var(c) and local.vars.has(&"vis_mode"), "the client console gets vis_mode")
+	_check(GSGameClient._Vis.add_console_var(c) and local.vars.has(&"vis_mode"), "the client console gets vis_mode")
 	var r: Variant = (local.vars[&"vis_mode"][1] as Callable).call("both")
-	_check(r is DotResult and (r as DotResult).ok and c.vis_mode == "both", "setting it at the console sets the mode")
+	_check(r is GSResult and (r as GSResult).ok and c.vis_mode == "both", "setting it at the console sets the mode")
 	local.taken = ["vis_mode"]
-	_check(not DotGameClient._Vis.add_console_var(c), "a game's own vis_mode is left alone")
+	_check(not GSGameClient._Vis.add_console_var(c), "a game's own vis_mode is left alone")
 	c.detach_visibility()
 	c.console = null
 	con.free()
@@ -432,7 +432,7 @@ func _test_escape_and_hold(host: Node) -> void:
 func _test_pointer_hold(host: Node, esc_menu: Node, vp: Viewport) -> void:
 	# A game's own modal holds the pointer: a click, a menu closing and a focus event do not recapture.
 	esc_menu.open_now = false
-	var hold := DotGameClient.new()
+	var hold := GSGameClient.new()
 	hold.use_gate = false
 	hold.use_settings = false
 	hold.use_console = false
@@ -489,7 +489,7 @@ class FakePointerModal extends Node:
 
 
 ## A client whose pointer is a flag, because a headless display server keeps no captured mode.
-class FakePointerClient extends DotGameClient:
+class FakePointerClient extends GSGameClient:
 	var captured: bool = false
 	func _pointer_captured() -> bool:
 		return captured
@@ -513,9 +513,9 @@ class EscMenu extends Node:
 
 func _test_movement_cvars() -> void:
 	_section("bind_movement_cvars: the game's movement targets become replicated cvars, with no per-game code")
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
-	var m := DotGameModule.new()
+	var m := GSGameModule.new()
 	m.console = console
 	add_child(m)
 	var target: Object = preload("res://examples/fixtures/test_movement_target.gd").new()
@@ -526,22 +526,22 @@ func _test_movement_cvars() -> void:
 	game.set_script(preload("res://examples/fixtures/test_movement_game.gd"))
 	game.set("target", target)
 	m.game = game
-	var saved := DotGameModule.fps_cvars_script
-	DotGameModule.fps_cvars_script = "res://examples/fixtures/missing_binder.gd"
+	var saved := GSGameModule.fps_cvars_script
+	GSGameModule.fps_cvars_script = "res://examples/fixtures/missing_binder.gd"
 	_check(m.bind_movement_cvars().is_empty() and m.movement_cvars == null, "without dot-player-controller it is skipped, not an error")
 
-	DotGameModule.fps_cvars_script = "res://examples/fixtures/test_fps_cvars.gd"
+	GSGameModule.fps_cvars_script = "res://examples/fixtures/test_fps_cvars.gd"
 	var made := m.bind_movement_cvars()
 	var cv := console.find_cvar("sv_gravity")
 	_check(made.size() == 1 and cv != null and m.movement_cvars != null, "the game's movement_targets() are bound as cvars")
-	_check(cv != null and (cv.flags & DotConVar.FLAG_REPLICATED) != 0, "and replicated, because a client predicts its own movement")
-	var explicit := DotGameModule.new()
-	explicit.console = DotConsole.new()
+	_check(cv != null and (cv.flags & GSConVar.FLAG_REPLICATED) != 0, "and replicated, because a client predicts its own movement")
+	var explicit := GSGameModule.new()
+	explicit.console = GSConsole.new()
 	add_child(explicit.console)
 	add_child(explicit)
 	_check(explicit.bind_movement_cvars([target]).size() == 1, "targets can also be passed explicitly")
 
-	DotGameModule.fps_cvars_script = saved
+	GSGameModule.fps_cvars_script = saved
 	game.free()
 	m.free()
 	explicit.free()

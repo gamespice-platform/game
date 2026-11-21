@@ -1,9 +1,9 @@
-class_name DotGameMapEditBundle
+class_name GSGameMapEditBundle
 extends RefCounted
 
 ## The map-data bundle as a plain dictionary: build one, and check an untrusted one.
 ##
-## Uses GameSpice Map's `DotMapDataBundle` when that script is in the project (located by path, so GameSpice Game never depends on GameSpice Map), and a plain dictionary of the same shape otherwise; the stores take the class, so a game with GameSpice Map saves through it.
+## Uses GameSpice Map's `GSMapDataBundle` when that script is in the project (located by path, so GameSpice Game never depends on GameSpice Map), and a plain dictionary of the same shape otherwise; the stores take the class, so a game with GameSpice Map saves through it.
 
 const NATIVE_PATH := "res://addons/dot_map/data/dot_map_data_bundle.gd"
 const FORMAT := "dot-map-data"
@@ -31,7 +31,7 @@ static func as_dict(bundle: Variant) -> Dictionary:
 	return {}
 
 
-## A GameSpice Map `DotMapDataBundle` when available, else a dictionary.
+## A GameSpice Map `GSMapDataBundle` when available, else a dictionary.
 static func make(game: String, map: Dictionary, by: String, sections: Dictionary, note: String = "") -> Variant:
 	var script := native()
 	var meta := {"author": by, "created": int(Time.get_unix_time_from_system()), "note": note}
@@ -61,40 +61,40 @@ static func make(game: String, map: Dictionary, by: String, sections: Dictionary
 
 
 ## Parses and checks an imported file's text. On success `value` is `{bundle, warnings}`; a different map id is refused, a different version or digest is a warning the caller turns into a need for `force`.
-static func check(text: String, map: Dictionary) -> DotResult:
+static func check(text: String, map: Dictionary) -> GSResult:
 	var script := native()
 
 	if script != null:
 		return _check_native(script, text, map)
 
 	if text.length() > MAX_BYTES:
-		return DotResult.fail(DotError.CODE_INVALID, "That file is too large for map data.")
+		return GSResult.fail(GSError.CODE_INVALID, "That file is too large for map data.")
 
 	var json := JSON.new()
 	var parsed: Variant = json.data if json.parse(text) == OK else null
 
 	if not (parsed is Dictionary):
-		return DotResult.fail(DotError.CODE_INVALID, "That file is not a map data bundle.")
+		return GSResult.fail(GSError.CODE_INVALID, "That file is not a map data bundle.")
 
 	var raw: Dictionary = parsed
 
 	if str(raw.get("format", "")) != FORMAT:
-		return DotResult.fail(DotError.CODE_INVALID, "That file is not a map data bundle.", "format")
+		return GSResult.fail(GSError.CODE_INVALID, "That file is not a map data bundle.", "format")
 
 	var schema: Variant = raw.get("schema")
 
 	if not (schema is float or schema is int) or int(schema) > SCHEMA or int(schema) < 1:
-		return DotResult.fail(DotError.CODE_VERSION, "That bundle's schema is not one this server reads.")
+		return GSResult.fail(GSError.CODE_VERSION, "That bundle's schema is not one this server reads.")
 
 	var theirs: Variant = raw.get("map")
 
 	if not (theirs is Dictionary) or str((theirs as Dictionary).get("id", "")) != str(map.get("id", "")):
-		return DotResult.fail(DotError.CODE_CONFLICT, "That bundle is for a different map.")
+		return GSResult.fail(GSError.CODE_CONFLICT, "That bundle is for a different map.")
 
 	var sections_raw: Variant = raw.get("sections", {})
 
 	if not (sections_raw is Dictionary):
-		return DotResult.fail(DotError.CODE_INVALID, "The bundle's sections are malformed.")
+		return GSResult.fail(GSError.CODE_INVALID, "The bundle's sections are malformed.")
 
 	var kept := {}
 	var dropped := PackedStringArray()
@@ -107,7 +107,7 @@ static func check(text: String, map: Dictionary) -> DotResult:
 		var section: Variant = (sections_raw as Dictionary)[key]
 
 		if not (section is Dictionary) or not _bounded(section, 0):
-			return DotResult.fail(DotError.CODE_INVALID, "Section '%s' is malformed or over a limit." % str(key))
+			return GSResult.fail(GSError.CODE_INVALID, "Section '%s' is malformed or over a limit." % str(key))
 
 		kept[str(key)] = section
 
@@ -122,7 +122,7 @@ static func check(text: String, map: Dictionary) -> DotResult:
 		warnings.append("geometry digest differs")
 
 	if not dropped.is_empty():
-		DotLog.warn("game.map_edit", "unknown bundle sections ignored", {"sections": ", ".join(dropped)})
+		GSLog.warn("game.map_edit", "unknown bundle sections ignored", {"sections": ", ".join(dropped)})
 
 	var meta: Variant = raw.get("meta", {})
 	var meta_out := {}
@@ -131,7 +131,7 @@ static func check(text: String, map: Dictionary) -> DotResult:
 		for k: String in ["author", "note"]:
 			meta_out[k] = str((meta as Dictionary).get(k, "")).left(MAX_STRING)
 
-	return DotResult.success({
+	return GSResult.success({
 		"bundle": {
 			"format": FORMAT, "schema": SCHEMA, "game": str(raw.get("game", "")).left(MAX_STRING),
 			"map": (theirs as Dictionary).duplicate(), "meta": meta_out, "sections": kept,
@@ -141,34 +141,34 @@ static func check(text: String, map: Dictionary) -> DotResult:
 
 
 ## The same check through GameSpice Map: its caps and its id rules, the version and digest as warnings.
-static func _check_native(script: GDScript, text: String, map: Dictionary) -> DotResult:
+static func _check_native(script: GDScript, text: String, map: Dictionary) -> GSResult:
 	var version := str(map.get("version", ""))
 	var digest := str(map.get("digest", ""))
-	var res: DotResult = script.call("import_json", text, str(map.get("id", "")), version, digest, true)
+	var res: GSResult = script.call("import_json", text, str(map.get("id", "")), version, digest, true)
 
 	if not res.ok:
 		return _native_refusal(res)
 
 	var found: Object = res.value
 	var warnings: PackedStringArray = script.call("import_warnings", found, version, digest)
-	return DotResult.success({"bundle": found.call("to_dict"), "warnings": warnings})
+	return GSResult.success({"bundle": found.call("to_dict"), "warnings": warnings})
 
 
 ## GameSpice Map's refusal in this file's wording, so the admin's reply reads the same with or without it.
-static func _native_refusal(res: DotResult) -> DotResult:
+static func _native_refusal(res: GSResult) -> GSResult:
 	var code: String = res.error.code
 	var text: String = res.error.message
 
-	if code == DotError.CODE_CONFLICT:
-		return DotResult.fail(code, "That bundle is for a different map.")
+	if code == GSError.CODE_CONFLICT:
+		return GSResult.fail(code, "That bundle is for a different map.")
 
-	if code == DotError.CODE_PARSE or text.begins_with("Not a "):
-		return DotResult.fail(DotError.CODE_INVALID, "That file is not a map data bundle.")
+	if code == GSError.CODE_PARSE or text.begins_with("Not a "):
+		return GSResult.fail(GSError.CODE_INVALID, "That file is not a map data bundle.")
 
-	if code == DotError.CODE_VERSION:
-		return DotResult.fail(code, "That bundle's schema is not one this server reads.")
+	if code == GSError.CODE_VERSION:
+		return GSResult.fail(code, "That bundle's schema is not one this server reads.")
 
-	return DotResult.fail(DotError.CODE_INVALID, "That bundle is malformed or over a limit: %s" % text.left(MAX_STRING))
+	return GSResult.fail(GSError.CODE_INVALID, "That bundle is malformed or over a limit: %s" % text.left(MAX_STRING))
 
 
 ## Every string and container within the caps, and nothing that is not plain data. A path or script is just text here and is never loaded.

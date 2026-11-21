@@ -1,8 +1,8 @@
-class_name DotGameMapEdit
+class_name GSGameMapEdit
 extends RefCounted
 
-## The admin map-edit command set: spawn points, spawn strategy, navigation links and the map-data file. Wiring: `var edit := DotGameMapEdit.new()`, then set [member points] (GameSpice Spawn's DotSpawnPointSet), [member store] (GameSpice Map's DotMapDataStore), [member nav] (rebake and hand links), [code]pose_fn = func(ctx): return {"position": pos, "yaw": yaw}[/code], [code]map_fn = func(): return {"game": "fc", "id": "dm_box", "version": "3", "digest": ""}[/code], and call [code]edit.bind(server.console)[/code].
-## [b]Duck-typed on every side, in the shape of [code]DotModToolCommands[/code].[/b] The host is anything with [code]add_command[/code] (a [code]DotModule[/code]) or [code]command[/code] (a console); the point set, the store and the navigation tools are objects this file calls by method name, so GameSpice Game depends on none of GameSpice Spawn, GameSpice Map, GameSpice Bot or GameSpice NPC AI. A missing collaborator turns its commands into a plain reply, never an error. [b]The contract.[/b] [member points]: [code]points[/code] (array), [code]find(id)[/code], [code]add(def)[/code], [code]to_dict()[/code], and a static [code]from_dict(d) -> DotResult[/code] on its script. A def: the [code]DotSpawnPointDef[/code] properties, [code]to_dict()[/code], [code]problem()[/code]. [member store]: [code]load(game, map_id, version)[/code] and [code]save(bundle, by)[/code], each returning a [code]DotResult[/code] and allowed to be a coroutine. [member nav]: [code]rebake()[/code], [code]add_link(dict)[/code], [code]remove_link(id)[/code], [code]links_dict()[/code] and [code]load_links(dict)[/code], each optional.
+## The admin map-edit command set: spawn points, spawn strategy, navigation links and the map-data file. Wiring: `var edit := GSGameMapEdit.new()`, then set [member points] (GameSpice Spawn's GSSpawnPointSet), [member store] (GameSpice Map's GSMapDataStore), [member nav] (rebake and hand links), [code]pose_fn = func(ctx): return {"position": pos, "yaw": yaw}[/code], [code]map_fn = func(): return {"game": "fc", "id": "dm_box", "version": "3", "digest": ""}[/code], and call [code]edit.bind(server.console)[/code].
+## [b]Duck-typed on every side, in the shape of [code]GSModToolCommands[/code].[/b] The host is anything with [code]add_command[/code] (a [code]GSModule[/code]) or [code]command[/code] (a console); the point set, the store and the navigation tools are objects this file calls by method name, so GameSpice Game depends on none of GameSpice Spawn, GameSpice Map, GameSpice Bot or GameSpice NPC AI. A missing collaborator turns its commands into a plain reply, never an error. [b]The contract.[/b] [member points]: [code]points[/code] (array), [code]find(id)[/code], [code]add(def)[/code], [code]to_dict()[/code], and a static [code]from_dict(d) -> GSResult[/code] on its script. A def: the [code]GSSpawnPointDef[/code] properties, [code]to_dict()[/code], [code]problem()[/code]. [member store]: [code]load(game, map_id, version)[/code] and [code]save(bundle, by)[/code], each returning a [code]GSResult[/code] and allowed to be a coroutine. [member nav]: [code]rebake()[/code], [code]add_link(dict)[/code], [code]remove_link(id)[/code], [code]links_dict()[/code] and [code]load_links(dict)[/code], each optional.
 ## [b]Server validation.[/b] Every value is parsed, range-checked and finite before it reaches a def, an unknown key is refused, an id is a short lowercase token, and the def's own [code]problem()[/code] has the last word. An edit changes the working set only; [code]mapdata_save[/code] persists it. Every edit and every save is an INFO line and an audit record with the admin's id.
 
 const CHANNEL := "game.map_edit"
@@ -13,7 +13,7 @@ const EXPORT_DIR := "user://map_data/export/"
 const MAX_LIST := 40
 const MAX_TOKENS := 32
 const MAX_TEXT := 64
-# DotGameMapEdit's parser names this class back, so it is loaded by uid at use (a script loop is never freed in Godot 4.7).
+# GSGameMapEdit's parser names this class back, so it is loaded by uid at use (a script loop is never freed in Godot 4.7).
 const _PARSE_UID := "uid://c64gi15ndtwo7"
 
 const KINDS: Array[String] = ["player", "npc", "both"]
@@ -79,10 +79,10 @@ var base_fn: Callable = Callable()
 ## `func() -> Object`, a fresh def; the default loads GameSpice Spawn's by path.
 var def_factory: Callable = Callable()
 
-## `func(name: String) -> DotResult`; the game applies a strategy name. Without it `spawn_strategy` refuses.
+## `func(name: String) -> GSResult`; the game applies a strategy name. Without it `spawn_strategy` refuses.
 var strategy_fn: Callable = Callable()
 
-## `func(ctx, def) -> DotResult`; the game moves the admin to a point.
+## `func(ctx, def) -> GSResult`; the game moves the admin to a point.
 var test_fn: Callable = Callable()
 
 ## `func(what: String)` after any edit the game must re-apply to its director or nav (`spawns`, `nav`).
@@ -98,8 +98,8 @@ var _marks: Dictionary = {}
 var _counter: int = 0
 
 
-static func install(host: Object, p_server: Object = null) -> DotGameMapEdit:
-	var edit := DotGameMapEdit.new()
+static func install(host: Object, p_server: Object = null) -> GSGameMapEdit:
+	var edit := GSGameMapEdit.new()
 	edit.server = p_server
 	var _res := edit.bind(host)
 	return edit
@@ -109,17 +109,17 @@ func command_name(role: String) -> String:
 	return prefix + str((COMMANDS[role] as Array)[0])
 
 
-func bind(host: Object) -> DotResult:
+func bind(host: Object) -> GSResult:
 	var adder := ""
 
 	if host == null:
-		return DotResult.fail(DotError.CODE_INVALID, "A host is needed.")
+		return GSResult.fail(GSError.CODE_INVALID, "A host is needed.")
 	if host.has_method("add_command"):
 		adder = "add_command"
 	elif host.has_method("command"):
 		adder = "command"
 	else:
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "That host has no way to register a command.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "That host has no way to register a command.")
 
 	for role: String in COMMANDS:
 		if skip.has(role):
@@ -138,7 +138,7 @@ func bind(host: Object) -> DotResult:
 
 		registered.append(command_name(role))
 
-	return DotResult.success(registered)
+	return GSResult.success(registered)
 
 
 func _handler_for(role: String) -> Callable:
@@ -147,9 +147,9 @@ func _handler_for(role: String) -> Callable:
 
 
 ## Runs one role for [param ctx] and returns its outcome, a refusal being a failure, so a toolgun mode can drive the same editor and tell.
-func run(role: String, ctx: Object) -> DotResult:
+func run(role: String, ctx: Object) -> GSResult:
 	var args := _args(ctx)
-	var outcome: DotResult = await _dispatch(role, ctx, args)
+	var outcome: GSResult = await _dispatch(role, ctx, args)
 
 	if not outcome.ok:
 		_reply(ctx, outcome.error.message)
@@ -162,7 +162,7 @@ func run(role: String, ctx: Object) -> DotResult:
 		return outcome
 
 	var line := "%s %s" % [command_name(role), " ".join(args)]
-	DotLog.info(CHANNEL, "map edit", {"by": _caller(ctx), "command": line.strip_edges(), "result": said})
+	GSLog.info(CHANNEL, "map edit", {"by": _caller(ctx), "command": line.strip_edges(), "result": said})
 
 	var audit: Variant = server.get("audit") if server != null else null
 
@@ -172,7 +172,7 @@ func run(role: String, ctx: Object) -> DotResult:
 	return outcome
 
 
-func _dispatch(role: String, ctx: Object, args: PackedStringArray) -> DotResult:
+func _dispatch(role: String, ctx: Object, args: PackedStringArray) -> GSResult:
 	match role:
 		"spawn_list": return _list(args)
 		"spawn_add": return _add(ctx, args)
@@ -190,12 +190,12 @@ func _dispatch(role: String, ctx: Object, args: PackedStringArray) -> DotResult:
 		"mapdata_export": return _export(ctx, args)
 		"mapdata_import": return await _import(args)
 
-	return DotResult.fail(DotError.CODE_UNSUPPORTED, "No such map edit command.")
+	return GSResult.fail(GSError.CODE_UNSUPPORTED, "No such map edit command.")
 
 
 # Spawns
 
-func _list(args: PackedStringArray) -> DotResult:
+func _list(args: PackedStringArray) -> GSResult:
 	var gone := _need_points()
 
 	if gone != null:
@@ -204,7 +204,7 @@ func _list(args: PackedStringArray) -> DotResult:
 	var all: Array = points.get("points")
 
 	if all.is_empty():
-		return DotResult.success("No authored spawn points; the map's own are in use.")
+		return GSResult.success("No authored spawn points; the map's own are in use.")
 
 	var page := maxi(1, int(args[0])) if args.size() > 0 and args[0].is_valid_int() else 1
 	var pages := ceili(all.size() / float(MAX_LIST))
@@ -217,12 +217,12 @@ func _list(args: PackedStringArray) -> DotResult:
 			str(p.get("id")), str(p.get("kind")), "" if bool(p.get("enabled")) else " off", pos.x, pos.y, pos.z,
 		])
 
-	return DotResult.success("%d point%s, page %d of %d: %s" % [
+	return GSResult.success("%d point%s, page %d of %d: %s" % [
 		all.size(), "" if all.size() == 1 else "s", mini(page, maxi(pages, 1)), maxi(pages, 1), ", ".join(lines),
 	])
 
 
-func _add(ctx: Object, args: PackedStringArray) -> DotResult:
+func _add(ctx: Object, args: PackedStringArray) -> GSResult:
 	var gone := _need_points()
 
 	if gone != null:
@@ -231,17 +231,17 @@ func _add(ctx: Object, args: PackedStringArray) -> DotResult:
 	var pose := _pose(ctx)
 
 	if pose.is_empty():
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "Spawn points are placed where you stand; run this in game.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "Spawn points are placed where you stand; run this in game.")
 
 	var kind := args[0]
 
 	if kind not in KINDS:
-		return DotResult.fail(DotError.CODE_INVALID, "The kind is player, npc or both, not '%s'." % kind.left(MAX_TEXT))
+		return GSResult.fail(GSError.CODE_INVALID, "The kind is player, npc or both, not '%s'." % kind.left(MAX_TEXT))
 
 	var def := _new_def()
 
 	if def == null:
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "Spawn points need dot-spawn, which is not installed here.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "Spawn points need dot-spawn, which is not installed here.")
 
 	def.set("kind", StringName(kind))
 	def.set("position", pose["position"])
@@ -261,7 +261,7 @@ func _add(ctx: Object, args: PackedStringArray) -> DotResult:
 		id = _free_id()
 
 	if points.call("find", StringName(id)) != null or _base(StringName(id)) != null:
-		return DotResult.fail(DotError.CODE_CONFLICT, "There is already a point called '%s'." % id)
+		return GSResult.fail(GSError.CODE_CONFLICT, "There is already a point called '%s'." % id)
 
 	def.set("id", StringName(id))
 	var applied := _apply(def, settings)
@@ -271,10 +271,10 @@ func _add(ctx: Object, args: PackedStringArray) -> DotResult:
 
 	points.call("add", def)
 	_changed(SPAWNS)
-	return DotResult.success("Added %s '%s' at your feet." % [kind, id])
+	return GSResult.success("Added %s '%s' at your feet." % [kind, id])
 
 
-func _edit_set(args: PackedStringArray) -> DotResult:
+func _edit_set(args: PackedStringArray) -> GSResult:
 	var found := _find_or_override(args[0])
 
 	if not found.ok:
@@ -297,10 +297,10 @@ func _edit_set(args: PackedStringArray) -> DotResult:
 		points.call("add", def)
 
 	_changed(SPAWNS)
-	return DotResult.success("Updated '%s'." % args[0])
+	return GSResult.success("Updated '%s'." % args[0])
 
 
-func _remove(args: PackedStringArray) -> DotResult:
+func _remove(args: PackedStringArray) -> GSResult:
 	var gone := _need_points()
 
 	if gone != null:
@@ -309,16 +309,16 @@ func _remove(args: PackedStringArray) -> DotResult:
 	var def: Object = points.call("find", StringName(args[0]))
 
 	if def == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No authored point called '%s'." % args[0].left(MAX_TEXT))
+		return GSResult.fail(GSError.CODE_INVALID, "No authored point called '%s'." % args[0].left(MAX_TEXT))
 
 	var list: Array = points.get("points")
 	list.erase(def)
 	_changed(SPAWNS)
 	var back := " The map's own point is back." if _base(StringName(args[0])) != null else ""
-	return DotResult.success("Removed '%s'.%s" % [args[0], back])
+	return GSResult.success("Removed '%s'.%s" % [args[0], back])
 
 
-func _toggle(args: PackedStringArray) -> DotResult:
+func _toggle(args: PackedStringArray) -> GSResult:
 	var found := _find_or_override(args[0])
 
 	if not found.ok:
@@ -331,10 +331,10 @@ func _toggle(args: PackedStringArray) -> DotResult:
 		points.call("add", def)
 
 	_changed(SPAWNS)
-	return DotResult.success("'%s' is now %s." % [args[0], "on" if bool(def.get("enabled")) else "off"])
+	return GSResult.success("'%s' is now %s." % [args[0], "on" if bool(def.get("enabled")) else "off"])
 
 
-func _test(ctx: Object, args: PackedStringArray) -> DotResult:
+func _test(ctx: Object, args: PackedStringArray) -> GSResult:
 	var gone := _need_points()
 
 	if gone != null:
@@ -346,68 +346,68 @@ func _test(ctx: Object, args: PackedStringArray) -> DotResult:
 		def = _base(StringName(args[0]))
 
 	if def == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No point called '%s'." % args[0].left(MAX_TEXT))
+		return GSResult.fail(GSError.CODE_INVALID, "No point called '%s'." % args[0].left(MAX_TEXT))
 
 	if not test_fn.is_valid():
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "This game cannot move you to a spawn point.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "This game cannot move you to a spawn point.")
 
-	var moved: DotResult = await test_fn.call(ctx, def)
-	return moved if not moved.ok else DotResult.success("Spawned at '%s'." % args[0])
+	var moved: GSResult = await test_fn.call(ctx, def)
+	return moved if not moved.ok else GSResult.success("Spawned at '%s'." % args[0])
 
 
-func _strategy(args: PackedStringArray) -> DotResult:
+func _strategy(args: PackedStringArray) -> GSResult:
 	if not strategy_fn.is_valid():
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "This game has no spawn strategies to choose from.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "This game has no spawn strategies to choose from.")
 
 	var name := args[0].left(MAX_TEXT).to_lower()
 
 	if not _token_ok(name):
-		return DotResult.fail(DotError.CODE_INVALID, "That is not a strategy name.")
+		return GSResult.fail(GSError.CODE_INVALID, "That is not a strategy name.")
 
-	var made: DotResult = await strategy_fn.call(name)
-	return made if not made.ok else DotResult.success("Spawn strategy is now '%s'." % name)
+	var made: GSResult = await strategy_fn.call(name)
+	return made if not made.ok else GSResult.success("Spawn strategy is now '%s'." % name)
 
 
 # Navigation
 
-func _rebake() -> DotResult:
+func _rebake() -> GSResult:
 	if nav == null or not nav.has_method("rebake"):
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "This game has no navigation to rebuild.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "This game has no navigation to rebuild.")
 
 	var made: Variant = await nav.call("rebake")
 
-	if made is DotResult and not (made as DotResult).ok:
-		return (made as DotResult).wrap("the rebake failed")
+	if made is GSResult and not (made as GSResult).ok:
+		return (made as GSResult).wrap("the rebake failed")
 
 	_changed("nav")
-	return DotResult.success("Navigation rebuilt.")
+	return GSResult.success("Navigation rebuilt.")
 
 
-func _mark(ctx: Object) -> DotResult:
+func _mark(ctx: Object) -> GSResult:
 	var pose := _pose(ctx)
 
 	if pose.is_empty():
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "Links are marked where you stand; run this in game.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "Links are marked where you stand; run this in game.")
 
 	_marks[_caller(ctx)] = pose["position"]
 	var at: Vector3 = pose["position"]
-	return DotResult.success("Link start marked at (%.1f, %.1f, %.1f)." % [at.x, at.y, at.z])
+	return GSResult.success("Link start marked at (%.1f, %.1f, %.1f)." % [at.x, at.y, at.z])
 
 
-func _link_add(ctx: Object, args: PackedStringArray) -> DotResult:
+func _link_add(ctx: Object, args: PackedStringArray) -> GSResult:
 	if nav == null or not nav.has_method("add_link"):
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "This game has no navigation links to add.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "This game has no navigation links to add.")
 
 	var kind := args[0]
 
 	if kind not in LINK_KINDS:
-		return DotResult.fail(DotError.CODE_INVALID, "A link is a ladder, door, jump or drop, not '%s'." % kind.left(MAX_TEXT))
+		return GSResult.fail(GSError.CODE_INVALID, "A link is a ladder, door, jump or drop, not '%s'." % kind.left(MAX_TEXT))
 
 	var pose := _pose(ctx)
 	var start: Variant = _marks.get(_caller(ctx))
 
 	if pose.is_empty() or not (start is Vector3):
-		return DotResult.fail(DotError.CODE_INVALID, "Mark the start with nav_link_mark first, then stand at the end.")
+		return GSResult.fail(GSError.CODE_INVALID, "Mark the start with nav_link_mark first, then stand at the end.")
 
 	var parsed := _parse_pairs(args.slice(1))
 
@@ -418,7 +418,7 @@ func _link_add(ctx: Object, args: PackedStringArray) -> DotResult:
 	var id := str(given.get("id", ""))
 
 	if id != "" and not _token_ok(id):
-		return DotResult.fail(DotError.CODE_INVALID, "A link id is up to %d lowercase letters, digits, _ or -." % MAX_TEXT)
+		return GSResult.fail(GSError.CODE_INVALID, "A link id is up to %d lowercase letters, digits, _ or -." % MAX_TEXT)
 
 	if id == "":
 		_counter += 1
@@ -428,61 +428,61 @@ func _link_add(ctx: Object, args: PackedStringArray) -> DotResult:
 	var link := {"id": id, "kind": kind, "a": [start.x, start.y, start.z], "b": [end.x, end.y, end.z], "source": "authored"}
 	var made: Variant = await nav.call("add_link", link)
 
-	if made is DotResult and not (made as DotResult).ok:
-		return (made as DotResult).wrap("the link was refused")
+	if made is GSResult and not (made as GSResult).ok:
+		return (made as GSResult).wrap("the link was refused")
 
 	_marks.erase(_caller(ctx))
 	_changed("nav")
-	return DotResult.success("Added %s link '%s'." % [kind, id])
+	return GSResult.success("Added %s link '%s'." % [kind, id])
 
 
-func _link_remove(args: PackedStringArray) -> DotResult:
+func _link_remove(args: PackedStringArray) -> GSResult:
 	if nav == null or not nav.has_method("remove_link"):
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "This game has no navigation links to remove.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "This game has no navigation links to remove.")
 
 	var made: Variant = await nav.call("remove_link", StringName(args[0].left(MAX_TEXT)))
 
-	if made is DotResult and not (made as DotResult).ok:
-		return (made as DotResult).wrap("no link was removed")
+	if made is GSResult and not (made as GSResult).ok:
+		return (made as GSResult).wrap("no link was removed")
 
 	_changed("nav")
-	return DotResult.success("Removed link '%s'." % args[0])
+	return GSResult.success("Removed link '%s'." % args[0])
 
 
 # Map data
 
-func _save(ctx: Object, args: PackedStringArray) -> DotResult:
+func _save(ctx: Object, args: PackedStringArray) -> GSResult:
 	var map := _map()
 
 	if map.is_empty() or store == null or not store.has_method("save"):
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "There is no map data store to save to.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "There is no map data store to save to.")
 
-	var bundle: Variant = _bundle(_caller(ctx), map, " ".join(args).left(DotGameMapEditBundle.MAX_STRING))
+	var bundle: Variant = _bundle(_caller(ctx), map, " ".join(args).left(GSGameMapEditBundle.MAX_STRING))
 	var saved: Variant = await store.call("save", bundle, _caller(ctx))
 
-	if saved is DotResult and not (saved as DotResult).ok:
-		return (saved as DotResult).wrap("the store refused the save")
+	if saved is GSResult and not (saved as GSResult).ok:
+		return (saved as GSResult).wrap("the store refused the save")
 
 	dirty = false
-	return DotResult.success("Saved map data for %s." % str(map["id"]))
+	return GSResult.success("Saved map data for %s." % str(map["id"]))
 
 
-func _revert() -> DotResult:
+func _revert() -> GSResult:
 	var map := _map()
 
 	if map.is_empty() or store == null or not store.has_method("load"):
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "There is no map data store to reload from.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "There is no map data store to reload from.")
 
 	var loaded: Variant = await store.call("load", str(map["game"]), str(map["id"]), str(map["version"]))
 
-	if loaded is DotResult and not (loaded as DotResult).ok:
-		return (loaded as DotResult).wrap("nothing saved to go back to")
+	if loaded is GSResult and not (loaded as GSResult).ok:
+		return (loaded as GSResult).wrap("nothing saved to go back to")
 
-	var bundle: Variant = loaded.value if loaded is DotResult else loaded
-	var as_dict := DotGameMapEditBundle.as_dict(bundle)
+	var bundle: Variant = loaded.value if loaded is GSResult else loaded
+	var as_dict := GSGameMapEditBundle.as_dict(bundle)
 
 	if as_dict.is_empty():
-		return DotResult.fail(DotError.CODE_INVALID, "The store returned something that is not map data.")
+		return GSResult.fail(GSError.CODE_INVALID, "The store returned something that is not map data.")
 
 	var taken := await _take(as_dict.get("sections", {}))
 
@@ -490,48 +490,48 @@ func _revert() -> DotResult:
 		return taken
 
 	dirty = false
-	return DotResult.success("Reverted to the saved map data.")
+	return GSResult.success("Reverted to the saved map data.")
 
 
-func _export(ctx: Object, args: PackedStringArray) -> DotResult:
+func _export(ctx: Object, args: PackedStringArray) -> GSResult:
 	var map := _map()
 
 	if map.is_empty():
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "There is no running map to export.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "There is no running map to export.")
 
 	var name := args[0].left(MAX_TEXT) if args.size() > 0 else "%s_%s" % [map["game"], map["id"]]
 
 	if not _token_ok(name):
-		return DotResult.fail(DotError.CODE_INVALID, "A file name is lowercase letters, digits, _ or -.")
+		return GSResult.fail(GSError.CODE_INVALID, "A file name is lowercase letters, digits, _ or -.")
 
 	DirAccess.make_dir_recursive_absolute(EXPORT_DIR)
 	var path := "%s%s.json" % [EXPORT_DIR, name]
 	var file := FileAccess.open(path, FileAccess.WRITE)
 
 	if file == null:
-		return DotResult.fail(DotError.CODE_IO, "Could not write %s." % path)
+		return GSResult.fail(GSError.CODE_IO, "Could not write %s." % path)
 
-	file.store_string(JSON.stringify(DotGameMapEditBundle.as_dict(_bundle(_caller(ctx), map, "")), "\t"))
+	file.store_string(JSON.stringify(GSGameMapEditBundle.as_dict(_bundle(_caller(ctx), map, "")), "\t"))
 	file.close()
-	return DotResult.success("Exported to %s." % path)
+	return GSResult.success("Exported to %s." % path)
 
 
-func _import(args: PackedStringArray) -> DotResult:
+func _import(args: PackedStringArray) -> GSResult:
 	var map := _map()
 	var name := args[0].left(MAX_TEXT)
 
 	if map.is_empty():
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "There is no running map to import into.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "There is no running map to import into.")
 
 	if not _token_ok(name):
-		return DotResult.fail(DotError.CODE_INVALID, "A file name is lowercase letters, digits, _ or -.")
+		return GSResult.fail(GSError.CODE_INVALID, "A file name is lowercase letters, digits, _ or -.")
 
 	var path := "%s%s.json" % [EXPORT_DIR, name]
 
 	if not FileAccess.file_exists(path):
-		return DotResult.fail(DotError.CODE_INVALID, "No exported file called '%s'." % name)
+		return GSResult.fail(GSError.CODE_INVALID, "No exported file called '%s'." % name)
 
-	var checked := DotGameMapEditBundle.check(FileAccess.get_file_as_string(path), map)
+	var checked := GSGameMapEditBundle.check(FileAccess.get_file_as_string(path), map)
 
 	if not checked.ok:
 		return checked
@@ -539,7 +539,7 @@ func _import(args: PackedStringArray) -> DotResult:
 	var warnings: PackedStringArray = checked.value["warnings"]
 
 	if not warnings.is_empty() and not (args.size() > 1 and args[1] == "force"):
-		return DotResult.fail(DotError.CODE_CONFLICT, "Not imported: %s. Add 'force' to import anyway." % ", ".join(warnings))
+		return GSResult.fail(GSError.CODE_CONFLICT, "Not imported: %s. Add 'force' to import anyway." % ", ".join(warnings))
 
 	var taken := await _take((checked.value["bundle"] as Dictionary)["sections"])
 
@@ -547,7 +547,7 @@ func _import(args: PackedStringArray) -> DotResult:
 		return taken
 
 	dirty = true
-	return DotResult.success("Imported %s; mapdata_save keeps it." % name)
+	return GSResult.success("Imported %s; mapdata_save keeps it." % name)
 
 
 func _bundle(by: String, map: Dictionary, note: String) -> Variant:
@@ -559,13 +559,13 @@ func _bundle(by: String, map: Dictionary, note: String) -> Variant:
 	if nav != null and nav.has_method("links_dict"):
 		sections[NAV_LINKS] = nav.call("links_dict")
 
-	return DotGameMapEditBundle.make(str(map["game"]), map, by, sections, note)
+	return GSGameMapEditBundle.make(str(map["game"]), map, by, sections, note)
 
 
 ## Replaces the working spawns and links with a bundle's sections, all or nothing for the spawns.
-func _take(sections: Variant) -> DotResult:
+func _take(sections: Variant) -> GSResult:
 	if not (sections is Dictionary):
-		return DotResult.fail(DotError.CODE_INVALID, "The bundle has no sections.")
+		return GSResult.fail(GSError.CODE_INVALID, "The bundle has no sections.")
 
 	var dict: Dictionary = sections
 
@@ -578,11 +578,11 @@ func _take(sections: Variant) -> DotResult:
 		var script: Variant = points.get_script()
 		var made: Variant = (script as Object).call("from_dict", dict[SPAWNS]) if script is Object else null
 
-		if not (made is DotResult) or not (made as DotResult).ok:
-			return (made as DotResult).wrap("the saved spawn points are invalid") if made is DotResult \
-				else DotResult.fail(DotError.CODE_UNSUPPORTED, "Cannot rebuild a spawn point set.")
+		if not (made is GSResult) or not (made as GSResult).ok:
+			return (made as GSResult).wrap("the saved spawn points are invalid") if made is GSResult \
+				else GSResult.fail(GSError.CODE_UNSUPPORTED, "Cannot rebuild a spawn point set.")
 
-		var fresh: Array = (made as DotResult).value.get("points")
+		var fresh: Array = (made as GSResult).value.get("points")
 		var list: Array = points.get("points")
 		list.clear()
 		list.append_array(fresh)
@@ -591,26 +591,26 @@ func _take(sections: Variant) -> DotResult:
 	if dict.has(NAV_LINKS) and nav != null and nav.has_method("load_links"):
 		var linked: Variant = await nav.call("load_links", dict[NAV_LINKS])
 
-		if linked is DotResult and not (linked as DotResult).ok:
-			return (linked as DotResult).wrap("the saved links are invalid")
+		if linked is GSResult and not (linked as GSResult).ok:
+			return (linked as GSResult).wrap("the saved links are invalid")
 
 		_changed("nav")
 
-	return DotResult.success("")
+	return GSResult.success("")
 
 
 # Parsing and helpers
 
-func _parse_pairs(args: PackedStringArray) -> DotResult:
+func _parse_pairs(args: PackedStringArray) -> GSResult:
 	return (load(_PARSE_UID) as GDScript).parse_pairs(args)
 
 
 ## Parses key=value words into typed values. [param allow_id] lets `id=` through (a new point only).
-func _parse_settings(args: PackedStringArray, allow_id: bool) -> DotResult:
+func _parse_settings(args: PackedStringArray, allow_id: bool) -> GSResult:
 	return (load(_PARSE_UID) as GDScript).parse_settings(args, allow_id)
 
 
-func _apply(def: Object, settings: Dictionary) -> DotResult:
+func _apply(def: Object, settings: Dictionary) -> GSResult:
 	for key: String in settings:
 		def.set(str(PROPS.get(key, key)), settings[key])
 
@@ -618,9 +618,9 @@ func _apply(def: Object, settings: Dictionary) -> DotResult:
 		var problem := str(def.call("problem"))
 
 		if problem != "":
-			return DotResult.fail(DotError.CODE_INVALID, "Refused: %s." % problem)
+			return GSResult.fail(GSError.CODE_INVALID, "Refused: %s." % problem)
 
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
 func _snapshot(def: Object) -> Dictionary:
@@ -639,7 +639,7 @@ func _restore(def: Object, snap: Dictionary) -> void:
 
 
 ## The authored def called [param text], or a copy of the map's own point to override. `created` says it is not in the set yet.
-func _find_or_override(text: String) -> DotResult:
+func _find_or_override(text: String) -> GSResult:
 	var gone := _need_points()
 
 	if gone != null:
@@ -649,14 +649,14 @@ func _find_or_override(text: String) -> DotResult:
 	var def: Object = points.call("find", id)
 
 	if def != null:
-		return DotResult.success({"def": def, "created": false})
+		return GSResult.success({"def": def, "created": false})
 
 	var base := _base(id)
 
 	if base == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No point called '%s'." % text.left(MAX_TEXT))
+		return GSResult.fail(GSError.CODE_INVALID, "No point called '%s'." % text.left(MAX_TEXT))
 
-	return DotResult.success({"def": base, "created": true})
+	return GSResult.success({"def": base, "created": true})
 
 
 func _base(id: StringName) -> Object:
@@ -689,9 +689,9 @@ func _free_id() -> String:
 	return ""
 
 
-func _need_points() -> DotResult:
+func _need_points() -> GSResult:
 	if points == null:
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "This game has no editable spawn points.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "This game has no editable spawn points.")
 
 	return null
 

@@ -1,5 +1,5 @@
-class_name DotGameWorkbenchSuite
-extends DotGameCheckSuite
+class_name GSGameWorkbenchSuite
+extends GSGameCheckSuite
 
 ## Base for a game's `examples/headless_workbench.gd`: opens the workbench over the game's binder, edits one field per profile set
 ## (one per bound group when the binder is grouped) and proves the live config changed, the export holds it, and the cfg file loads back.
@@ -13,18 +13,18 @@ var _wb_entered := 0
 var _wb_finished := 0
 
 
-## A fresh config of the game's `DotConfig` subclass.
-func _make_config() -> DotConfig:
+## A fresh config of the game's `GSConfig` subclass.
+func _make_config() -> GSConfig:
 	return null
 
 
 ## The game's binder over [param config], as its server builds it.
-func _make_binder(_config: DotConfig) -> DotGameConfigBinder:
+func _make_binder(_config: GSConfig) -> GSGameConfigBinder:
 	return null
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run_suite.call_deferred()
 
 
@@ -37,10 +37,10 @@ func _run_suite() -> void:
 	var config := _make_config()
 	var binder := _make_binder(config)
 	_check(binder.load_layers().ok, "defaults load")
-	var wb := DotGameWorkbench.new()
+	var wb := GSGameWorkbench.new()
 	wb.panel_mode = 2
 	wb.config = {"enabled": false}
-	for set: DotProfileSet in binder.profile_sets():
+	for set: GSProfileSet in binder.profile_sets():
 		wb.add_set(set, set.rel_path)
 	add_child(wb)
 	var started := wb.start()
@@ -68,25 +68,25 @@ func _run_suite() -> void:
 	_report_sections(_wb_entered, _wb_finished, _SECTIONS, 7 + 3 * count)
 
 
-func _section_edit(wb: DotGameWorkbench, binder: DotGameConfigBinder, config: Object) -> Dictionary:
+func _section_edit(wb: GSGameWorkbench, binder: GSGameConfigBinder, config: Object) -> Dictionary:
 	var edits := {}
-	for set: DotProfileSet in binder.profile_sets():
+	for set: GSProfileSet in binder.profile_sets():
 		var entry := _pick(binder, set)
 		if entry.is_empty():
 			_check(false, "%s: a field to edit" % set.rel_path)
 			continue
 		var key: String = entry["key"]
 		var value: Variant = _changed(entry)
-		var res: DotResult = wb.api.handle(DotGameWorkbench.LOCAL_ACTOR, {"op": "set", "kind": set.rel_path, "id": binder.profile_id, "key": key, "value": value})
+		var res: GSResult = wb.api.handle(GSGameWorkbench.LOCAL_ACTOR, {"op": "set", "kind": set.rel_path, "id": binder.profile_id, "key": key, "value": value})
 		_check(res.ok and str(config.get(key)) == str(value), "%s: an edit of %s reaches the live config" % [set.rel_path, key], "" if res.ok else res.error.message)
 		edits[set.rel_path] = {"key": key, "value": value}
 	return edits
 
 
-func _section_export(wb: DotGameWorkbench, binder: DotGameConfigBinder, edits: Dictionary, root: String) -> PackedStringArray:
+func _section_export(wb: GSGameWorkbench, binder: GSGameConfigBinder, edits: Dictionary, root: String) -> PackedStringArray:
 	var files: Dictionary = wb.exporter.call("collect")
 	var written := PackedStringArray()
-	for set: DotProfileSet in binder.profile_sets():
+	for set: GSProfileSet in binder.profile_sets():
 		var edit: Dictionary = edits.get(set.rel_path, {})
 		if edit.is_empty():
 			continue
@@ -102,13 +102,13 @@ func _section_export(wb: DotGameWorkbench, binder: DotGameConfigBinder, edits: D
 	return written
 
 
-func _section_reload(binder: DotGameConfigBinder, edits: Dictionary, root: String, written: PackedStringArray) -> void:
+func _section_reload(binder: GSGameConfigBinder, edits: Dictionary, root: String, written: PackedStringArray) -> void:
 	var again := _make_config()
 	var reload := _make_binder(again)
 	reload.roots = PackedStringArray([root])
 	reload.strict = true
 	var loaded := reload.load_layers()
-	for set: DotProfileSet in binder.profile_sets():
+	for set: GSProfileSet in binder.profile_sets():
 		var edit: Dictionary = edits.get(set.rel_path, {})
 		if edit.is_empty():
 			continue
@@ -117,7 +117,7 @@ func _section_reload(binder: DotGameConfigBinder, edits: Dictionary, root: Strin
 		DirAccess.remove_absolute(f)
 
 
-func _section_permit(wb: DotGameWorkbench, binder: DotGameConfigBinder, edits: Dictionary) -> void:
+func _section_permit(wb: GSGameWorkbench, binder: GSGameConfigBinder, edits: Dictionary) -> void:
 	var first: Dictionary = edits.values()[0] if not edits.is_empty() else {}
 	var kind: String = edits.keys()[0] if not edits.is_empty() else ""
 	if first.is_empty():
@@ -131,7 +131,7 @@ func _section_permit(wb: DotGameWorkbench, binder: DotGameConfigBinder, edits: D
 
 
 ## The first field of [param set] a test can change: numbers, then bool, then enum or string.
-func _pick(binder: DotGameConfigBinder, set: DotProfileSet) -> Dictionary:
+func _pick(binder: GSGameConfigBinder, set: GSProfileSet) -> Dictionary:
 	var names := {}
 	for f: Dictionary in set.schema:
 		names[f["name"]] = true

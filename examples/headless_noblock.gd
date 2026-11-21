@@ -1,6 +1,6 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
-## DotGameNoblock: cfg layers, cvars, the pair answer a body's pair_fn gets, strict refusal, workbench edit.
+## GSGameNoblock: cfg layers, cvars, the pair answer a body's pair_fn gets, strict refusal, workbench edit.
 
 const ROOT := "res://examples/fixtures/noblock/"
 const CHECKS := 20
@@ -12,7 +12,7 @@ class Body:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 
@@ -22,10 +22,10 @@ func _side(id: Variant) -> Variant:
 
 func _run() -> void:
 	print("dot-game: noblock")
-	_check(DotGameNoblock.available(), "dot-team is linked")
-	var plain := DotGameNoblock.create("tg", _side, PackedStringArray([ROOT + "none"]), true)
+	_check(GSGameNoblock.available(), "dot-team is linked")
+	var plain := GSGameNoblock.create("tg", _side, PackedStringArray([ROOT + "none"]), true)
 	_check(plain.ok, "defaults load with no files")
-	var nb: DotGameNoblock = plain.value
+	var nb: GSGameNoblock = plain.value
 	var body := Body.new()
 	nb.feed(body)
 	_check(body.pair_fn.is_valid(), "feed sets pair_fn")
@@ -33,13 +33,13 @@ func _run() -> void:
 	_check(body.pair_fn.call(1, 3), "enemies block by default")
 	_check(body.pair_fn.call(1, 9), "a player with no side is an enemy")
 
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
 	var bound := nb.bind(console.cvar, console)
 	_check(bound.ok, "bind succeeds")
 	_check(console.get_string("mp_teamblock") == "0" and console.get_string("mp_enemyblock") == "1", "cvars start at the config")
-	_check(console.find_cvar("mp_teamblock").has_flag(DotConVar.FLAG_REPLICATED), "mp_teamblock is replicated")
-	_check(console.find_cvar("mp_blockstate").has_flag(DotConVar.FLAG_REPLICATED), "mp_blockstate is replicated")
+	_check(console.find_cvar("mp_teamblock").has_flag(GSConVar.FLAG_REPLICATED), "mp_teamblock is replicated")
+	_check(console.find_cvar("mp_blockstate").has_flag(GSConVar.FLAG_REPLICATED), "mp_blockstate is replicated")
 	console.set_cvar("mp_teamblock", "1")
 	_check(body.pair_fn.call(1, 2), "the cvar flips the pair")
 	console.set_cvar("mp_teamblock", "0")
@@ -56,14 +56,14 @@ func _run() -> void:
 	nb.binder._assign("enemy_block", false, "workbench")
 	_check(console.get_string("mp_enemyblock") == "0" and not body.pair_fn.call(1, 3), "and the pair")
 
-	var ok := DotGameNoblock.create("tg", _side, PackedStringArray([ROOT + "ok"]), true)
+	var ok := GSGameNoblock.create("tg", _side, PackedStringArray([ROOT + "ok"]), true)
 	_check(ok.ok, "a cfg file loads")
-	var cfg: Object = (ok.value as DotGameNoblock).rules.get(&"config")
+	var cfg: Object = (ok.value as GSGameNoblock).rules.get(&"config")
 	_check(cfg.get(&"team_block") == true and cfg.get(&"command_mode") == 1, "cfg values land in the config")
-	_check((ok.value as DotGameNoblock).binder.source_of("team_block") != "", "the layer is recorded")
-	var bad := DotGameNoblock.create("tg", _side, PackedStringArray([ROOT + "bad"]), true)
+	_check((ok.value as GSGameNoblock).binder.source_of("team_block") != "", "the layer is recorded")
+	var bad := GSGameNoblock.create("tg", _side, PackedStringArray([ROOT + "bad"]), true)
 	_check(not bad.ok, "an unknown key refuses the boot when strict")
-	var lax := DotGameNoblock.create("tg", _side, PackedStringArray([ROOT + "bad"]), false)
+	var lax := GSGameNoblock.create("tg", _side, PackedStringArray([ROOT + "bad"]), false)
 	_check(lax.ok, "and only logs when not strict")
 
 	_report(CHECKS)

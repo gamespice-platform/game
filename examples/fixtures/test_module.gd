@@ -1,8 +1,8 @@
-extends DotGameModule
+extends GSGameModule
 
 ## A whole server game's wiring, in the thirty lines GameSpice Game leaves you.
 ##
-## Everything else is in [DotGameModule]. Loaded by PATH, because [method DotModuleHost.load_module] constructs the module itself.
+## Everything else is in [GSGameModule]. Loaded by PATH, because [method GSModuleHost.load_module] constructs the module itself.
 
 const TestGame := preload("test_game.gd")
 const TestBridge := preload("test_bridge.gd")
@@ -60,8 +60,8 @@ func _game_service() -> StringName:
 	return TestGame.SERVICE
 
 
-func _net_config() -> DotNetConfig:
-	var config := DotNetConfig.new()
+func _net_config() -> GSNetConfig:
+	var config := GSNetConfig.new()
 	config.tick_rate = 60
 	config.snapshot_rate = 20
 	config.max_entities_per_snapshot = 32
@@ -93,23 +93,23 @@ func _make_services() -> Node:
 	return null if skip_services else TestServices.new()
 
 
-func _game_load() -> DotResult:
+func _game_load() -> GSResult:
 	game_loaded += 1
 	use_noblock = not no_noblock
 
 	if refuse_game_load:
-		return DotResult.fail(DotError.CODE_STATE, "refusing on purpose")
+		return GSResult.fail(GSError.CODE_STATE, "refusing on purpose")
 
 	add_command("testgame_status", _cmd_status, "Show the game's state")
 
-	# Two levels down, as every game's DotVoteDirector sits inside its vote wrapper.
+	# Two levels down, as every game's GSVoteDirector sits inside its vote wrapper.
 	var wrapper := Node.new()
 	wrapper.name = "Vote"
 	add_child(wrapper)
 	clock = TestClock.new()
 	clock.name = "Clock"
 	wrapper.add_child(clock)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## A column for the Tab board, so the suite can see the hook reach the server.
@@ -133,5 +133,5 @@ func _game_tick(t: int, _delta: float) -> void:
 	game_ticks.append(t)
 
 
-func _cmd_status(ctx: DotCmdContext) -> void:
+func _cmd_status(ctx: GSCmdContext) -> void:
 	ctx.reply_lines(describe_lines())

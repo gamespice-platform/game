@@ -1,7 +1,7 @@
-class_name DotGameClientPointer
+class_name GSGameClientPointer
 extends RefCounted
 
-## Holds [DotGameClient]'s pointer for nodes in the [code]dot_pointer_modal[/code] group (GameSpice UI's ballot) while their [code]pointer_mode_changed(on)[/code] says they freed the mouse. Duck-typed by group and signal, so this names nothing in GameSpice UI.
+## Holds [GSGameClient]'s pointer for nodes in the [code]dot_pointer_modal[/code] group (GameSpice UI's ballot) while their [code]pointer_mode_changed(on)[/code] says they freed the mouse. Duck-typed by group and signal, so this names nothing in GameSpice UI.
 
 
 static func wire(c: Node) -> void:
@@ -66,7 +66,7 @@ static func menu_state(c: Node, any_open: bool) -> void:
 	if c.capture_pointer:
 		if any_open:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		elif not DotPlatform.is_web() and not c._busy() and c._pointer_wanted():
+		elif not GSPlatform.is_web() and not c._busy() and c._pointer_wanted():
 			# A browser refuses a capture that is not a click; _unhandled_input takes it.
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	c.menu_state_changed.emit(any_open)

@@ -7,15 +7,15 @@ extends SceneTree
 func _init() -> void:
 	var failed := false
 	print("project: %s (%s)" % [ProjectSettings.globalize_path("res://"), OS.get_environment("HOSTNAME")])
-	for script: Script in DotGameConfigSchemas.config_scripts():
+	for script: Script in GSGameConfigSchemas.config_scripts():
 		if not script.has_method("make_binder"):
 			continue
-		var made := DotGameConfigSchemas.binder_of(script)
+		var made := GSGameConfigSchemas.binder_of(script)
 		if not made.ok:
 			printerr("FAILED ", made.error.message)
 			failed = true
 			continue
-		var binder: DotGameConfigBinder = made.value
+		var binder: GSGameConfigBinder = made.value
 		var res := binder.write_templates()
 		print("%s %s" % ["wrote" if res.ok else "FAILED", ",".join(binder.template_files().keys())])
 		if not res.ok:

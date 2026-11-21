@@ -19,9 +19,9 @@ var _passed := 0
 var _failed := 0
 var _failures: Array[String] = []
 
-var _server: DotServer = null
+var _server: GSServer = null
 var _game: Node = null
-var _module: DotGameModule = null
+var _module: GSGameModule = null
 
 ## userid -> session, for the roster's substituted lookup.
 var _sessions: Dictionary = {}
@@ -33,7 +33,7 @@ func _make_game() -> void:
 	add_child(_game)
 
 
-func _load_module() -> DotResult:
+func _load_module() -> GSResult:
 	return await _server.modules.load_module(MODULE_PATH)
 
 

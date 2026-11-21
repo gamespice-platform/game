@@ -1,6 +1,6 @@
 extends RefCounted
 
-## [DotGameClient]'s settings build: the node, its rows, its menu. No class_name: the client preloads it.
+## [GSGameClient]'s settings build: the node, its rows, its menu. No class_name: the client preloads it.
 
 const CHANNEL := "game.client"
 
@@ -15,32 +15,32 @@ static func build(c: Node) -> void:
 	if not c.settings.is_inside_tree():
 		c.add_child(c.settings)
 	if not c.settings.has_method(&"setup"):
-		DotLog.warn(CHANNEL, "the settings node has no setup(); it is left alone", {"node": str(c.settings)})
+		GSLog.warn(CHANNEL, "the settings node has no setup(); it is left alone", {"node": str(c.settings)})
 		return
 
-	DotGameClientLook.add_rows(c)
+	GSGameClientLook.add_rows(c)
 	if c.use_slide_sounds:
 		preload("res://addons/dot_game/runtime/dot_game_slide_sounds.gd").declare_on(c.settings)
 	var built: Variant = c.settings.call(&"setup")
-	if built is DotResult and not (built as DotResult).ok:
-		DotLog.warn(CHANNEL, "no settings; everything is at its default", {"why": (built as DotResult).error.message})
+	if built is GSResult and not (built as GSResult).ok:
+		GSLog.warn(CHANNEL, "no settings; everything is at its default", {"why": (built as GSResult).error.message})
 		c.settings.queue_free()
 		c.settings = null
 		return
 
 	var got: Variant = c.settings.get(&"menu")
 	c.menu = got if got is Object else null
-	DotGameUserCfg.add_entry(c)
+	GSGameUserCfg.add_entry(c)
 
 
 ## The stock GameSpice Menu settings node, or null when GameSpice Menu is not in the build.
 static func make(c: Node) -> Node:
 	if not ResourceLoader.exists(c.SETTINGS_SCRIPT):
-		DotLog.info(CHANNEL, "dot-menu is not in this build: no settings or Escape menu")
+		GSLog.info(CHANNEL, "dot-menu is not in this build: no settings or Escape menu")
 		return null
 	var script: Variant = load(c.SETTINGS_SCRIPT)
 	if not (script is GDScript):
-		DotLog.warn(CHANNEL, "dot-menu's settings would not load", {"path": c.SETTINGS_SCRIPT})
+		GSLog.warn(CHANNEL, "dot-menu's settings would not load", {"path": c.SETTINGS_SCRIPT})
 		return null
 	var made: Node = (script as GDScript).new()
 	made.set(&"app_namespace", c.app_namespace)

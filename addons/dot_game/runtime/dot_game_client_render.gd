@@ -1,6 +1,6 @@
 extends RefCounted
 
-## [DotGameClient]'s render quality: GameSpice FX's [DotFxRenderQuality] on the client, so every game gets
+## [GSGameClient]'s render quality: GameSpice FX's [GSFxRenderQuality] on the client, so every game gets
 ## anisotropic filtering, anti-aliasing and mip bias from the player's menu and the `--render-*` cvars.
 ## No class_name: the client preloads it. GameSpice FX is optional and looked up by path.
 
@@ -22,5 +22,5 @@ static func add(c: Node, store: Object) -> Node:
 	if store != null and store.has_signal(&"changed"):
 		node.call(&"follow", store)
 	node.call(&"load_layers")
-	DotLog.debug(CHANNEL, "render quality applied", {"state": node.call(&"describe")})
+	GSLog.debug(CHANNEL, "render quality applied", {"state": node.call(&"describe")})
 	return node

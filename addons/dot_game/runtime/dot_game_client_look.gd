@@ -1,7 +1,7 @@
-class_name DotGameClientLook
+class_name GSGameClientLook
 extends RefCounted
 
-## The look-to-gag keys of [DotGameClient]: which keys, the GameSpice Voice node, and the target under the crosshair.
+## The look-to-gag keys of [GSGameClient]: which keys, the GameSpice Voice node, and the target under the crosshair.
 
 const CHANNEL := "game.client"
 
@@ -97,11 +97,11 @@ static func build(c: Node) -> void:
 	if not wanted(c) or c.look_mute != null:
 		return
 	if not ResourceLoader.exists(c.look_mute_script):
-		DotLog.info(CHANNEL, "dot-voice is not in this build: no look-to-gag keys")
+		GSLog.info(CHANNEL, "dot-voice is not in this build: no look-to-gag keys")
 		return
 	var script: Variant = load(c.look_mute_script)
 	if not (script is GDScript):
-		DotLog.warn(CHANNEL, "dot-voice's look-mute would not load", {"path": c.look_mute_script})
+		GSLog.warn(CHANNEL, "dot-voice's look-mute would not load", {"path": c.look_mute_script})
 		return
 	ensure_actions(c)
 	var node := (script as GDScript).new() as Node
@@ -114,12 +114,12 @@ static func build(c: Node) -> void:
 	node.set(&"target_fn", c.look_target_fn if c.look_target_fn.is_valid() else Callable(c, "_look_target"))
 	node.set(&"chat_mute_fn", c.look_chat_mute_fn if c.look_chat_mute_fn.is_valid() else Callable(c, "_look_chat_mute"))
 	c.add_child(node)
-	var source: Object = c.link if c.link != null else DotRegistry.get_service(c.LINK_SERVICE)
+	var source: Object = c.link if c.link != null else GSRegistry.get_service(c.LINK_SERVICE)
 	if source != null and node.has_method(&"follow_cvars"):
 		var _f: Variant = node.call(&"follow_cvars", source)
 	c.look_conflicts = conflicts(c)
 	for k in c.look_conflicts:
-		DotLog.warn(CHANNEL, "a look-to-gag key is also another action's key; rebind one",
+		GSLog.warn(CHANNEL, "a look-to-gag key is also another action's key; rebind one",
 			{"action": k["action"], "key": k["key"], "other": k["other"]})
 
 

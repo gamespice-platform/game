@@ -9,7 +9,7 @@
 # --passes (env VISUAL_JUDGE_PASSES, default 3, never below 3): production_ready needs this many CONSECUTIVE fresh
 #   judge passes, each with zero defects of any severity. Pass k is a new judge on variant k-1: shifted phase stills,
 #   different motion bursts (consecutive frames around the peaks), a close-up of one camera, and with --capture a
-#   recapture under SHOT_VQA_VARIANT=k-1 (DotGameVisualQaViews moves the outside cameras and turns/dims the lights).
+#   recapture under SHOT_VQA_VARIANT=k-1 (GSGameVisualQaViews moves the outside cameras and turns/dims the lights).
 #   The first pass with a defect ends the round (the streak resets); later passes are not run, so a bad clip costs one judge.
 # Evidence: each judge runs with --output-format stream-json; the pack's evidence.json records the judge's session id,
 #   every image it Read, the sha256 of every image, of the clip and of the verdict it Wrote, the pass, variant, round,

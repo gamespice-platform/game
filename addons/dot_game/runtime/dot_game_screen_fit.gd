@@ -1,9 +1,9 @@
-class_name DotGameScreenFit
+class_name GSGameScreenFit
 extends RefCounted
 
 ## Fits a touch screen: aspect expand (no pillarbox), a canvas whose short side is the HUD design's, and touch buttons sized from the real window and the display's DPI.
 ## Only the real-pixel floor is guaranteed: on the web and headless the DPI is a guess, so the millimetre target is only as true as it.
-## [DotGameClient] attaches one to the root window when [member DotGameClient.use_screen_fit] is on and [method DotPlatform.has_touch] says a finger can reach the screen. A game tunes it by assigning [member DotGameClient.screen_fit] before the client is added, or opts out with [code]use_screen_fit = false[/code].
+## [GSGameClient] attaches one to the root window when [member GSGameClient.use_screen_fit] is on and [method GSPlatform.has_touch] says a finger can reach the screen. A game tunes it by assigning [member GSGameClient.screen_fit] before the client is added, or opts out with [code]use_screen_fit = false[/code].
 
 const CHANNEL := "game.screen_fit"
 const MM_PER_INCH := 25.4
@@ -48,7 +48,7 @@ static func plan_for(window_px: Vector2, base: Vector2, short: float = 720.0) ->
 	return {"aspect": Window.CONTENT_SCALE_ASPECT_EXPAND, "size": canvas, "stretch": stretch}
 
 
-## The [code]button_scale[/code] that makes the smallest button in [param layout] (GameSpice UI's DotTouchButtons dictionaries: offset from the bottom-right corner towards the middle, radius) at least [param target_px] real pixels across at [param stretch], capped so the block fits [param limit] canvas units less [param margin], and never below 1.
+## The [code]button_scale[/code] that makes the smallest button in [param layout] (GameSpice UI's GSTouchButtons dictionaries: offset from the bottom-right corner towards the middle, radius) at least [param target_px] real pixels across at [param stretch], capped so the block fits [param limit] canvas units less [param margin], and never below 1.
 ## The block's reach from the corner is offset + radius per axis, which holds for a negative offset too (that button just reaches less far).
 static func button_scale_for(layout: Array, stretch: float, target_px: float, limit: Vector2, margin: float = 28.0) -> float:
 	if layout.is_empty() or stretch <= 0.0:
@@ -79,10 +79,10 @@ static func target_px_for(dpi: float, mm: float = 9.0, floor_px: float = 44.0) -
 
 
 ## Attaches [param fit] (or a default one) to [param win] when [param wanted] is 1, or -1 and a finger can reach the screen. Null when not wanted, leaving the project's stretch alone.
-static func install(win: Window, wanted: int = -1, fit: DotGameScreenFit = null) -> DotGameScreenFit:
-	if win == null or wanted == 0 or (wanted < 0 and not DotPlatform.has_touch()):
+static func install(win: Window, wanted: int = -1, fit: GSGameScreenFit = null) -> GSGameScreenFit:
+	if win == null or wanted == 0 or (wanted < 0 and not GSPlatform.has_touch()):
 		return null
-	var made := fit if fit != null else DotGameScreenFit.new()
+	var made := fit if fit != null else GSGameScreenFit.new()
 	made.attach(win)
 	return made
 
@@ -106,7 +106,7 @@ func attach(win: Window) -> void:
 	if not win.size_changed.is_connected(refit):
 		win.size_changed.connect(refit)
 	refit()
-	DotLog.info(CHANNEL, "touch screen fit: %s canvas %s at %.2f px per unit" % [win.size, plan.get("size", Vector2i.ZERO), float(plan.get("stretch", 1.0))])
+	GSLog.info(CHANNEL, "touch screen fit: %s canvas %s at %.2f px per unit" % [win.size, plan.get("size", Vector2i.ZERO), float(plan.get("stretch", 1.0))])
 
 
 ## Stops following the window and forgets the buttons; the last fit to let go puts the window's stretch back.
@@ -184,7 +184,7 @@ func dpi() -> float:
 	return float(DisplayServer.screen_get_dpi(window.current_screen if window != null and is_instance_valid(window) else -1))
 
 
-## Sizes [param buttons] (anything with [code]button_scale[/code] and [code]margin[/code], GameSpice UI's DotTouchButtons) for [param layout] now and on every refit. Returns the scale set.
+## Sizes [param buttons] (anything with [code]button_scale[/code] and [code]margin[/code], GameSpice UI's GSTouchButtons) for [param layout] now and on every refit. Returns the scale set.
 func fit_buttons(buttons_in: Variant, layout: Array) -> float:
 	# Untyped: the engine refuses a freed node at a typed parameter, before this guard could run.
 	if buttons_in == null or not is_instance_valid(buttons_in):

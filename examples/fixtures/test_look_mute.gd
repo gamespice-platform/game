@@ -1,6 +1,6 @@
 extends Node
 
-## A stand-in for GameSpice Voice's DotVoiceLookMute in the shape DotGameClient sets (the suite runs
+## A stand-in for GameSpice Voice's GSVoiceLookMute in the shape GSGameClient sets (the suite runs
 ## without GameSpice Voice): properties, tap(), pick_by_angle(); the real one is in each game's suite.
 
 var manager: Object = null

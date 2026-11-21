@@ -1,6 +1,6 @@
 extends Node
 
-## DotGameMapScripts: the script.* events of a GameSpice Map world handled, refused when forged, restored on a map change.
+## GSGameMapScripts: the script.* events of a GameSpice Map world handled, refused when forged, restored on a map change.
 
 const CHECKS := 21
 const FIXTURE_CFG := "res://examples/fixtures/mapcfg"
@@ -10,7 +10,7 @@ var _failed := 0
 var _failures := PackedStringArray()
 
 
-class ScriptModule extends DotGameModule:
+class ScriptModule extends GSGameModule:
 	func _module_name() -> String:
 		return "test-game"
 
@@ -19,26 +19,26 @@ class ScriptModule extends DotGameModule:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
 func _run() -> void:
 	print("dot-game: map script events")
-	if not ResourceLoader.exists(DotGameMapScripts.SCRIPT_PATH):
+	if not ResourceLoader.exists(GSGameMapScripts.SCRIPT_PATH):
 		print("SKIPPED: dot-map is not linked into this project (addons/dot_map)")
 		get_tree().quit(0)
 		return
 
-	DotAddonConfig.config_root = ProjectSettings.globalize_path(FIXTURE_CFG)
-	var console := DotConsole.new()
+	GSAddonConfig.config_root = ProjectSettings.globalize_path(FIXTURE_CFG)
+	var console := GSConsole.new()
 	add_child(console)
-	console.cvar("sv_runspeed", "300", "", DotConVar.FLAG_ARCHIVE)
-	console.cvar("sv_walkspeed", "0.5", "", DotConVar.FLAG_ARCHIVE)
+	console.cvar("sv_runspeed", "300", "", GSConVar.FLAG_ARCHIVE)
+	console.cvar("sv_walkspeed", "0.5", "", GSConVar.FLAG_ARCHIVE)
 	var run := console.find_cvar("sv_runspeed")
 	var walk := console.find_cvar("sv_walkspeed")
 
-	var s := DotGameMapScripts.new()
+	var s := GSGameMapScripts.new()
 	s.console = console
 	_check(not s.handle("effect.fire", {}), "a non-script event is not this handler's")
 	_check(s.handle("script.set_player_speed", {"kind": "run", "value": 250.0}) and run.get_float() == 250.0, "run speed is set through sv_runspeed")
@@ -66,7 +66,7 @@ func _run() -> void:
 	_check(s.handle("script.kill_players", {}) and kills[0] == 1, "kill_players calls kill_fn")
 	_check(s.handle("script.cleanup_map", {"delay": 5.0}) and cleaned[0] == 5.0, "cleanup_map calls cleanup_fn with the delay")
 	_check(not s.handle("script.cleanup_map", {"delay": 600.0}) and cleaned[0] == 5.0, "an out-of-range delay is refused")
-	var plain := DotGameMapScripts.new()
+	var plain := GSGameMapScripts.new()
 	_check(plain.handle("script.kill_players", {}) and plain.handle("script.cleanup_map", {"delay": 0.0}), "the defaults log and succeed without hooks")
 	s.enabled = false
 	_check(not s.handle("script.kill_players", {}) and kills[0] == 1, "the master switch drops every event")

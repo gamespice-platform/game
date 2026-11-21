@@ -1,4 +1,4 @@
-class_name DotGameWorkbenchRemoteClient
+class_name GSGameWorkbenchRemoteClient
 extends RefCounted
 
 ## The client half of the remote workbench: learns from the server whether this player may edit, and forwards edits.
@@ -19,25 +19,25 @@ signal refused(seq: int, message: String)
 var allowed: bool = false
 var flags := PackedStringArray()
 
-var _net: DotNetManager = null
+var _net: GSNetManager = null
 var _seq := 0
 
 
 ## Registers the message and starts listening. Call before the schema seals, on the client's manager.
-static func attach(net: DotNetManager) -> DotGameWorkbenchRemoteClient:
-	var made := DotGameWorkbenchMessage.register(net)
+static func attach(net: GSNetManager) -> GSGameWorkbenchRemoteClient:
+	var made := GSGameWorkbenchMessage.register(net)
 	if not made.ok:
 		return null
-	var c := DotGameWorkbenchRemoteClient.new()
+	var c := GSGameWorkbenchRemoteClient.new()
 	c._net = net
-	var _on := net.messages.on(DotGameWorkbenchMessage.NAME, c._on_message)
+	var _on := net.messages.on(GSGameWorkbenchMessage.NAME, c._on_message)
 	return c
 
 
 ## Asks the server where this player stands; call once connected.
 func ask() -> void:
-	var m := DotGameWorkbenchMessage.new()
-	m.kind = DotGameWorkbenchMessage.KIND_ASK
+	var m := GSGameWorkbenchMessage.new()
+	m.kind = GSGameWorkbenchMessage.KIND_ASK
 	_send(m)
 
 
@@ -49,8 +49,8 @@ func permit(actor: Variant, flag: String) -> bool:
 ## Sends [param req] to the server. Value: its seq.
 func request(req: Dictionary) -> int:
 	_seq += 1
-	var m := DotGameWorkbenchMessage.new()
-	m.kind = DotGameWorkbenchMessage.KIND_REQUEST
+	var m := GSGameWorkbenchMessage.new()
+	m.kind = GSGameWorkbenchMessage.KIND_REQUEST
 	m.seq = _seq
 	m.text = JSON.stringify(req)
 	_send(m)
@@ -58,15 +58,15 @@ func request(req: Dictionary) -> int:
 
 
 ## Applies a decoded frame; also the entry point of a suite.
-func handle_message(m: DotGameWorkbenchMessage) -> void:
+func handle_message(m: GSGameWorkbenchMessage) -> void:
 	match m.kind:
-		DotGameWorkbenchMessage.KIND_ACCESS:
+		GSGameWorkbenchMessage.KIND_ACCESS:
 			var was := allowed
 			allowed = m.allowed
 			flags = PackedStringArray(m.flags.split(",", false)) if allowed else PackedStringArray()
 			if was != allowed:
 				access_changed.emit(allowed)
-		DotGameWorkbenchMessage.KIND_REPLY:
+		GSGameWorkbenchMessage.KIND_REPLY:
 			var json := JSON.new()
 			var parsed: Variant = json.data if json.parse(m.text) == OK else null
 			if not (parsed is Dictionary):
@@ -76,15 +76,15 @@ func handle_message(m: DotGameWorkbenchMessage) -> void:
 				refused.emit(m.seq, str(((parsed as Dictionary).get("error", {}) as Dictionary).get("message", "refused")))
 
 
-func _on_message(message: DotNetMessage) -> void:
-	var m := message as DotGameWorkbenchMessage
+func _on_message(message: GSNetMessage) -> void:
+	var m := message as GSGameWorkbenchMessage
 	if m != null:
 		handle_message(m)
 
 
-func _send(m: DotGameWorkbenchMessage) -> void:
+func _send(m: GSGameWorkbenchMessage) -> void:
 	if _net == null:
 		return
 	var sent := _net.send(m)
 	if not sent.ok:
-		DotLog.debug(CHANNEL, "workbench frame not sent", {"why": sent.error.message})
+		GSLog.debug(CHANNEL, "workbench frame not sent", {"why": sent.error.message})

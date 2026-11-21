@@ -1,4 +1,4 @@
-class_name DotGamePerfBench
+class_name GSGamePerfBench
 extends Node
 
 ## A solo-client benchmark any game shares: its real client scene offline on a fixed map, mode, bot count and seed, recorded by the client's own GameSpice Profiler, so the report has the same per-system table as a player's `profiler_record`, plus a sidecar of engine numbers (draw calls, objects, physics, tick rate, renderer, adapter). A game's `tools/perf_bench.gd` extends this and sets `client_scene` in `_configure`; the hooks below cover the rest. Run it windowed on a GPU box with the game's `tools/perf_bench.sh` (which execs GameSpice Game's `tools/perf_bench.sh`), not headless: headless has no renderer, so the render cost reads as zero.
@@ -155,7 +155,7 @@ func wait(sec: float) -> void:
 	await get_tree().create_timer(sec, true, false, true).timeout
 
 
-## Shader pipelines the renderer has compiled so far (mesh, surface, draw and specialization), as dot-core's DotHitchLog reads them.
+## Shader pipelines the renderer has compiled so far (mesh, surface, draw and specialization), as dot-core's GSHitchLog reads them.
 static func pipeline_compiles() -> int:
 	return (RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_PIPELINE_COMPILATIONS_MESH)
 		+ RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_PIPELINE_COMPILATIONS_SURFACE)
@@ -272,7 +272,7 @@ func _run() -> void:
 		profiler.set_perf_option("map", map)
 		profiler.set_perf_option("bots", bots)
 		profiler.set_perf_option("tags", {"mode": mode, "tag": tag, "seed": str(seed_value)})
-		var started: DotResult = profiler.start_recording(seconds)
+		var started: GSResult = profiler.start_recording(seconds)
 		if not started.ok:
 			say("recording did not start: %s" % started.error.message)
 			get_tree().quit(1)
@@ -298,7 +298,7 @@ func _run() -> void:
 
 ## False (after saying why) when --profiler disagrees with what the client has.
 func _place_profiler(game: Object) -> bool:
-	profiler = DotRegistry.get_service(&"dot_profiler")
+	profiler = GSRegistry.get_service(&"dot_profiler")
 	if profiler == null and profiler_mode != "off":
 		profiler = preload("../runtime/dot_game_profiler.gd").add(self)
 		say("client has no profiler; placed one")

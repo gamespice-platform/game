@@ -1,7 +1,7 @@
-class_name DotGameClientStats
+class_name GSGameClientStats
 extends RefCounted
 
-## The stats half of [DotGameClient]'s board wiring: lifetime columns on the Tab board and a card for the player's own figures, both from GameSpice Menu by path, both off with `cl_stats_ui 0`. Needs a server whose module has a stats board.
+## The stats half of [GSGameClient]'s board wiring: lifetime columns on the Tab board and a card for the player's own figures, both from GameSpice Menu by path, both off with `cl_stats_ui 0`. Needs a server whose module has a stats board.
 
 const CVAR := "cl_stats_ui"
 const COLUMNS_SCRIPT := "res://addons/dot_menu/ui/dot_menu_stats.gd"
@@ -9,7 +9,7 @@ const PANEL_SCRIPT := "res://addons/dot_menu/ui/dot_menu_stats_panel.gd"
 const _Vis := preload("res://addons/dot_game/runtime/dot_game_client_vis.gd")
 
 
-## Installs the columns on [member DotGameClient.board] and builds the card beside it; idempotent.
+## Installs the columns on [member GSGameClient.board] and builds the card beside it; idempotent.
 static func wire(c: Node) -> void:
 	var board: Object = c.board
 	if board == null or not (board is Node) or not ResourceLoader.exists(COLUMNS_SCRIPT):
@@ -30,7 +30,7 @@ static func wire(c: Node) -> void:
 	apply(c)
 
 
-## Pushes [member DotGameClient.stats_ui] to the columns and the card.
+## Pushes [member GSGameClient.stats_ui] to the columns and the card.
 static func apply(c: Node) -> void:
 	if c.stats_columns != null:
 		c.stats_columns.set(&"enabled", c.stats_ui)
@@ -48,7 +48,7 @@ static func add_console_var(c: Node) -> void:
 		func(v: Variant) -> Variant:
 			c.stats_ui = str(v) not in ["0", "false", "off"]
 			apply(c)
-			return DotResult.success(1 if c.stats_ui else 0))
+			return GSResult.success(1 if c.stats_ui else 0))
 
 
 ## Opens the card for [param seconds] (0 until closed): an end-of-round screen calls this.

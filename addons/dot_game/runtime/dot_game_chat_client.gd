@@ -1,9 +1,9 @@
-class_name DotGameChatClient
+class_name GSGameChatClient
 extends Node
 
-## The client's half of [DotGameServices]: the chat box and the microphone.
+## The client's half of [GSGameServices]: the chat box and the microphone.
 ##
-## A game supplies its channels, colours, voice format and a bridge (duck-typed: `ask_say`, `send_voice`, signals `chat_received`, `voice_arrived`, optional `hello_received`). It decides nothing about a line. dot-server's `system` and `admin` lines come over `DotClientLink.chat_received` ([method draw_server_line]); player lines only over the bridge, or they show twice. dot-ui and dot-voice are loaded by path.
+## A game supplies its channels, colours, voice format and a bridge (duck-typed: `ask_say`, `send_voice`, signals `chat_received`, `voice_arrived`, optional `hello_received`). It decides nothing about a line. dot-server's `system` and `admin` lines come over `GSClientLink.chat_received` ([method draw_server_line]); player lines only over the bridge, or they show twice. dot-ui and dot-voice are loaded by path.
 
 const CHANNEL := "game.chat_client"
 
@@ -12,10 +12,10 @@ const LINK_SERVICE := &"dot_client_link"
 const WINDOW_SCRIPT := "res://addons/dot_ui/hud/dot_chat_window.gd"
 const VOICE_SCRIPT := "res://addons/dot_voice/runtime/dot_voice_manager.gd"
 
-## GameSpice Voice's talk action (`DotVoiceManager.TALK_ACTION`), as text: GameSpice Voice is loaded by path.
+## GameSpice Voice's talk action (`GSVoiceManager.TALK_ACTION`), as text: GameSpice Voice is loaded by path.
 const TALK_ACTION := &"dot_voice_talk"
 
-## The player's own block list (`sm`), GameSpice Chat's `DotChatSelfMute`: its registry name and
+## The player's own block list (`sm`), GameSpice Chat's `GSChatSelfMute`: its registry name and
 ## its script, for a build that has not made it yet.
 const SELF_MUTE_SERVICE := &"dot_self_mute"
 const SELF_MUTE_SCRIPT := "res://addons/dot_chat/runtime/dot_chat_self_mute.gd"
@@ -61,7 +61,7 @@ var window_settings: Dictionary = {}
 ## is already the server's `(peer_id, bytes)` names its client half here.
 var voice_method: StringName = &"send_voice"
 
-## The voice format, a `DotVoiceConfig`. Null leaves GameSpice Voice's own default, which is only
+## The voice format, a `GSVoiceConfig`. Null leaves GameSpice Voice's own default, which is only
 ## right if the server's router uses the same default.
 var voice_config: Resource = null
 
@@ -82,7 +82,7 @@ var positional_voice: bool = true
 var layer: int = 2
 
 ## Whether the server's own lines (see the class description) are drawn. A game that reads
-## `DotClientLink.chat_received` itself sets this false before [method attach], or both
+## `GSClientLink.chat_received` itself sets this false before [method attach], or both
 ## would draw every line.
 var server_lines: bool = true
 
@@ -98,10 +98,10 @@ var link: Object = null
 var local_colour: Color = Color(0.86, 0.88, 0.92)
 var notice_colour: Color = Color(0.98, 0.72, 0.35)
 
-## The box, a `DotChatWindow`, or null without GameSpice UI.
+## The box, a `GSChatWindow`, or null without GameSpice UI.
 var window: Control = null
 
-## The microphone and the speakers, a `DotVoiceManager`, or null without GameSpice Voice.
+## The microphone and the speakers, a `GSVoiceManager`, or null without GameSpice Voice.
 var voice: Node = null
 
 ## The bridge this box sends through, or null offline.
@@ -112,7 +112,7 @@ var local_player_id: int = 0
 
 ## Whether the player's own block list (`sm`) is honoured: a muted player's line is not
 ## drawn and their voice is not played. `!sm` / `/sm` typed in the box never reach the
-## bridge; the box (GameSpice UI's `DotChatWindow`) runs them before it emits anything.
+## bridge; the box (GameSpice UI's `GSChatWindow`) runs them before it emits anything.
 var self_mute_enabled: bool = true
 
 ## The block list, or null: anything with `is_muted_line(wire)` and `attach_voice(manager)`.
@@ -134,7 +134,7 @@ func _ready() -> void:
 func _find_self_mute() -> void:
 	if not self_mute_enabled or self_mute != null:
 		return
-	self_mute = DotRegistry.get_service(SELF_MUTE_SERVICE)
+	self_mute = GSRegistry.get_service(SELF_MUTE_SERVICE)
 	if self_mute != null or not ResourceLoader.exists(SELF_MUTE_SCRIPT):
 		return
 	var script: Variant = load(SELF_MUTE_SCRIPT)
@@ -214,12 +214,12 @@ func _build_voice() -> void:
 ## Joins this box to a bridge, or to nothing at all.
 ##
 ## [param p_bridge] null is the offline case: the box still opens, takes a line and shows it.
-func attach(p_bridge: Object) -> DotResult:
+func attach(p_bridge: Object) -> GSResult:
 	bridge = p_bridge
 
 	if bridge == null:
 		say_locally("Offline. Nobody can hear you, but the box works.", Color(0.72, 0.74, 0.78))
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 	if &"local_player_id" in bridge and bridge.get(&"local_player_id") is int:
 		local_player_id = int(bridge.get(&"local_player_id"))
@@ -234,7 +234,7 @@ func attach(p_bridge: Object) -> DotResult:
 	_watch_link()
 
 	if voice == null:
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 	# One frame out, one call. GameSpice Voice never touches a transport — which is what lets its
 	# whole path run headless — so this is the seam, and without it a client captures,
@@ -248,11 +248,11 @@ func attach(p_bridge: Object) -> DotResult:
 		# should appear, not at game load.
 
 	# The server's sv_voice_enable, replicated on the shell's link.
-	var cvar_source: Object = link if link != null else DotRegistry.get_service(LINK_SERVICE)
+	var cvar_source: Object = link if link != null else GSRegistry.get_service(LINK_SERVICE)
 	if cvar_source != null and cvar_source != bridge and voice.has_method(&"follow_cvars"):
 		var _following: Variant = voice.call(&"follow_cvars", cvar_source)
 
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Connects the server's own lines, once. A method and not a lambda, so the connection goes
@@ -262,7 +262,7 @@ func _watch_link() -> void:
 		return
 
 	if link == null:
-		link = DotRegistry.get_service(LINK_SERVICE)
+		link = GSRegistry.get_service(LINK_SERVICE)
 
 	if link == null or link == bridge or not link.has_signal(&"chat_received"):
 		return
@@ -276,7 +276,7 @@ func _on_server_line(payload: Dictionary) -> void:
 	var _drawn := draw_server_line(window, payload, server_colour, line_colours.get(&"admin", server_colour))
 
 
-## Draws one of GameSpice Server's own chat payloads in [param box] (a `DotChatWindow`, or anything with `add_text` and `add_said`), and says whether it was a line at all.
+## Draws one of GameSpice Server's own chat payloads in [param box] (a `GSChatWindow`, or anything with `add_text` and `add_said`), and says whether it was a line at all.
 ##
 ## Static, so a game with its own chat box draws them the same way. Only `system` and `admin` are drawn (player lines come over the bridge, so drawing them here shows each twice); `state` and a payload with no `text` return false.
 static func draw_server_line(
@@ -402,12 +402,12 @@ func _process(_delta: float) -> void:
 		return
 
 	# The first press opens the microphone; a refusal comes back once a press.
-	var started: DotResult = voice.call(&"update_talk", wanted)
+	var started: GSResult = voice.call(&"update_talk", wanted)
 
 	if wanted and not started.ok:
 		# Not fatal, and said once a press. A machine with no microphone is a legitimate
 		# client and the player can still hear and read everything.
-		DotLog.info(CHANNEL, "no microphone on this machine", {"why": started.error.message})
+		GSLog.info(CHANNEL, "no microphone on this machine", {"why": started.error.message})
 
 
 func _talk_held() -> bool:
@@ -429,13 +429,13 @@ func _ensure_talk_action() -> void:
 
 func _script(path: String, what: String) -> GDScript:
 	if not ResourceLoader.exists(path):
-		DotLog.info(CHANNEL, "%s is not installed in this build" % what, {"path": path})
+		GSLog.info(CHANNEL, "%s is not installed in this build" % what, {"path": path})
 		return null
 
 	var script: Variant = load(path)
 
 	if script == null or not (script is GDScript):
-		DotLog.warn(CHANNEL, "%s would not load" % what, {"path": path})
+		GSLog.warn(CHANNEL, "%s would not load" % what, {"path": path})
 		return null
 
 	return script as GDScript

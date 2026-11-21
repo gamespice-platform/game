@@ -1,6 +1,6 @@
-extends DotGameServices
+extends GSGameServices
 
-## [DotGameServices] with the hooks a subclass answers, for the suite's "hooks" section.
+## [GSGameServices] with the hooks a subclass answers, for the suite's "hooks" section.
 ##
 ## The layers the hooks reach are stand-ins ([FakeChat], [FakeLink]); under test is the base's decision, whether the backlog goes at seating or waits for the game.
 

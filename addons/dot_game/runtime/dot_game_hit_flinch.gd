@@ -1,19 +1,19 @@
-class_name DotGameHitFlinch
+class_name GSGameHitFlinch
 extends RefCounted
 
 ## What being hit does to a first-person view: a roll and shake of the camera and a wobble of the aim while sighted, instead of dropping the sights.
-## GameSpice Player Controller's DotFpsAimBreak and its sv_hit_* tunables are loaded by path; without them every call is a no-op.
-## Wire it with [method DotGameClient.add_hit_flinch], then call [method DotGameClient.note_hit] where the game learns the local player was hurt.
+## GameSpice Player Controller's GSFpsAimBreak and its sv_hit_* tunables are loaded by path; without them every call is a no-op.
+## Wire it with [method GSGameClient.add_hit_flinch], then call [method GSGameClient.note_hit] where the game learns the local player was hurt.
 
 const AIM_BREAK_SCRIPT := "res://addons/dot_player_controller/fp/core/dot_fps_aim_break.gd"
 
-## Returns the active DotFpsSampler (duck-typed), or null.
+## Returns the active GSFpsSampler (duck-typed), or null.
 var sampler_fn: Callable = Callable()
 ## Returns the view's Camera3D, or null.
 var camera_fn: Callable = Callable()
 ## Returns true while the player holds the sights up. Unset means the wobble never applies.
 var aim_fn: Callable = Callable()
-## Returns the DotFpsTunables carrying the sv_hit_* values; unset uses the sampler's.
+## Returns the GSFpsTunables carrying the sv_hit_* values; unset uses the sampler's.
 var tunables_fn: Callable = Callable()
 
 var _aim_break: RefCounted = null

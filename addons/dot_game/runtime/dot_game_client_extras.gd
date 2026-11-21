@@ -1,7 +1,7 @@
-class_name DotGameClientExtras
+class_name GSGameClientExtras
 extends RefCounted
 
-## The optional parts [DotGameClient] adds in setup: profiler, render quality, landing, slide sounds, latency, chat and team-menu wiring.
+## The optional parts [GSGameClient] adds in setup: profiler, render quality, landing, slide sounds, latency, chat and team-menu wiring.
 
 const _Vis := preload("res://addons/dot_game/runtime/dot_game_client_vis.gd")
 const _RenderQuality := preload("res://addons/dot_game/runtime/dot_game_render_quality.gd")
@@ -19,12 +19,12 @@ static func add_profiler(c: Node) -> void:
 		c.profiler.call(&"enable_capture_key")
 	if not bind_profiler_console(c):
 		# A game that builds its own console registers it later; bind then (deferred, so its own commands are on it).
-		DotRegistry.signals().service_registered.connect(c._on_console_service)
+		GSRegistry.signals().service_registered.connect(c._on_console_service)
 
 
 ## Drops the client's connections to the registry's static bus, which outlives it; called on exit tree.
 static func disconnect_registry_bus(c: Node) -> void:
-	var bus := DotRegistry.signals()
+	var bus := GSRegistry.signals()
 	if bus.service_registered.is_connected(c._on_console_service):
 		bus.service_registered.disconnect(c._on_console_service)
 	if bus.service_registered.is_connected(c._on_replay_service):
@@ -48,7 +48,7 @@ static func on_console_service(service: StringName, c: Node) -> void:
 static func bind_profiler_console(c: Node) -> bool:
 	if c._profiler_bound or c.profiler == null or not is_instance_valid(c.profiler):
 		return c._profiler_bound
-	var con: Object = c.console if c.console != null and is_instance_valid(c.console) else DotRegistry.get_service(&"dot_console")
+	var con: Object = c.console if c.console != null and is_instance_valid(c.console) else GSRegistry.get_service(&"dot_console")
 	if con == null or not con.has_method(&"sources"):
 		return false
 	var local: Object = null
@@ -85,7 +85,7 @@ const AUDIO_SCRIPTS: Array[String] = [
 
 ## Starts compiling the [constant AUDIO_SCRIPTS] on loader threads, so the sound pieces find them cached. Nothing without threads (web) or without GameSpice Audio.
 static func request_audio_scripts() -> void:
-	if not DotPlatform.has_threads():
+	if not GSPlatform.has_threads():
 		return
 	for path in AUDIO_SCRIPTS:
 		if ResourceLoader.exists(path) and not ResourceLoader.has_cached(path):
@@ -131,36 +131,36 @@ static func add_slide_sounds(c: Node) -> void:
 		node.queue_free()
 
 
-## Finds the client's DotNetManager in the registry now or when it registers (a server's is skipped).
+## Finds the client's GSNetManager in the registry now or when it registers (a server's is skipped).
 static func watch_latency_net(c: Node) -> void:
-	var bus := DotRegistry.signals()
+	var bus := GSRegistry.signals()
 	if not bus.service_registered.is_connected(c._on_latency_service):
 		bus.service_registered.connect(c._on_latency_service)
-	for service_name in DotRegistry.names():
-		on_latency_service(service_name, DotRegistry.get_service(service_name), c)
+	for service_name in GSRegistry.names():
+		on_latency_service(service_name, GSRegistry.get_service(service_name), c)
 
 
 static func on_latency_service(service_name: StringName, instance: Object, client: Node) -> void:
-	if not String(service_name).begins_with(String(DotNetManager.SERVICE)) or not (instance is DotNetManager):
+	if not String(service_name).begins_with(String(GSNetManager.SERVICE)) or not (instance is GSNetManager):
 		return
-	if (instance as DotNetManager).is_server:
+	if (instance as GSNetManager).is_server:
 		return
-	client.add_latency(instance as DotNetManager)
+	client.add_latency(instance as GSNetManager)
 
 
 ## Tunes the client's replay settings from _ready, so a client that never calls setup() (a game with its own menu and console) gets them too.
 static func watch_replay_tuning(c: Node) -> void:
-	var bus := DotRegistry.signals()
+	var bus := GSRegistry.signals()
 	if not bus.service_registered.is_connected(c._on_replay_service):
 		bus.service_registered.connect(c._on_replay_service)
-	for service_name in DotRegistry.names():
-		on_replay_service(service_name, DotRegistry.get_service(service_name), c)
+	for service_name in GSRegistry.names():
+		on_replay_service(service_name, GSRegistry.get_service(service_name), c)
 
 
 static func on_replay_service(service_name: StringName, instance: Object, client: Node) -> void:
-	if not client.tune_replay or not String(service_name).begins_with(String(DotNetManager.SERVICE)) or not (instance is DotNetManager):
+	if not client.tune_replay or not String(service_name).begins_with(String(GSNetManager.SERVICE)) or not (instance is GSNetManager):
 		return
-	var m := instance as DotNetManager
+	var m := instance as GSNetManager
 	if not m.is_server and m.config != null:
 		m.config.reconcile_once_per_frame = true
 		m.config.skip_matching_replays = true
@@ -169,8 +169,8 @@ static func on_replay_service(service_name: StringName, instance: Object, client
 static func bind_latency(c: Node) -> void:
 	if c._latency_net == null or c._latency_net.latency == null or c._latency_bound == c._latency_net:
 		return
-	var latency: DotNetLatency = c._latency_net.latency
-	var source: Object = c.link if c.link != null else DotRegistry.get_service(c.LINK_SERVICE)
+	var latency: GSNetLatency = c._latency_net.latency
+	var source: Object = c.link if c.link != null else GSRegistry.get_service(c.LINK_SERVICE)
 	var _followed := latency.follow_cvars(source)
 	var local := _Vis.local_source(c, StringName(latency.CVAR_BASELINE))
 	if local == null:
@@ -181,8 +181,8 @@ static func bind_latency(c: Node) -> void:
 			func() -> Variant: return latency.requested,
 			func(v: Variant) -> Variant:
 				if latency.set_cvar(n, str(v)):
-					return DotResult.success(latency.requested)
-				return DotResult.fail(DotError.CODE_INVALID, "%s takes seconds, e.g. 0.1" % n))
+					return GSResult.success(latency.requested)
+				return GSResult.fail(GSError.CODE_INVALID, "%s takes seconds, e.g. 0.1" % n))
 		return null)
 
 
@@ -191,7 +191,7 @@ static func wire_chat(c: Node) -> void:
 		return
 	if not c.chat.is_inside_tree():
 		c.add_child(c.chat)
-	# typing_changed(bool) on DotGameChatClient, opened(channel) / closed() on GameSpice UI's box.
+	# typing_changed(bool) on GSGameChatClient, opened(channel) / closed() on GameSpice UI's box.
 	for signal_name: StringName in [&"typing_changed", &"opened", &"closed"]:
 		if c.chat.has_signal(signal_name):
 			c.chat.connect(signal_name, c._refresh_blocked)
@@ -208,14 +208,14 @@ static func wire_team_menu(c: Node) -> void:
 		(teams as Object).set(&"default_when_unwired", c.team_menu_default_when_unwired)
 
 
-## The body of [method DotGameClient.add_console]: the kit's console, then the client's own vars on it.
+## The body of [method GSGameClient.add_console]: the kit's console, then the client's own vars on it.
 static func build_console(c: Node, manager: Object) -> Node:
 	if not ResourceLoader.exists(c.console_kit_path):
-		DotLog.info(c.CHANNEL, "dot-console is not in this build: no console")
+		GSLog.info(c.CHANNEL, "dot-console is not in this build: no console")
 		return null
 	var kit: Variant = load(c.console_kit_path)
 	if not (kit is GDScript):
-		DotLog.warn(c.CHANNEL, "dot-console's kit would not load", {"path": c.console_kit_path})
+		GSLog.warn(c.CHANNEL, "dot-console's kit would not load", {"path": c.console_kit_path})
 		return null
 	if manager == null and c.settings != null:
 		var got: Variant = c.settings.get(&"settings")
@@ -226,7 +226,7 @@ static func build_console(c: Node, manager: Object) -> Node:
 	var quality := _Vis.local_source(c, &"r_msaa")
 	if quality != null:
 		_RenderQuality.add_client_vars(quality, func() -> void: _RenderQuality.apply(c.get_viewport(), c.get_tree().root))
-	DotGameClientStats.add_console_var(c)
+	GSGameClientStats.add_console_var(c)
 	if c._latency_net != null:
 		bind_latency(c)
 	return c.console
@@ -238,8 +238,8 @@ static func map_changed(c: Node, map_id: String) -> void:
 		if (c.map_config_keys.is_empty() and c.map_config_defaults.is_empty()) \
 				or not c.map_config_get_fn.is_valid() or not c.map_config_set_fn.is_valid():
 			return
-		c.map_config = DotGameMapConfig.new()
-		c.map_config.game_id = c.map_config_game if c.map_config_game != "" else DotAddonConfig.game
+		c.map_config = GSGameMapConfig.new()
+		c.map_config.game_id = c.map_config_game if c.map_config_game != "" else GSAddonConfig.game
 		c.map_config.keys = c.map_config_keys
 		c.map_config.defaults = c.map_config_defaults
 		c.map_config.get_fn = c.map_config_get_fn

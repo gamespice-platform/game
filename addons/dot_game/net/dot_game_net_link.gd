@@ -1,8 +1,8 @@
-class_name DotGameNetLink
+class_name GSGameNetLink
 extends Node
 
 ## The five remote calls a game's own wire needs, on one node that exists on both ends. A game subclasses this and sets [member channel]; nothing else.
-## Godot refuses an RPC unless both ends declare the same `@rpc` set and routes it by NODE PATH: one script on both ends, the node named the same under a same-named parent ([DotServer] and [DotClientLink], both `Server`). Place it with [DotGameLink].
+## Godot refuses an RPC unless both ends declare the same `@rpc` set and routes it by NODE PATH: one script on both ends, the node named the same under a same-named parent ([GSServer] and [GSClientLink], both `Server`). Place it with [GSGameLink].
 ## Getting it wrong is no error: a client connects, goes quiet, and is timed out for not authenticating. `@rpc` annotations are inherited, so a subclass on both ends keeps the set identical by construction.
 
 const _Perf := preload("res://addons/dot_game/runtime/dot_game_profiler.gd")
@@ -45,14 +45,14 @@ func _live() -> bool:
 	)
 	if live != _was_live:
 		_was_live = live
-		DotLog.debug(channel, "the link went %s" % ("live" if live else "quiet"), {
+		GSLog.debug(channel, "the link went %s" % ("live" if live else "quiet"), {
 			"end": "server" if is_server else "client",
 			"loopback": loopback.is_valid(),
 		})
 	return live
 
 
-## One routed chat line, to one peer. An EVENT on this game's own wire, not dot-server's chat manager: [DotChatRouter] has the rules, and a second path would be a second rule set.
+## One routed chat line, to one peer. An EVENT on this game's own wire, not dot-server's chat manager: [GSChatRouter] has the rules, and a second path would be a second rule set.
 func send_chat(peer_id: int, wire: Dictionary) -> void:
 	if bridge != null:
 		bridge.send_chat(peer_id, wire)

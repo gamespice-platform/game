@@ -1,6 +1,6 @@
 extends RefCounted
 
-## A stand-in for GameSpice Console's DotConsoleKit: the one static DotGameClient calls by path.
+## A stand-in for GameSpice Console's GSConsoleKit: the one static GSGameClient calls by path.
 
 
 static func build(host: Node, settings: Object = null, menu: Object = null) -> Node:

@@ -1,7 +1,7 @@
 
 extends "dot_game_perf_bench.gd"
 
-## DotGamePerfBench for a game with no bench subclass of its own: `--scene res://game/x.tscn` names the client scene; the game's own default map, mode and bots are what run.
+## GSGamePerfBench for a game with no bench subclass of its own: `--scene res://game/x.tscn` names the client scene; the game's own default map, mode and bots are what run.
 ## Run as res://addons/dot_game/qa/dot_game_perf_bench_any.tscn (dot-game's tools/perf_bench.sh does when PERF_BENCH_SCENE says so).
 
 

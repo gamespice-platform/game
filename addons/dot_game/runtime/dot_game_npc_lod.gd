@@ -1,4 +1,4 @@
-class_name DotGameNpcLod
+class_name GSGameNpcLod
 extends RefCounted
 
 ## The NPC half of a server's cost as cvars, from one call: perception on worker threads (`sv_threads_npc`)
@@ -32,7 +32,7 @@ const TYPES := {
 
 var spawner: Object = null
 var scheduler: Node = null
-var console: DotConsole = null
+var console: GSConsole = null
 var server_config: Object = null
 
 var _host: Node = null
@@ -41,30 +41,30 @@ var _applied := {}
 
 
 ## Registers the cvars on [param console] (once).
-static func ensure_cvars(p_console: DotConsole) -> void:
+static func ensure_cvars(p_console: GSConsole) -> void:
 	for name: String in CVARS:
 		if p_console.find_cvar(name) != null:
 			continue
 		var spec: Array = CVARS[name]
-		var cv := p_console.cvar(name, str(spec[0]), String(spec[4]), DotConVar.FLAG_ARCHIVE)
+		var cv := p_console.cvar(name, str(spec[0]), String(spec[4]), GSConVar.FLAG_ARCHIVE)
 		cv.with_range(float(spec[1]), float(spec[2]))
 
 
-## Wires [param p_spawner] (a DotNpcSpawner, duck-typed) to the cvars. The scheduler is built the first time
+## Wires [param p_spawner] (a GSNpcSpawner, duck-typed) to the cvars. The scheduler is built the first time
 ## `npc_lod` is 1, so a server that never turns it on pays nothing. [param p_players] returns the positions the
 ## tiers measure from; null takes the spawner's candidates.
-static func attach(p_host: Node, p_console: DotConsole, p_spawner: Object, p_server_config: Object = null,
-		p_players: Callable = Callable()) -> DotGameNpcLod:
+static func attach(p_host: Node, p_console: GSConsole, p_spawner: Object, p_server_config: Object = null,
+		p_players: Callable = Callable()) -> GSGameNpcLod:
 	if p_spawner == null or p_console == null:
 		return null
 	ensure_cvars(p_console)
-	var lod := DotGameNpcLod.new()
+	var lod := GSGameNpcLod.new()
 	lod._host = p_host
 	lod.console = p_console
 	lod.spawner = p_spawner
 	lod.server_config = p_server_config
 	lod._players = p_players
-	DotLog.debug(CHANNEL, "attached")
+	GSLog.debug(CHANNEL, "attached")
 	lod.follow()
 	return lod
 

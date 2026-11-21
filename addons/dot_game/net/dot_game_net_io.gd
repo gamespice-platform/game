@@ -1,4 +1,4 @@
-class_name DotGameNetIo
+class_name GSGameNetIo
 extends Node
 
 ## The bytes in and out of a game's net bridge, the part every bridge wrote the same way. Ten games had each written these four functions and three fields; the code of all of them is the same.
@@ -6,7 +6,7 @@ extends Node
 ## [method _send] is the callback dot-net gives its manager for outgoing bytes: the delivery decides the call, never the caller. A client's reliable send is a request, because only the server may call [code]send_event[/code].
 
 ## The GameSpice Net manager this bridge feeds. Set by the game's attach().
-var net: DotNetManager = null
+var net: GSNetManager = null
 
 ## The game's RPC node.
 var link: Node = null
@@ -20,7 +20,7 @@ func _send(peer_id: int, payload: PackedByteArray, delivery: int) -> void:
 	if link == null:
 		return
 
-	if delivery == DotNetMessage.Delivery.UNRELIABLE:
+	if delivery == GSNetMessage.Delivery.UNRELIABLE:
 		link.send_snapshot(peer_id, payload)
 	elif net.is_server:
 		link.send_event(peer_id, payload)
@@ -29,25 +29,25 @@ func _send(peer_id: int, payload: PackedByteArray, delivery: int) -> void:
 
 
 ## A reliable message from the server, on a client. The server is peer 1.
-func receive_event(payload: PackedByteArray) -> DotResult:
+func receive_event(payload: PackedByteArray) -> GSResult:
 	if net == null:
-		return DotResult.fail(DotError.CODE_STATE, "No manager.")
+		return GSResult.fail(GSError.CODE_STATE, "No manager.")
 
 	return net.receive(payload, 1)
 
 
 ## A request from [param peer_id], on the server. The id is the transport's, never the body's.
-func receive_request(peer_id: int, payload: PackedByteArray) -> DotResult:
+func receive_request(peer_id: int, payload: PackedByteArray) -> GSResult:
 	if net == null:
-		return DotResult.fail(DotError.CODE_STATE, "No manager.")
+		return GSResult.fail(GSError.CODE_STATE, "No manager.")
 
 	return net.receive(payload, peer_id)
 
 
 ## A snapshot from the server, on a client; feeds [member rtt_source] to the clock first.
-func receive_snapshot(payload: PackedByteArray) -> DotResult:
+func receive_snapshot(payload: PackedByteArray) -> GSResult:
 	if net == null or net.is_server:
-		return DotResult.fail(DotError.CODE_FORBIDDEN, "Only a client receives these.")
+		return GSResult.fail(GSError.CODE_FORBIDDEN, "Only a client receives these.")
 
 	if rtt_source.is_valid():
 		net.stats.note_rtt(float(rtt_source.call()))

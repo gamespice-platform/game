@@ -1,5 +1,5 @@
 extends Node
 
-## A stand-in for a game's RPC link node: the one thing DotGameLink manages.
+## A stand-in for a game's RPC link node: the one thing GSGameLink manages.
 
 const NODE_NAME := &"TestLink"

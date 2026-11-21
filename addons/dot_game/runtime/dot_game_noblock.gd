@@ -1,9 +1,9 @@
-class_name DotGameNoblock
+class_name GSGameNoblock
 extends RefCounted
 
 ## Teammates pass through each other, enemies stop: GameSpice Team's block rules wired once for every game
 ## (loaded by path). The server builds one from the game's `body_rules` and binds `mp_teamblock` & co;
-## a client uses `DotGameClient.add_noblock`. Config is the `noblock` kind.
+## a client uses `GSGameClient.add_noblock`. Config is the `noblock` kind.
 
 const CHANNEL := "game.noblock"
 const RULES_SCRIPT := "res://addons/dot_team/core/dot_team_block_rules.gd"
@@ -15,9 +15,9 @@ const CVAR_FIELDS := {
 	"command_relations": "mp_blockcmd_relations", "scope": "mp_blockscope",
 }
 
-## A `DotTeamBlockRules`.
+## A `GSTeamBlockRules`.
 var rules: Object = null
-var binder: DotGameConfigBinder = null
+var binder: GSGameConfigBinder = null
 var commands: Object = null
 var _cvars: Dictionary = {}
 
@@ -30,14 +30,14 @@ static func available() -> bool:
 ## the boot) on a bad value or an unknown key; fails with CODE_UNSUPPORTED when GameSpice Team is absent.
 ## [param roots] and [param strict] are for tests. [param side_fn] is `(player id) -> side id` ("" or null for none).
 static func create(
-	game_id: String, side_fn: Callable, roots := PackedStringArray(), strict := DotGameConfigBinder.default_strict()
-) -> DotResult:
+	game_id: String, side_fn: Callable, roots := PackedStringArray(), strict := GSGameConfigBinder.default_strict()
+) -> GSResult:
 	if not available():
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "dot-team is not in this build.")
-	var nb := DotGameNoblock.new()
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "dot-team is not in this build.")
+	var nb := GSGameNoblock.new()
 	nb.rules = (load(RULES_SCRIPT) as GDScript).new()
 	nb.rules.set(&"side_fn", side_fn)
-	nb.binder = DotGameConfigBinder.create(nb.rules.get(&"config") as DotConfig, game_id, "mp")
+	nb.binder = GSGameConfigBinder.create(nb.rules.get(&"config") as GSConfig, game_id, "mp")
 	nb.binder.profile_kind = PROFILE_KIND
 	nb.binder.profile_id = PROFILE_KIND
 	nb.binder.strict = strict
@@ -46,7 +46,7 @@ static func create(
 	var loaded := nb.binder.load_layers()
 	if not loaded.ok:
 		return loaded.wrap("noblock configuration")
-	return DotResult.success(nb)
+	return GSResult.success(nb)
 
 
 ## Makes `pair_fn` of [param body_rules] answer from these rules.
@@ -56,23 +56,23 @@ func feed(body_rules: Object) -> void:
 
 ## Server: the cvars, the workbench kind (when [param runtime] is given) and the chat commands.
 ## [param add_cvar] and [param host] are the module's `add_cvar` and the module itself.
-func bind(add_cvar: Callable, host: Object, runtime: Object = null) -> DotResult:
-	var flags := DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED
-	for cv: Variant in rules.call(&"bind_cvars", add_cvar, flags, DotConVar.FLAG_REPLICATED):
-		_cvars[(cv as DotConVar).name] = cv
+func bind(add_cvar: Callable, host: Object, runtime: Object = null) -> GSResult:
+	var flags := GSConVar.FLAG_ARCHIVE | GSConVar.FLAG_NOTIFY | GSConVar.FLAG_REPLICATED
+	for cv: Variant in rules.call(&"bind_cvars", add_cvar, flags, GSConVar.FLAG_REPLICATED):
+		_cvars[(cv as GSConVar).name] = cv
 	for field: String in CVAR_FIELDS:
 		if not _cvars.has(CVAR_FIELDS[field]):
-			return DotResult.fail(DotError.CODE_STATE, "cvar %s was not bound" % CVAR_FIELDS[field])
+			return GSResult.fail(GSError.CODE_STATE, "cvar %s was not bound" % CVAR_FIELDS[field])
 	binder.field_changed.connect(_on_field)
 	if runtime != null:
-		binder.attach(runtime as DotProfileRuntime)
+		binder.attach(runtime as GSProfileRuntime)
 	if ResourceLoader.exists(COMMANDS_SCRIPT):
 		commands = (load(COMMANDS_SCRIPT) as GDScript).new(rules)
 		var res: Variant = commands.call(&"install", host)
-		if res is DotResult and not (res as DotResult).ok:
-			return (res as DotResult).wrap("!block and !noblock")
-	DotLog.debug(CHANNEL, "bound", {"chat_commands": commands != null})
-	return DotResult.success(self)
+		if res is GSResult and not (res as GSResult).ok:
+			return (res as GSResult).wrap("!block and !noblock")
+	GSLog.debug(CHANNEL, "bound", {"chat_commands": commands != null})
+	return GSResult.success(self)
 
 
 ## Client: follows the server's replicated values on [param source] (the game link).
@@ -83,24 +83,24 @@ func follow(source: Object) -> bool:
 func _on_field(key: String, _value: Variant, source: String) -> void:
 	if source == "cvar" or not CVAR_FIELDS.has(key):
 		return
-	var cv: DotConVar = _cvars.get(CVAR_FIELDS[key])
+	var cv: GSConVar = _cvars.get(CVAR_FIELDS[key])
 	if cv != null:
 		var held: Variant = (rules.get(&"config") as Object).get(key)
 		cv.force_set(("1" if held else "0") if held is bool else str(held))
 
 
-## Follows the server's block rules from a client: see [method DotGameClient.add_noblock].
-static func add_to_client(c: Node, game: Object, side_fn: Callable) -> DotResult:
+## Follows the server's block rules from a client: see [method GSGameClient.add_noblock].
+static func add_to_client(c: Node, game: Object, side_fn: Callable) -> GSResult:
 	if game == null or not ("body_rules" in game) or game.get("body_rules") == null:
-		return DotResult.fail(DotError.CODE_INVALID, "add_noblock needs a game with body_rules.")
-	var made := DotGameNoblock.create(c.map_config_game if c.map_config_game != "" else "game", side_fn)
+		return GSResult.fail(GSError.CODE_INVALID, "add_noblock needs a game with body_rules.")
+	var made := GSGameNoblock.create(c.map_config_game if c.map_config_game != "" else "game", side_fn)
 	if not made.ok:
 		return made
-	var rules: DotGameNoblock = made.value
+	var rules: GSGameNoblock = made.value
 	c.noblock = rules
 	rules.feed(game.get("body_rules"))
 	if "block_rules" in game:
 		game.set("block_rules", rules.rules)
 	if c.link == null or not rules.follow(c.link):
-		return DotResult.fail(DotError.CODE_STATE, "The game link cannot replicate cvars: noblock would not follow the server.")
-	return DotResult.success(rules)
+		return GSResult.fail(GSError.CODE_STATE, "The game link cannot replicate cvars: noblock would not follow the server.")
+	return GSResult.success(rules)

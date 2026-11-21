@@ -1,6 +1,6 @@
 extends Node
 
-## DotGameToyNet: the authority copies a toy's state out, a client poses its toy only after a state has arrived.
+## GSGameToyNet: the authority copies a toy's state out, a client poses its toy only after a state has arrived.
 
 const CHECKS := 9
 
@@ -23,7 +23,7 @@ class FakeToy:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 
@@ -40,7 +40,7 @@ func _run() -> void:
 	var toy := FakeToy.new()
 	toy.on = true
 	toy.count = 7
-	var net := DotGameToyNet.new()
+	var net := GSGameToyNet.new()
 	net.toy = toy
 	net.pull()
 	_check(net.net_count == 0, "a toy outside the tree is not read")

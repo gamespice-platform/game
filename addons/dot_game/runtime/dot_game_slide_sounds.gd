@@ -1,6 +1,6 @@
 extends Node
 
-## The scrape of a sliding player, for every first-person game: [DotGameClient] adds one in `setup()`. It finds each GameSpice Player Controller `DotFpsController` as it enters the tree, keeps GameSpice Audio's `DotAudioSlide` on those bodies, follows the server's `sv_slide_sounds` and the player's `slide_volume`. GameSpice Audio is loaded by path; without it, or without a `DotAudioManager` in the registry, nothing plays. No class_name: the client preloads it.
+## The scrape of a sliding player, for every first-person game: [GSGameClient] adds one in `setup()`. It finds each GameSpice Player Controller `GSFpsController` as it enters the tree, keeps GameSpice Audio's `GSAudioSlide` on those bodies, follows the server's `sv_slide_sounds` and the player's `slide_volume`. GameSpice Audio is loaded by path; without it, or without a `GSAudioManager` in the registry, nothing plays. No class_name: the client preloads it.
 
 const CHANNEL := "game.client.slide"
 const SLIDE_SCRIPT := "res://addons/dot_audio/runtime/dot_audio_slide.gd"
@@ -11,9 +11,9 @@ const SCHEMA_SCRIPT := "res://addons/dot_settings/core/dot_settings_schema.gd"
 const STOCK_SCRIPT := "res://addons/dot_menu/stock/dot_menu_stock.gd"
 const CVAR := "sv_slide_sounds"
 const SETTING := &"slide_volume"
-const CONTROLLER_CLASS := &"DotFpsController"
+const CONTROLLER_CLASS := &"GSFpsController"
 
-## The slide node (GameSpice Audio's `DotAudioSlide`, or a stand-in); built by [method start] when unset.
+## The slide node (GameSpice Audio's `GSAudioSlide`, or a stand-in); built by [method start] when unset.
 var slide: Node = null
 ## `func() -> Object`: the game link whose replicated cvars to follow; null offline.
 var link_fn: Callable = Callable()
@@ -21,9 +21,9 @@ var link_fn: Callable = Callable()
 var settings_fn: Callable = Callable()
 ## `func(node) -> bool`: what counts as a controller; unset is [method is_controller]. A suite swaps it.
 var controller_fn: Callable = Callable()
-## GameSpice Audio's `DotAudioSurf` (the glide on a ramp), built by [method start] when GameSpice Audio ships it.
+## GameSpice Audio's `GSAudioSurf` (the glide on a ramp), built by [method start] when GameSpice Audio ships it.
 var surf: Node = null
-## The `DotAudioSurfRules` behind [member surf] and its replicated `sv_surf_*` cvars; shared with [DotGameLanding] to mute landings.
+## The `GSAudioSurfRules` behind [member surf] and its replicated `sv_surf_*` cvars; shared with [GSGameLanding] to mute landings.
 var surf_rules: RefCounted = null
 ## Specs read once when the rules are built, so the per-frame bind never loads.
 var _surf_specs: Array = []
@@ -43,7 +43,7 @@ static func cvar_spec() -> Dictionary:
 	}
 
 
-## Adds [constant SETTING] to a `DotSettingsSchema` that lacks it. Null is a no-op.
+## Adds [constant SETTING] to a `GSSettingsSchema` that lacks it. Null is a no-op.
 static func declare(schema: Object) -> void:
 	if schema == null or schema.call(&"has", SETTING):
 		return
@@ -74,7 +74,7 @@ static func declare_on(menu_settings: Object) -> void:
 func start() -> bool:
 	if slide == null:
 		if not ResourceLoader.exists(SLIDE_SCRIPT):
-			DotLog.debug(CHANNEL, "dot-audio is not in this build: no slide sounds")
+			GSLog.debug(CHANNEL, "dot-audio is not in this build: no slide sounds")
 			return false
 		var script: Variant = load(SLIDE_SCRIPT)
 		if not (script is GDScript):
@@ -128,7 +128,7 @@ func _on_node_added(node: Node) -> void:
 		_controllers[node.get_instance_id()] = weakref(node)
 
 
-## Whether [param node] is a `DotFpsController` or a subclass of one, by script, so GameSpice Game names no GameSpice Player Controller class.
+## Whether [param node] is a `GSFpsController` or a subclass of one, by script, so GameSpice Game names no GameSpice Player Controller class.
 static func is_controller(node: Node) -> bool:
 	var script: Script = node.get_script() as Script
 	while script != null:

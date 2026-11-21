@@ -1,6 +1,6 @@
 extends Node
 
-## DotGameMapEdit against a fake console, point set, store and navigation: every command, the flag gate, validation, save, revert, export and import.
+## GSGameMapEdit against a fake console, point set, store and navigation: every command, the flag gate, validation, save, revert, export and import.
 
 const CHECKS := 68
 
@@ -11,7 +11,7 @@ var _host: Host = null
 var _server: FakeServer = null
 var _store: Store = null
 var _nav: Nav = null
-var _edit: DotGameMapEdit = null
+var _edit: GSGameMapEdit = null
 var _tests: Dictionary = {}
 var _d: Def = null
 
@@ -63,7 +63,7 @@ class PointSet:
 			list.append(p.to_dict())
 		return {"version": 1, "points": list}
 
-	static func from_dict(d: Dictionary) -> DotResult:
+	static func from_dict(d: Dictionary) -> GSResult:
 		var made := PointSet.new()
 		for e: Dictionary in d.get("points", []):
 			var p := Def.new()
@@ -72,7 +72,7 @@ class PointSet:
 			p.enabled = bool(e["enabled"])
 			p.position = Vector3(e["pos"][0], e["pos"][1], e["pos"][2])
 			made.add(p)
-		return DotResult.success(made)
+		return GSResult.success(made)
 
 
 class Store:
@@ -80,16 +80,16 @@ class Store:
 	var saved: Dictionary = {}
 	var saves: Array = []
 
-	func save(bundle: Variant, by: String) -> DotResult:
+	func save(bundle: Variant, by: String) -> GSResult:
 		await Engine.get_main_loop().process_frame
-		saved = DotGameMapEditBundle.as_dict(bundle).duplicate(true)
+		saved = GSGameMapEditBundle.as_dict(bundle).duplicate(true)
 		saves.append(by)
-		return DotResult.success(true)
+		return GSResult.success(true)
 
-	func load(_game: String, _id: String, _version: String) -> DotResult:
+	func load(_game: String, _id: String, _version: String) -> GSResult:
 		if saved.is_empty():
-			return DotResult.fail(DotError.CODE_INVALID, "nothing saved")
-		return DotResult.success(saved.duplicate(true))
+			return GSResult.fail(GSError.CODE_INVALID, "nothing saved")
+		return GSResult.success(saved.duplicate(true))
 
 
 class Nav:
@@ -97,28 +97,28 @@ class Nav:
 	var rebakes := 0
 	var links: Dictionary = {}
 
-	func rebake() -> DotResult:
+	func rebake() -> GSResult:
 		rebakes += 1
-		return DotResult.success(true)
+		return GSResult.success(true)
 
-	func add_link(link: Dictionary) -> DotResult:
+	func add_link(link: Dictionary) -> GSResult:
 		if links.has(link["id"]):
-			return DotResult.fail(DotError.CODE_CONFLICT, "duplicate link")
+			return GSResult.fail(GSError.CODE_CONFLICT, "duplicate link")
 		links[link["id"]] = link
-		return DotResult.success(true)
+		return GSResult.success(true)
 
-	func remove_link(id: StringName) -> DotResult:
+	func remove_link(id: StringName) -> GSResult:
 		if not links.has(str(id)):
-			return DotResult.fail(DotError.CODE_INVALID, "no such link")
+			return GSResult.fail(GSError.CODE_INVALID, "no such link")
 		links.erase(str(id))
-		return DotResult.success(true)
+		return GSResult.success(true)
 
 	func links_dict() -> Dictionary:
 		return {"links": links.duplicate(true)}
 
-	func load_links(d: Dictionary) -> DotResult:
+	func load_links(d: Dictionary) -> GSResult:
 		links = (d.get("links", {}) as Dictionary).duplicate(true)
-		return DotResult.success(true)
+		return GSResult.success(true)
 
 
 class Cmd:
@@ -174,7 +174,7 @@ class FakeServer:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 
@@ -221,7 +221,7 @@ func _make() -> void:
 	var server := FakeServer.new()
 	var store := Store.new()
 	var nav := Nav.new()
-	var edit := DotGameMapEdit.new()
+	var edit := GSGameMapEdit.new()
 	var tests: Dictionary = {"strategies": [], "moved": [], "changed": []}
 	var base := Def.new()
 	base.id = &"map_a"
@@ -241,14 +241,14 @@ func _make() -> void:
 		return copy
 	edit.pose_fn = func(_c: Object) -> Dictionary: return {"position": Vector3(5, 1, 6), "yaw": 1.5}
 	edit.map_fn = func() -> Dictionary: return {"game": "tg", "id": "dm_box", "version": "3", "digest": "abc"}
-	edit.strategy_fn = func(n: String) -> DotResult:
+	edit.strategy_fn = func(n: String) -> GSResult:
 		if n == "bogus":
-			return DotResult.fail(DotError.CODE_INVALID, "No such strategy.")
+			return GSResult.fail(GSError.CODE_INVALID, "No such strategy.")
 		tests["strategies"].append(n)
-		return DotResult.success(true)
-	edit.test_fn = func(_c: Object, d: Object) -> DotResult:
+		return GSResult.success(true)
+	edit.test_fn = func(_c: Object, d: Object) -> GSResult:
 		tests["moved"].append(str(d.get("id")))
-		return DotResult.success(true)
+		return GSResult.success(true)
 	edit.changed_fn = func(what: String) -> void: tests["changed"].append(what)
 	_host = host
 	_server = server
@@ -262,15 +262,15 @@ func _bind_checks() -> void:
 	var host := _host
 	var edit := _edit
 	var bound := edit.bind(host)
-	_check(bound.ok and host.commands.size() == DotGameMapEdit.COMMANDS.size(), "every role registers")
+	_check(bound.ok and host.commands.size() == GSGameMapEdit.COMMANDS.size(), "every role registers")
 	var gated := true
 	for name: String in host.commands:
 		gated = gated and (host.commands[name] as Cmd).permission == "config"
 	_check(gated, "every command carries the map_edit_flag")
 	_check(host.commands.has("spawn_add") and host.commands.has("mapdata_import"), "names match the plan")
 
-	var refused: DotResult = await edit.run("spawn_remove", _ctx_with(["nobody"]))
-	var allowed: DotResult = await edit.run("spawn_list", _ctx_with([]))
+	var refused: GSResult = await edit.run("spawn_remove", _ctx_with(["nobody"]))
+	var allowed: GSResult = await edit.run("spawn_list", _ctx_with([]))
 	_check(not refused.ok, "run reports a refusal as a failure")
 	_check(allowed.ok, "and a success as one")
 
@@ -426,7 +426,7 @@ func _import_checks() -> void:
 
 
 func _bare_checks() -> void:
-	var bare := DotGameMapEdit.new()
+	var bare := GSGameMapEdit.new()
 	var bare_host := Host.new()
 	bare.bind(bare_host)
 	var c := await _say(bare_host, "spawn_add", ["npc"])
@@ -435,7 +435,7 @@ func _bare_checks() -> void:
 	_check(c.last().contains("no navigation"), "no nav tools: a plain reply")
 	c = await _say(bare_host, "mapdata_save", [])
 	_check(c.last().contains("no map data store"), "no store: a plain reply")
-	_check(not DotGameMapEdit.new().bind(Object.new()).ok, "a host with no way to register is refused")
+	_check(not GSGameMapEdit.new().bind(Object.new()).ok, "a host with no way to register is refused")
 
 
 func _write(name: String, data: Dictionary) -> void:

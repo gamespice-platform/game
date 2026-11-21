@@ -1,6 +1,6 @@
 extends "test_chat_box.gd"
 
-## A chat box with a voice manager, as DotGameChatClient has one.
+## A chat box with a voice manager, as GSGameChatClient has one.
 
 var voice: Node = null
 var voice_position_fn: Callable = Callable()

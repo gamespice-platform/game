@@ -1,13 +1,13 @@
-class_name DotGameClient
+class_name GSGameClient
 extends "dot_game_client_seams.gd"
 
-## The client's half of [DotGameModule]: the platform layer every game client wires, once (usage in docs/client-migration.md).
+## The client's half of [GSGameModule]: the platform layer every game client wires, once (usage in docs/client-migration.md).
 ##
 ## A child the client root adds, never a base class. [method _ready] puts the cover up before the game builds; [method setup] builds settings and menu after. GameSpice Menu and GameSpice Console are looked up by path, and each piece has a `use_*` switch; a HUD or chat built later goes through [method set_hud] and [method set_chat].
 
 const CHANNEL := "game.client"
 
-## The shell's [code]DotClientLink[/code], by registry name.
+## The shell's [code]GSClientLink[/code], by registry name.
 const LINK_SERVICE := &"dot_client_link"
 ## GameSpice Menu's settings node, made when a game assigns none. Never named: GameSpice Menu is optional.
 const SETTINGS_SCRIPT := "res://addons/dot_menu/runtime/dot_menu_settings.gd"
@@ -32,8 +32,8 @@ signal input_blocked_changed(blocked: bool)
 signal menu_state_changed(any_open: bool)
 
 
-## The client root: the gate goes under it so its camera check and [method DotLoadGate.of] see the game. The parent when unset.
-@export var host_ref: DotNodeRef = null
+## The client root: the gate goes under it so its camera check and [method GSLoadGate.of] see the game. The parent when unset.
+@export var host_ref: GSNodeRef = null
 
 ## Play offline even with a link (a suite, [code]--offline[/code]).
 @export var force_offline: bool = false
@@ -45,7 +45,7 @@ signal menu_state_changed(any_open: bool)
 @export var use_standalone_content: bool = true
 ## Build the load gate and its cover. Off for a client whose shell covers it some other way.
 @export var use_gate: bool = true
-## Mount what `content.lock.json` pins ([DotGameLockedContent]) once at start. No lock file means nothing happens; `--locked_content=0` or `GS_PACKS_FROM=none` switch it off.
+## Mount what `content.lock.json` pins ([GSGameLockedContent]) once at start. No lock file means nothing happens; `--locked_content=0` or `GS_PACKS_FROM=none` switch it off.
 @export var use_locked_content: bool = true
 ## Also mount the lock when offline, forced offline or headless. Off by default: a standalone client fetching its own pack holds the gate with reason `locked_content`, which hangs suites. `--locked_content=PATH` still opts in.
 @export var locked_content_offline: bool = false
@@ -53,13 +53,13 @@ signal menu_state_changed(any_open: bool)
 @export var require_camera: bool = true
 ## Compile what the first frame draws under the cover before lifting it. Never headless, where the warm-up would only wait out its timeout.
 @export var warm_up: bool = true
-## A scene instanced as the gate's cover instead of [DotLoadingCover]. Null keeps the stock cover.
+## A scene instanced as the gate's cover instead of [GSLoadingCover]. Null keeps the stock cover.
 @export var cover_scene: PackedScene = null
 ## A cover node of your own, assigned before add_child; wins over [member cover_scene].
 var cover: Node = null
 ## The status line while [member spawned_fn] is false.
 @export var spawned_text: String = "Joining"
-## Tell the server when the cover lifts and returns, so [DotGameModule.is_loading] can spare a player who cannot see yet. Connected only.
+## Tell the server when the cover lifts and returns, so [GSGameModule.is_loading] can spare a player who cannot see yet. Connected only.
 @export var report_loading: bool = true
 
 ## [code]func() -> bool[/code]: true once the local player exists. Held under [constant REASON_SPAWNED] until then; unset holds nothing.
@@ -124,47 +124,47 @@ var pointer_fn: Callable = Callable()
 @export var gate_only: bool = false
 ## Turn the period-key team menu on over the menu: Play and Spectate as a free-for-all when no rules are wired, the server's teams when connected. A game that calls `use_teams` itself keeps its own.
 @export var use_team_menu: bool = true
-## False: with no teams wired and no server link, the period key says the game has no teams instead of offering Play and Spectate (`DotMenuTeams.default_when_unwired`). A connected server's own `mp_teamswitch_enabled` and `mp_teamswitch_spectate` still rule the connected menu.
+## False: with no teams wired and no server link, the period key says the game has no teams instead of offering Play and Spectate (`GSMenuTeams.default_when_unwired`). A connected server's own `mp_teamswitch_enabled` and `mp_teamswitch_spectate` still rule the connected menu.
 @export var team_menu_default_when_unwired: bool = true
 ## Flush [code]user://[/code] to the browser's storage when the game goes. A no-op off the web.
 @export var sync_on_exit: bool = true
-## Fits a touch screen in [method _ready] ([DotGameScreenFit]: no pillarbox, a HUD-sized canvas, buttons sized from the DPI with a 44 px floor); leaving the tree gives the window its stretch back. Off keeps the project's stretch.
+## Fits a touch screen in [method _ready] ([GSGameScreenFit]: no pillarbox, a HUD-sized canvas, buttons sized from the DPI with a 44 px floor); leaving the tree gives the window its stretch back. Off keeps the project's stretch.
 @export var use_screen_fit: bool = true
 ## The fit when attached, else null. Assign a tuned one before the client enters the tree to replace the default.
-var screen_fit: DotGameScreenFit = null
+var screen_fit: GSGameScreenFit = null
 
-## The game's settings node (a `DotMenuSettings` subclass), assigned before [method setup]; null makes the stock one.
+## The game's settings node (a `GSMenuSettings` subclass), assigned before [method setup]; null makes the stock one.
 var settings: Node = null
 ## The HUD's root Control: it follows the menu's theme and HUD size.
 var hud: Control = null
 ## The game's accent over the theme (GameSpice Menu's [code]follow_hud[/code]); null for none.
 var hud_accent: Theme = null
-## The chat box: a [DotGameChatClient], a GameSpice UI window, or anything with `is_typing()` or `is_open()`. Typing blocks input and keeps Escape off the menu.
+## The chat box: a [GSGameChatClient], a GameSpice UI window, or anything with `is_typing()` or `is_open()`. Typing blocks input and keeps Escape off the menu.
 var chat: Node = null
 ## [code]func() -> bool[/code]: something else of the game's has the keyboard (a command line). Blocks input and frees the pointer.
 var busy_fn: Callable = Callable()
 var _pointer_holds: Dictionary = {}
-var _fits := DotGameFitRequests.new()
+var _fits := GSGameFitRequests.new()
 ## [code]func() -> Dictionary[/code]: the Tab board offline (GameSpice Menu's snapshot shape); connected, the link's roster feeds it.
 var board_snapshot_fn: Callable = Callable()
-## The map menu on M: `func() -> Array` of rows and `func(id) -> DotResult` to change. Both unset leave M doing nothing.
+## The map menu on M: `func() -> Array` of rows and `func(id) -> GSResult` to change. Both unset leave M doing nothing.
 var maps_rows_fn: Callable = Callable()
 var maps_change_fn: Callable = Callable()
 ## The map menu's title and plural noun ("Change house", "houses"); empty keeps GameSpice Menu's.
 var maps_title: String = ""
 var maps_noun: String = ""
 
-## Per-map settings on the client (cvars a map's file sets, see [DotGameMapConfig]): the whitelist, key -> `{type, min, max}`. Empty takes none.
+## Per-map settings on the client (cvars a map's file sets, see [GSGameMapConfig]): the whitelist, key -> `{type, min, max}`. Empty takes none.
 var map_config_keys: Dictionary = {}
 ## The weakest layer for a map with no file: key -> value.
 var map_config_defaults: Dictionary = {}
-## The `cfg/game/<game>/dot_map/` game name; [code]DotAddonConfig.game[/code] when empty.
+## The `cfg/game/<game>/dot_map/` game name; [code]GSAddonConfig.game[/code] when empty.
 var map_config_game: String = ""
 ## `(key) -> Variant` and `(key, value) -> bool` over the client's cvars; both needed.
 var map_config_get_fn: Callable = Callable()
 var map_config_set_fn: Callable = Callable()
 ## The built applier, after the first [method map_changed].
-var map_config: DotGameMapConfig = null
+var map_config: GSGameMapConfig = null
 
 
 ## The client root this serves.
@@ -172,7 +172,7 @@ var host: Node = null
 ## The shell's link, or null offline. Assign before add_child to use another.
 var link: Object = null
 ## The avatar actions' client half, once [method add_avatar_actions] has run.
-var avatar_actions: DotGameAvatarActionClient = null
+var avatar_actions: GSGameAvatarActionClient = null
 
 ## The content fetcher of the last [method prepare_avatar_content], whose cache holds the files.
 var avatar_fetcher: RefCounted = null
@@ -185,14 +185,14 @@ var _avatar_library := {}
 var offline: bool = true
 ## Whether this client turned the cfg tier on ([member user_cfg] and solo or listen host).
 var user_tier_on: bool = false
-var user_cfg_overlay: DotGameUserCfg.Overlay = null
+var user_cfg_overlay: GSGameUserCfg.Overlay = null
 ## GameSpice Core's load gate, under [member host]. Hold more on it: [code]gate.hold(&"map")[/code].
-var gate: DotLoadGate = null
-## [method DotCloudClient.ensure_locked]'s report once the lock was processed, else null.
+var gate: GSLoadGate = null
+## [method GSCloudClient.ensure_locked]'s report once the lock was processed, else null.
 var locked_content: Variant = null
-## Whether `setup()` adds the slide scrape ([DotGameSlideSounds]): the server's `sv_slide_sounds`, the player's `slide_volume`. On by default; it plays only with GameSpice Audio and a `DotAudioManager` in the registry.
+## Whether `setup()` adds the slide scrape ([GSGameSlideSounds]): the server's `sv_slide_sounds`, the player's `slide_volume`. On by default; it plays only with GameSpice Audio and a `GSAudioManager` in the registry.
 var use_slide_sounds: bool = true
-## Whether `setup()` adds GameSpice FX's `DotFxRenderQuality` (anisotropic filtering, anti-aliasing, mip bias; the menu's `aniso`, `aa`, `mip_bias`, `sharpness`). A no-op without GameSpice FX, or when a `RenderQuality` child exists.
+## Whether `setup()` adds GameSpice FX's `GSFxRenderQuality` (anisotropic filtering, anti-aliasing, mip bias; the menu's `aniso`, `aa`, `mip_bias`, `sharpness`). A no-op without GameSpice FX, or when a `RenderQuality` child exists.
 var use_render_quality: bool = true
 ## The node [member use_render_quality] added, else null.
 var render_quality: Node = null
@@ -205,15 +205,15 @@ var _profiler_bound: bool = false
 var slide_settings: Object = null
 ## The slide node, once `setup()` has added it.
 var slide_sounds: Node = null
-## The GameSpice Audio scripts [method DotGameClientExtras.request_audio_scripts] compiled on a loader thread; held so the cache keeps them until the sound pieces ran.
+## The GameSpice Audio scripts [method GSGameClientExtras.request_audio_scripts] compiled on a loader thread; held so the cache keeps them until the sound pieces ran.
 var _audio_scripts: Array = []
-## Whether `setup()` adds the landing thump and camera-kick strength ([DotGameLanding]: `cl_landing_volume`, `cl_landing_kick`). Plays only with GameSpice Audio and a `DotAudioManager` in the registry; fall damage is separate and server-side.
+## Whether `setup()` adds the landing thump and camera-kick strength ([GSGameLanding]: `cl_landing_volume`, `cl_landing_kick`). Plays only with GameSpice Audio and a `GSAudioManager` in the registry; fall damage is separate and server-side.
 var use_landing: bool = true
 ## The landing node, once `setup()` has added it.
 var landing: Node = null
 ## Set by [method add_noblock].
-var noblock: DotGameNoblock = null
-## The settings' menu (GameSpice Menu's `DotMenu`), its board and its map menu. A game with its own menu assigns [member menu] before [method setup] (or calls [method adopt_menu]); an assigned [member board] is kept.
+var noblock: GSGameNoblock = null
+## The settings' menu (GameSpice Menu's `GSMenu`), its board and its map menu. A game with its own menu assigns [member menu] before [method setup] (or calls [method adopt_menu]); an assigned [member board] is kept.
 var menu: Object = null
 var board: Object = null:
 	set(value):
@@ -232,7 +232,7 @@ var maps: Object = null
 var console: Node = null
 ## Map culling for a converted map ([method attach_visibility]): `off` (the default, nothing is built), `pvs`, `occluders` or `both`. The console's `vis_mode` and `--vis_mode=` on the command line set it.
 @export_enum("off", "pvs", "occluders", "both") var vis_mode: String = "off"
-## GameSpice Map's DotMapVisibility while one is attached and on, else null.
+## GameSpice Map's GSMapVisibility while one is attached and on, else null.
 var visibility: Node = null
 var _vis_world: RefCounted = null
 var _vis_drawn: WeakRef = null
@@ -243,16 +243,16 @@ const SETUP_PIECES: Array[StringName] = [&"chat", &"settings", &"console", &"pro
 ## Microseconds each piece of the last [method setup] or [method setup_stepped] took, by piece name.
 var setup_usec: Dictionary = {}
 var _set_up: bool = false
-var _feel: DotGameCombatFeel = null
+var _feel: GSGameCombatFeel = null
 var _feel_crosshair: Control = null
 var _feel_arsenal_fn: Callable = Callable()
 var _feel_camera_fn: Callable = Callable()
 var _feel_console_bound: bool = false
-## Sets [member DotNetConfig.reconcile_once_per_frame] and [member DotNetConfig.skip_matching_replays] on the client's netcode; off, or set them after, to opt out. Default false in dot-net would rewind and replay the whole input lead on every snapshot.
+## Sets [member GSNetConfig.reconcile_once_per_frame] and [member GSNetConfig.skip_matching_replays] on the client's netcode; off, or set them after, to opt out. Default false in dot-net would rewind and replay the whole input lead on every snapshot.
 var tune_replay: bool = true
-var _latency_net: DotNetManager = null
-var _latency_bound: DotNetManager = null
-var _hit_flinch: DotGameHitFlinch = null
+var _latency_net: GSNetManager = null
+var _latency_bound: GSNetManager = null
+var _hit_flinch: GSGameHitFlinch = null
 # True while board came from the menu's own scoreboard: adopting another menu then takes that menu's board.
 var _board_auto: bool = false
 # Boards already given to board_prepare_fn: each is prepared once, however often it is wired.
@@ -274,17 +274,17 @@ func _ready() -> void:
 	if mp != null and not mp.server_disconnected.is_connected(restore_map_config):
 		mp.server_disconnected.connect(restore_map_config)
 	if link == null:
-		link = DotRegistry.get_service(LINK_SERVICE)
+		link = GSRegistry.get_service(LINK_SERVICE)
 	offline = offline_wanted(force_offline, link != null, OS.get_cmdline_user_args().has("--offline"), local_link)
 	if use_gate:
 		_Life.wire_gate(self)
 	_apply_user_tier()
-	DotGameClientExtras.watch_replay_tuning(self)
+	GSGameClientExtras.watch_replay_tuning(self)
 	var standalone: Node = null
 	# Headless is a test run: a cold cache would hold the cover on a real download and fail every cover check.
 	if offline and use_standalone_content and DisplayServer.get_name() != "headless":
-		standalone = DotGameStandaloneContent.install(self, gate)
-	if locked_content_wanted(use_locked_content, offline, DisplayServer.get_name() == "headless", locked_content_offline or DotGameLockedContent.cmdline_value() not in ["", "0"]):
+		standalone = GSGameStandaloneContent.install(self, gate)
+	if locked_content_wanted(use_locked_content, offline, DisplayServer.get_name() == "headless", locked_content_offline or GSGameLockedContent.cmdline_value() not in ["", "0"]):
 		_mount_locked_content(standalone)
 	_Vis.apply_cmdline(self)
 	_RenderQuality.apply_cmdline()
@@ -294,12 +294,12 @@ func _ready() -> void:
 	if not get_tree().node_added.is_connected(_on_node_added_quality):
 		get_tree().node_added.connect(_on_node_added_quality)
 	_blocked = is_input_blocked()
-	DotGamePageGuard.install(self)
+	GSGamePageGuard.install(self)
 	# Compiled on a loader thread from here, so setup's profiler piece finds it ready rather than waiting frames for it.
 	if use_profiler and not gate_only and DisplayServer.get_name() != "headless":
 		var _loading := _Profiler.request_script()
 	if (use_slide_sounds or use_landing) and not gate_only and DisplayServer.get_name() != "headless":
-		DotGameClientExtras.request_audio_scripts()
+		GSGameClientExtras.request_audio_scripts()
 
 
 func _attach_screen_fit() -> void:
@@ -307,15 +307,15 @@ func _attach_screen_fit() -> void:
 		screen_fit = _fits.attach(get_tree().root, screen_fit)
 
 
-## Sizes GameSpice UI's DotTouchButtons for [param layout] from the DPI (44 real px at least) and keeps them sized on every resize. Returns the scale; 1 when no fit is attached, and the request is applied when one attaches.
+## Sizes GameSpice UI's GSTouchButtons for [param layout] from the DPI (44 real px at least) and keeps them sized on every resize. Returns the scale; 1 when no fit is attached, and the request is applied when one attaches.
 func fit_touch_buttons(buttons: Variant, layout: Array) -> float:
 	return _fits.request(screen_fit, buttons, layout)
 
 
 ## The shell's content client, else the one standalone play just made. Runs after the gate exists so the cover shows it.
 func _mount_locked_content(standalone: Node) -> void:
-	var cloud: Object = DotRegistry.get_service(DotGameStandaloneContent.CLOUD_SERVICE)
-	var lock_result: DotResult = await DotGameLockedContent.run(cloud if cloud != null else standalone, gate)
+	var cloud: Object = GSRegistry.get_service(GSGameStandaloneContent.CLOUD_SERVICE)
+	var lock_result: GSResult = await GSGameLockedContent.run(cloud if cloud != null else standalone, gate)
 	locked_content = lock_result.value if lock_result.ok else null
 
 
@@ -337,7 +337,7 @@ static func user_tier_allowed(opt_in: bool, solo: bool, listen_host: bool, dedic
 func _apply_user_tier() -> void:
 	var dedicated := bool(dedicated_fn.call()) if dedicated_fn.is_valid() else OS.has_feature("dedicated_server")
 	user_tier_on = user_tier_allowed(user_cfg, offline, listen_host_fn.is_valid() and bool(listen_host_fn.call()), dedicated)
-	DotAddonConfig.set_user_tier(user_tier_on)
+	GSAddonConfig.set_user_tier(user_tier_on)
 
 
 func _on_gate_cover(covered: bool) -> void:
@@ -349,7 +349,7 @@ func _on_gate_cover(covered: bool) -> void:
 static func report_cover(to_link: Object, covered: bool) -> bool:
 	if to_link == null or not is_instance_valid(to_link) or not to_link.has_method(&"send_kind"):
 		return false
-	return bool(to_link.call(&"send_kind", DotGameRoster.COVER_KIND, {"covered": covered}))
+	return bool(to_link.call(&"send_kind", GSGameRoster.COVER_KIND, {"covered": covered}))
 
 
 func _resolve_host() -> Node:
@@ -361,14 +361,14 @@ func _resolve_host() -> Node:
 
 
 ## Builds the gate under [member host]. Override for a gate of your own; null is no gate.
-func _make_gate() -> DotLoadGate:
+func _make_gate() -> GSLoadGate:
 	return _Life.make_gate(self)
 
 
 ## The settings, menu, console, theme, Tab, M, the chat's keyboard and the pointer. Call once, after the HUD and chat exist. A piece that cannot be built is logged and the rest go on.
-func setup() -> DotResult:
+func setup() -> GSResult:
 	if _set_up:
-		return DotResult.fail(DotError.CODE_STATE, "This game client's platform is already set up.")
+		return GSResult.fail(GSError.CODE_STATE, "This game client's platform is already set up.")
 	_set_up = true
 	setup_usec.clear()
 	for piece in _setup_pieces():
@@ -377,9 +377,9 @@ func setup() -> DotResult:
 
 
 ## [method setup] one piece at a time ([constant SETUP_PIECES]), so no single client frame pays for all of it. [param between] is `func(piece: StringName)`, may await, and runs after each piece; unset waits a process frame, except headless, which runs in one go. When it steps, the GameSpice Profiler script compiles on a loader thread before its piece. Await it.
-func setup_stepped(between: Callable = Callable()) -> DotResult:
+func setup_stepped(between: Callable = Callable()) -> GSResult:
 	if _set_up:
-		return DotResult.fail(DotError.CODE_STATE, "This game client's platform is already set up.")
+		return GSResult.fail(GSError.CODE_STATE, "This game client's platform is already set up.")
 	_set_up = true
 	setup_usec.clear()
 	return await _Life.stepped(self, between)
@@ -394,12 +394,12 @@ func _run_setup_piece(piece: StringName) -> void:
 	_Life.run_piece(self, piece)
 
 
-func _finish_setup() -> DotResult:
-	if not gate_only and capture_pointer and not DotPlatform.is_web():
+func _finish_setup() -> GSResult:
+	if not gate_only and capture_pointer and not GSPlatform.is_web():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_refresh_blocked()
-	DotLog.debug(CHANNEL, "platform set up", {"usec": setup_usec})
-	return DotResult.success(self)
+	GSLog.debug(CHANNEL, "platform set up", {"usec": setup_usec})
+	return GSResult.success(self)
 
 
 ## Adds `slide_volume` to a settings schema a game builds itself (a game on GameSpice Menu's node through `setup()` gets it without this).
@@ -431,7 +431,7 @@ func set_chat(box: Node) -> void:
 	_Life.unwire_chat(self)
 	chat = box
 	if _set_up:
-		DotGameClientExtras.wire_chat(self)
+		GSGameClientExtras.wire_chat(self)
 		_refresh_blocked()
 
 
@@ -446,7 +446,7 @@ func _build_settings() -> void:
 
 ## Opens the cfg editor over the menu. False without the tier, files, menu or editor.
 func open_user_cfg() -> bool:
-	return DotGameUserCfg.open(self)
+	return GSGameUserCfg.open(self)
 
 
 ## Hands over a menu the game built itself, with its own board if any. Before [method setup] it is the same as assigning [member menu]; after, it is wired at once.
@@ -471,37 +471,37 @@ func restore_map_config() -> void:
 
 ## The map changed on this client: applies the map's settings and puts the last map's back. Call it on every map load (a map's own load, a round's new layout); a no-op until [member map_config_keys] or its defaults and both functions are set.
 func map_changed(map_id: String) -> void:
-	DotGameClientExtras.map_changed(self, map_id)
+	GSGameClientExtras.map_changed(self, map_id)
 
 
 ## Builds the console now, over [param manager] and the menu. [method setup] calls it; a game that builds its menu first turns [member use_console] off and calls this. The first console stays.
 func add_console(manager: Object = null) -> Node:
 	if console != null and is_instance_valid(console):
 		return console
-	return DotGameClientExtras.build_console(self, manager)
+	return GSGameClientExtras.build_console(self, manager)
 
 
 func _on_console_service(service_name: StringName, _instance: Object) -> void:
-	DotGameClientExtras.on_console_service(service_name, self)
+	GSGameClientExtras.on_console_service(service_name, self)
 
 
 func _on_replay_service(service_name: StringName, instance: Object) -> void:
-	DotGameClientExtras.on_replay_service(service_name, instance, self)
+	GSGameClientExtras.on_replay_service(service_name, instance, self)
 
 
 func _on_latency_service(service_name: StringName, instance: Object) -> void:
-	DotGameClientExtras.on_latency_service(service_name, instance, self)
+	GSGameClientExtras.on_latency_service(service_name, instance, self)
 
 
-## Makes `cl_latency_baseline <seconds>` typable in the console (artificial lag for testing) and follows the server's replicated `sv_allow_client_latency`, which at 0 forces it to 0. [method setup] calls it with the client's registered [DotNetManager]; safe to call again.
-func add_latency(manager: DotNetManager) -> void:
+## Makes `cl_latency_baseline <seconds>` typable in the console (artificial lag for testing) and follows the server's replicated `sv_allow_client_latency`, which at 0 forces it to 0. [method setup] calls it with the client's registered [GSNetManager]; safe to call again.
+func add_latency(manager: GSNetManager) -> void:
 	if manager == null or (manager == _latency_bound and _latency_net == manager):
 		return
 	_latency_net = manager
 	if tune_replay and manager.config != null:
 		manager.config.reconcile_once_per_frame = true
 		manager.config.skip_matching_replays = true
-	DotGameClientExtras.bind_latency(self)
+	GSGameClientExtras.bind_latency(self)
 
 
 ## A sun that loads after startup (a map's) gets the shadow distance cap too.
@@ -510,7 +510,7 @@ func _on_node_added_quality(node: Node) -> void:
 		_RenderQuality.cap_sun.call_deferred(node as DirectionalLight3D)
 
 
-## Culls [param world] (a GameSpice Map DotMapBspMesh) drawn as [param drawn] by [member vis_mode], under [param parent] (default [param drawn]); call on every map load. Null while off, without GameSpice Map, or for a map with no visibility data.
+## Culls [param world] (a GameSpice Map GSMapBspMesh) drawn as [param drawn] by [member vis_mode], under [param parent] (default [param drawn]); call on every map load. Null while off, without GameSpice Map, or for a map with no visibility data.
 func attach_visibility(world: RefCounted, drawn: Node3D, parent: Node = null) -> Node:
 	return _Vis.attach(self, world, drawn, parent)
 
@@ -527,7 +527,7 @@ func set_vis_mode(mode: String) -> bool:
 
 ## Relays the menu's open and close as [signal menu_state_changed], from the settings node else the menu (an adopted menu also via `overlays_changed`).
 func _connect_menu_state() -> void:
-	DotGameClientMenu.connect_state(self)
+	GSGameClientMenu.connect_state(self)
 
 
 func _settings_menu() -> Object:
@@ -539,7 +539,7 @@ func _settings_menu() -> Object:
 
 ## Undoes _wire_menu for the menu being replaced: its signal, busy callable and HUD follow.
 func _unwire_menu() -> void:
-	DotGameClientMenu.unwire(self)
+	GSGameClientMenu.unwire(self)
 
 
 func _wire_menu() -> void:
@@ -556,48 +556,48 @@ func _wire_menu() -> void:
 			var got: Variant = menu.get(&"scoreboard")
 			board = got if got is Object else null
 			_board_auto = board != null
-	DotGameClientExtras.wire_team_menu(self)
-	DotGameClientMenu.wire_board(self)
-	DotGameClientStats.wire(self)
-	DotGameClientMenu.wire_maps(self)
+	GSGameClientExtras.wire_team_menu(self)
+	GSGameClientMenu.wire_board(self)
+	GSGameClientStats.wire(self)
+	GSGameClientMenu.wire_maps(self)
 
 
 ## Opens the stats card for [param seconds] (0 keeps it): the end of a round. Nothing when the stats UI is off or the menu has no card.
 func show_stats(seconds: float = 8.0) -> void:
-	DotGameClientStats.show(self, seconds)
+	GSGameClientStats.show(self, seconds)
 
 
 func _ensure_scoreboard_action() -> void:
-	DotGameClientMenu.ensure_scoreboard_action(self)
+	GSGameClientMenu.ensure_scoreboard_action(self)
 
 
 ## The first of [param candidates] no action holds and no row of [param table] defaults to.
 func free_look_key(candidates: Array, table: Object = null) -> String:
-	return DotGameClientLook.free_key(self, candidates, table)
+	return GSGameClientLook.free_key(self, candidates, table)
 
 
 ## Actions other than the look-mute pair that hold [param keycode] (physical or logical).
 func key_holders(keycode: int) -> PackedStringArray:
-	return DotGameClientLook.holders(self, keycode)
+	return GSGameClientLook.holders(self, keycode)
 
 
 ## Builds the look keys now; [method setup] does it, so call this only when the voice came later.
 func build_look_mute() -> void:
-	DotGameClientLook.build(self)
+	GSGameClientLook.build(self)
 
 
 ## The look-mute actions whose key another action also holds, as [code]{action, key, other}[/code].
 func find_look_conflicts() -> Array[Dictionary]:
-	return DotGameClientLook.conflicts(self)
+	return GSGameClientLook.conflicts(self)
 
 
 func _look_chat_mute(peer: int, muted: bool) -> void:
-	DotGameClientLook.chat_mute(self, peer, muted)
+	GSGameClientLook.chat_mute(self, peer, muted)
 
 
 ## A phone's gag (or, [param mute], mute) button: the key press on the player under the crosshair. False when the voice look keys are not built.
 func touch_look(mute: bool = false) -> bool:
-	return DotGameClientLook.tap(self, mute)
+	return GSGameClientLook.tap(self, mute)
 
 
 ## A phone's scoreboard button, held: the board opens on the press and closes on the release. A release always closes; a press waits while a menu or the chat has the screen.
@@ -611,11 +611,11 @@ func touch_maps() -> bool:
 
 
 func _look_target() -> int:
-	return DotGameClientLook.target(self)
+	return GSGameClientLook.target(self)
 
 
 func _on_menu_state(any_open: bool) -> void:
-	DotGameClientPointer.menu_state(self, any_open)
+	GSGameClientPointer.menu_state(self, any_open)
 
 
 func _input(event: InputEvent) -> void:
@@ -626,11 +626,11 @@ func _input(event: InputEvent) -> void:
 
 ## Whether [param event] was an Escape that only freed the captured pointer; nothing is freed while a menu, the chat or the game's keyboard owner has the keys.
 func _release_pointer_on_escape(event: InputEvent) -> bool:
-	return DotGameClientPointer.escape_frees(self, event)
+	return GSGameClientPointer.escape_frees(self, event)
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	DotGameClientPointer.click_captures(self, event)
+	GSGameClientPointer.click_captures(self, event)
 
 
 func _pointer_wanted() -> bool:
@@ -640,21 +640,21 @@ func _pointer_wanted() -> bool:
 func _process(_delta: float) -> void:
 	if screen_fit != null:
 		screen_fit.poll()
-	DotGameClientFeel.drive(self)
+	GSGameClientFeel.drive(self)
 	if _hit_flinch != null:
 		_hit_flinch.drive()
 	# Polled as well as signalled: busy_fn is the game's and says nothing when it changes.
 	_refresh_blocked()
-	DotGamePageGuard.refresh(self)
+	GSGamePageGuard.refresh(self)
 
 
-## Opts this client into [DotGameCombatFeel]: follows the server's sv_spread_* / sv_recoil_* values, adds cl_crosshair_* to the console once it exists, and opens [param crosshair] with the cone of the arsenal [param arsenal_fn] returns each frame. Call after [method setup]; [param link] defaults to this client's.
-func add_combat_feel(feel: DotGameCombatFeel, crosshair: Control, arsenal_fn: Callable, camera_fn: Callable = Callable()) -> void:
-	DotGameClientFeel.add(self, feel, crosshair, arsenal_fn, camera_fn)
+## Opts this client into [GSGameCombatFeel]: follows the server's sv_spread_* / sv_recoil_* values, adds cl_crosshair_* to the console once it exists, and opens [param crosshair] with the cone of the arsenal [param arsenal_fn] returns each frame. Call after [method setup]; [param link] defaults to this client's.
+func add_combat_feel(feel: GSGameCombatFeel, crosshair: Control, arsenal_fn: Callable, camera_fn: Callable = Callable()) -> void:
+	GSGameClientFeel.add(self, feel, crosshair, arsenal_fn, camera_fn)
 
 
-## Opts this client into [DotGameHitFlinch]: a hit shakes the camera and wobbles the aim (sv_hit_*) instead of dropping the sights. [param sampler_fn] returns the active DotFpsSampler, [param camera_fn] the view's Camera3D, [param aim_fn] whether the sights are up. Feed hits with [method note_hit].
-func add_hit_flinch(sampler_fn: Callable, camera_fn: Callable, aim_fn: Callable, tunables_fn: Callable = Callable()) -> DotGameHitFlinch:
+## Opts this client into [GSGameHitFlinch]: a hit shakes the camera and wobbles the aim (sv_hit_*) instead of dropping the sights. [param sampler_fn] returns the active GSFpsSampler, [param camera_fn] the view's Camera3D, [param aim_fn] whether the sights are up. Feed hits with [method note_hit].
+func add_hit_flinch(sampler_fn: Callable, camera_fn: Callable, aim_fn: Callable, tunables_fn: Callable = Callable()) -> GSGameHitFlinch:
 	_hit_flinch = _Life.hit_flinch(sampler_fn, camera_fn, aim_fn, tunables_fn)
 	return _hit_flinch
 
@@ -674,7 +674,7 @@ func is_in_live_game() -> bool:
 
 ## Drops the leave-site prompt now, for code that deliberately navigates the page. The next frame re-arms it if the link is live, so call it in the same frame.
 func clear_leave_guard() -> void:
-	DotGamePageGuard.clear(self)
+	GSGamePageGuard.clear(self)
 
 
 ## Re-reads whether input is blocked and emits [signal input_blocked_changed] on a change. Polled each frame; call it the frame a chat or overlay opens.
@@ -695,33 +695,33 @@ func is_input_blocked() -> bool:
 
 
 ## Follows the server's `mp_teamblock` family so this client predicts against the same pairs: the game's `block_rules` feeds `body_rules.pair_fn`. Call after [method setup]; fails when GameSpice Team is absent or the link cannot replicate cvars.
-func add_noblock(game: Object, side_fn: Callable) -> DotResult:
-	return DotGameNoblock.add_to_client(self, game, side_fn)
+func add_noblock(game: Object, side_fn: Callable) -> GSResult:
+	return GSGameNoblock.add_to_client(self, game, side_fn)
 
 
-## Downloads what a server advertises ([constant DotGameAvatarContent.CVAR]) before connecting, holding [member gate]; on failure the gate stays held and the caller must not connect.
-func prepare_avatar_content(rules: Dictionary, base_url: String, server_id: int, http: DotHttp = null) -> DotResult:
-	return await DotGameClientAvatars.prepare_content(self, rules, base_url, server_id, http)
+## Downloads what a server advertises ([constant GSGameAvatarContent.CVAR]) before connecting, holding [member gate]; on failure the gate stays held and the caller must not connect.
+func prepare_avatar_content(rules: Dictionary, base_url: String, server_id: int, http: GSHttp = null) -> GSResult:
+	return await GSGameClientAvatars.prepare_content(self, rules, base_url, server_id, http)
 
 
 ## [member avatar_site_url], else the site this client signs in against.
 func avatar_site() -> String:
-	return avatar_site_url if avatar_site_url != "" else DotGameAvatarContent.default_site_url()
+	return avatar_site_url if avatar_site_url != "" else GSGameAvatarContent.default_site_url()
 
 
-## [member avatar_server_id], else the server's replicated [constant DotGameAvatarContent.SERVER_CVAR].
+## [member avatar_server_id], else the server's replicated [constant GSGameAvatarContent.SERVER_CVAR].
 func avatar_server() -> int:
-	return DotGameClientAvatars.server(self)
+	return GSGameClientAvatars.server(self)
 
 
-## Wires the avatar actions (emote `,`, pose `.`, gesture `/`) to the figures: a press plays on [param figure_fn] (peer id -> figure) and is relayed through [param net] (null offline). Register [DotGameAvatarActionMessage] before the manager is sealed. Call after [method setup].
-func add_avatar_actions(net: DotNetManager, figure_fn: Callable, backbone_actions: Variant = null) -> DotResult:
-	return DotGameClientAvatars.add_actions(self, net, figure_fn, backbone_actions)
+## Wires the avatar actions (emote `,`, pose `.`, gesture `/`) to the figures: a press plays on [param figure_fn] (peer id -> figure) and is relayed through [param net] (null offline). Register [GSGameAvatarActionMessage] before the manager is sealed. Call after [method setup].
+func add_avatar_actions(net: GSNetManager, figure_fn: Callable, backbone_actions: Variant = null) -> GSResult:
+	return GSGameClientAvatars.add_actions(self, net, figure_fn, backbone_actions)
 
 
-## Hosts a [DotGameWorkbench] on this client: its window counts as a menu overlay and the console gets `workbench`. Call after [method setup] and the workbench's `start()`.
+## Hosts a [GSGameWorkbench] on this client: its window counts as a menu overlay and the console gets `workbench`. Call after [method setup] and the workbench's `start()`.
 func add_workbench(wb: Node) -> void:
-	DotGameWorkbench.host_on(self, wb)
+	GSGameWorkbench.host_on(self, wb)
 
 
 ## True once the gate has lifted (or when there is none).
@@ -731,7 +731,7 @@ func is_shown() -> bool:
 
 ## True while the Escape menu, one of its screens or the console is open.
 func is_menu_open() -> bool:
-	return DotGameClientMenu.is_open(self)
+	return GSGameClientMenu.is_open(self)
 
 
 func _chat_typing() -> bool:
@@ -748,11 +748,11 @@ func hold_pointer(key: Variant) -> void:
 
 
 func _wire_pointer_modals() -> void:
-	DotGameClientPointer.wire(self)
+	GSGameClientPointer.wire(self)
 
 
 func _on_node_added(node: Node) -> void:
-	DotGameClientPointer.adopt(node, self)
+	GSGameClientPointer.adopt(node, self)
 
 
 ## Ends [method hold_pointer]; the pointer is taken back once no hold and no menu remains.
@@ -769,12 +769,12 @@ func _notification(what: int) -> void:
 		return
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED \
 			or what == NOTIFICATION_EXIT_TREE:
-		DotWeb.sync_filesystem()
+		GSWeb.sync_filesystem()
 
 
 func describe() -> Dictionary:
-	return DotGameClientDescribe.describe(self)
+	return GSGameClientDescribe.describe(self)
 
 
 func describe_lines() -> PackedStringArray:
-	return DotGameClientDescribe.lines(self)
+	return GSGameClientDescribe.lines(self)

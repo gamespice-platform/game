@@ -1,4 +1,4 @@
-class_name DotGameNetchaosClient
+class_name GSGameNetchaosClient
 extends Node
 
 ## One real game client of `tools/netchaos.sh`: the game's client scene over ENet to a remote server, a
@@ -29,7 +29,7 @@ var _transport := "udp"
 var _frames: PackedFloat32Array = PackedFloat32Array()
 
 var _keepalive: Variant = null
-var _link: DotClientLink = null
+var _link: GSClientLink = null
 var _client: Node = null
 var _pilot: Node = null
 var _dropped := false
@@ -91,7 +91,7 @@ func _ready() -> void:
 			"--transport": _transport = args[i + 1]
 			"--seq": _seq_dir = args[i + 1]
 	name = "Netchaos"  # RPC paths must match the server's root name
-	DotLog.set_level(DotLog.Level.WARN)
+	GSLog.set_level(GSLog.Level.WARN)
 	_keepalive = _prepare("netchaos_client_" + _name)
 	_run.call_deferred()
 	if _seq_dir != "":
@@ -101,7 +101,7 @@ func _ready() -> void:
 func _record_seq() -> void:
 	await get_tree().create_timer(maxf(_start_at + _active * 0.5 - _now(), 0.0)).timeout
 	OS.set_environment("GS_SHOT_FRAMES", "16")
-	await DotShotSeq.new().record(get_tree(), _seq_dir.trim_suffix(".seq") + ".png")
+	await GSShotSeq.new().record(get_tree(), _seq_dir.trim_suffix(".seq") + ".png")
 
 
 func _process(delta: float) -> void:
@@ -132,15 +132,15 @@ func _now() -> float:
 	return Time.get_unix_time_from_system()
 
 
-# Every `cnet` below is untyped on purpose: with `var cnet: DotNetManager` here and a typed
-# `DotClientLink` in the same script, Godot 4.7.2 left 120 objects and 90 scripts at exit (the exit-walk
+# Every `cnet` below is untyped on purpose: with `var cnet: GSNetManager` here and a typed
+# `GSClientLink` in the same script, Godot 4.7.2 left 120 objects and 90 scripts at exit (the exit-walk
 # bug), and `netchaos clean` failed on it. Do not annotate them.
 func _join() -> bool:
 	_sessions += 1
 	_dropped = false
 	_gone_reason = ""
 	var began := _now()
-	_link = DotClientLink.new()
+	_link = GSClientLink.new()
 	_link.name = "Server"
 	_link.player_name = "nc_" + _name
 	_link.transport_preference = _transport
@@ -312,7 +312,7 @@ func _roster() -> Array:
 
 
 ## The client's game node: its `game` property when set, else the first node-valued script variable of the client (or of a
-## `DotGameClient` child) that has a `players()` method, else a node in group `game`. A game names it as it likes
+## `GSGameClient` child) that has a `players()` method, else a node in group `game`. A game names it as it likes
 ## (playlot's is `playlot`), so the roster watch must not need the name.
 static func _find_game(client: Node) -> Object:
 	if client == null:
@@ -322,7 +322,7 @@ static func _find_game(client: Node) -> Object:
 		return named
 	var holders: Array = [client]
 	for child in client.get_children():
-		if child is DotGameClient:
+		if child is GSGameClient:
 			holders.append(child)
 	for holder: Object in holders:
 		for prop in holder.get_property_list():

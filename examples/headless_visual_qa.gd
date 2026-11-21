@@ -39,14 +39,14 @@ func _check(ok: bool, what: String) -> void:
 
 func _plan() -> void:
 	var by_item := {"rifle": PackedStringArray(["idle", "fire"]), "pistol": PackedStringArray(["fire", "reload"])}
-	var all := DotGameVisualQaCapture.plan(by_item, PackedStringArray(), PackedStringArray())
+	var all := GSGameVisualQaCapture.plan(by_item, PackedStringArray(), PackedStringArray())
 	_check(all.size() == 4, "plan: no filter keeps every pair, got %d" % all.size())
 	_check(all[0] == PackedStringArray(["rifle", "idle"]), "plan: pairs keep item then clip order, got %s" % str(all[0]))
-	var fire := DotGameVisualQaCapture.plan(by_item, PackedStringArray(), PackedStringArray(["fire"]))
+	var fire := GSGameVisualQaCapture.plan(by_item, PackedStringArray(), PackedStringArray(["fire"]))
 	_check(fire.size() == 2, "plan: --clips fire picks it from both items, got %d" % fire.size())
-	var one := DotGameVisualQaCapture.plan(by_item, PackedStringArray(["pistol"]), PackedStringArray(["fire"]))
+	var one := GSGameVisualQaCapture.plan(by_item, PackedStringArray(["pistol"]), PackedStringArray(["fire"]))
 	_check(one.size() == 1 and one[0] == PackedStringArray(["pistol", "fire"]), "plan: --only and --clips combine, got %s" % str(one))
-	var none := DotGameVisualQaCapture.plan(by_item, PackedStringArray(["knife"]), PackedStringArray())
+	var none := GSGameVisualQaCapture.plan(by_item, PackedStringArray(["knife"]), PackedStringArray())
 	_check(none.is_empty(), "plan: an unknown --only item plans nothing")
 
 
@@ -56,12 +56,12 @@ func _verdict() -> void:
 		{"check": "floor", "pass": false, "value": "0.12", "limit": "0.05", "note": "sinks"},
 		{"check": "tpose", "pass": false, "skip": true, "value": "-", "limit": "-", "note": "no skeleton"},
 	]
-	var v := DotGameVisualQaCapture.verdict(rows)
+	var v := GSGameVisualQaCapture.verdict(rows)
 	_check(not v["pass"], "verdict: a failing row fails the clip")
 	_check((v["fail"] as Array).size() == 1 and str(v["fail"][0]).begins_with("floor 0.12 (limit 0.05) sinks"), "verdict: the reason names check, value, limit and note, got %s" % str(v["fail"]))
 	_check(not (v["worst"] as Dictionary).has("tpose"), "verdict: a skipped row neither fails nor shows")
 	var ok_rows: Array[Dictionary] = [{"check": "slide", "pass": true, "value": "0", "limit": "0.25"}]
-	_check(DotGameVisualQaCapture.verdict(ok_rows)["pass"], "verdict: all rows passing passes")
+	_check(GSGameVisualQaCapture.verdict(ok_rows)["pass"], "verdict: all rows passing passes")
 
 
 func _rest_distance() -> void:
@@ -70,15 +70,15 @@ func _rest_distance() -> void:
 	skeleton.add_bone("spine")
 	skeleton.set_bone_rest(1, Transform3D(Basis(Vector3.RIGHT, deg_to_rad(10.0)), Vector3.UP))
 	var rest: Array = [Quaternion.IDENTITY, Basis(Vector3.RIGHT, deg_to_rad(10.0)).get_rotation_quaternion()]
-	_check(DotGameVisualQaCapture.rest_distance_deg(skeleton, rest) < 0.01, "rest distance: the rest pose is 0 degrees away")
+	_check(GSGameVisualQaCapture.rest_distance_deg(skeleton, rest) < 0.01, "rest distance: the rest pose is 0 degrees away")
 	var bent: Array = [Quaternion.IDENTITY, Basis(Vector3.RIGHT, deg_to_rad(40.0)).get_rotation_quaternion()]
-	var d := DotGameVisualQaCapture.rest_distance_deg(skeleton, bent)
+	var d := GSGameVisualQaCapture.rest_distance_deg(skeleton, bent)
 	_check(absf(d - 30.0) < 0.01, "rest distance: the worst bone is 30 degrees off rest, got %f" % d)
 	skeleton.free()
 
 
 func _views() -> void:
-	var views := DotGameVisualQaViews.new()
+	var views := GSGameVisualQaViews.new()
 	views.place(Vector3.ZERO, 0.0)
 	_check(views.behind_camera == null, "views: place before setup is a no-op")
 	views.setup(self, get_viewport().world_3d)
@@ -94,6 +94,6 @@ func _views() -> void:
 	body.add_child(mesh)
 	body.add_child(arms)
 	arms.add_child(arm_mesh)
-	var tagged := DotGameVisualQaViews.tag_layers(body, 1 << 18, arms)
+	var tagged := GSGameVisualQaViews.tag_layers(body, 1 << 18, arms)
 	_check(tagged == 1 and mesh.layers == 1 << 18 and arm_mesh.layers == 1, "views: tag_layers tags the body and skips the subtree, tagged %d" % tagged)
 	body.free()

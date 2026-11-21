@@ -1,4 +1,4 @@
-class_name DotGameVisualQaCapture
+class_name GSGameVisualQaCapture
 extends SceneTree
 
 ## The visual QA test scene (docs/visual-qa.md): for each item (weapon, avatar, NPC) and clip it stages the subject, then
@@ -15,7 +15,7 @@ var fps := 60
 var only: PackedStringArray = []
 var only_clips: PackedStringArray = []
 var limits_path := ""
-var views := DotGameVisualQaViews.new()
+var views := GSGameVisualQaViews.new()
 ## The stage this class builds when [method _build] is not overridden (floor, light, sky); null otherwise.
 var stage: Node3D = null
 var first_person: Camera3D = null
@@ -40,8 +40,8 @@ func _build() -> void:
 
 
 ## Puts [param item] in the scene and readies [param clip]. A failure skips the clip with its message as the reason.
-func _stage(_item: String, _clip: String) -> DotResult:
-	return DotResult.fail(DotError.CODE_UNSUPPORTED, "the capture script does not override _stage")
+func _stage(_item: String, _clip: String) -> GSResult:
+	return GSResult.fail(GSError.CODE_UNSUPPORTED, "the capture script does not override _stage")
 
 
 ## The node whose position is the subject's feet and whose Y rotation is its facing (-Z forward).
@@ -224,7 +224,7 @@ func _capture(item: String, clip: String) -> void:
 		errors += 1
 		printerr("visual_qa: cannot make %s: %s" % [dir, error_string(made)])
 		return
-	var metrics := DotClipMetrics.new()
+	var metrics := GSClipMetrics.new()
 	var skeleton := _skeleton(item)
 	var tpose := 0
 	# The outside views draw one frame behind the first staging: one staged draw before frame 0 is saved.
@@ -248,7 +248,7 @@ func _capture(item: String, clip: String) -> void:
 			errors += 1
 			printerr("visual_qa: %s" % str(saved.error))
 			return
-	var limits := DotClipMetrics.limits_for(limits_path, clip) if limits_path != "" else {}
+	var limits := GSClipMetrics.limits_for(limits_path, clip) if limits_path != "" else {}
 	var rows := metrics.evaluate(limits)
 	var tpose_limit := int(limits.get("tpose_frames", 1))
 	if skeleton == null:

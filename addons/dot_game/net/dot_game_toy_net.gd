@@ -1,9 +1,9 @@
-class_name DotGameToyNet
-extends DotNetBehaviour
+class_name GSGameToyNet
+extends GSNetBehaviour
 
-## One of the map's toys on the wire (GameSpice Props' [DotPropToy]): where its moving part is and how it is turned, whether it is on, and how often it has been used. Eleven games had each written this file; the code of all of them is the same.
-## The server's physics, never predicted: rigid-body solvers differ across machines, so the client's toy is frozen and posed from these ([method DotPropToy.show_state]). Paired by index: both ends build the same toys in map order, so a TOYS event carries only net ids; a client registers a toy before its map is built because a snapshot is read no further than its first unknown entity. Use count, not a use event: a honk or bounce moves [member net_count] by one (eight bits, wraps) and the client plays the sound when it moves, so a lost packet costs a late sound.
-## [member toy] is duck-typed (GameSpice Props is not a dependency): it needs [code]state_transform()[/code], [code]on[/code], [code]count[/code] and [code]show_state(position, rotation, on, count)[/code], which [DotPropToy] has.
+## One of the map's toys on the wire (GameSpice Props' [GSPropToy]): where its moving part is and how it is turned, whether it is on, and how often it has been used. Eleven games had each written this file; the code of all of them is the same.
+## The server's physics, never predicted: rigid-body solvers differ across machines, so the client's toy is frozen and posed from these ([method GSPropToy.show_state]). Paired by index: both ends build the same toys in map order, so a TOYS event carries only net ids; a client registers a toy before its map is built because a snapshot is read no further than its first unknown entity. Use count, not a use event: a honk or bounce moves [member net_count] by one (eight bits, wraps) and the client plays the sound when it moves, so a lost packet costs a late sound.
+## [member toy] is duck-typed (GameSpice Props is not a dependency): it needs [code]state_transform()[/code], [code]on[/code], [code]count[/code] and [code]show_state(position, rotation, on, count)[/code], which [GSPropToy] has.
 
 var toy: Object = null
 
@@ -17,11 +17,11 @@ var _seen: bool = false
 
 
 func _register_net_vars() -> void:
-	replicate(&"net_position", DotNetVar.Type.VECTOR3_POSITION).interpolated()
+	replicate(&"net_position", GSNetVar.Type.VECTOR3_POSITION).interpolated()
 	# Nine bits an element, under a degree: nobody lines a ball up to a degree.
-	replicate(&"net_rotation", DotNetVar.Type.QUATERNION).bits(9).interpolated()
-	replicate(&"net_on", DotNetVar.Type.BOOL)
-	replicate(&"net_count", DotNetVar.Type.UINT).bits(8)
+	replicate(&"net_rotation", GSNetVar.Type.QUATERNION).bits(9).interpolated()
+	replicate(&"net_on", GSNetVar.Type.BOOL)
+	replicate(&"net_count", GSNetVar.Type.UINT).bits(8)
 
 
 ## Authority only: the toy's state into the replicated fields.

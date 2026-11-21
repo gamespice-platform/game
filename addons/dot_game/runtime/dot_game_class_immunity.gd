@@ -1,4 +1,4 @@
-class_name DotGameClassImmunity
+class_name GSGameClassImmunity
 extends RefCounted
 
 ## Per-class damage immunity for a game with GameSpice Combat and GameSpice Player Class, both loaded by path
@@ -12,7 +12,7 @@ static var _warned_old := false
 
 
 ## Writes [param def]'s `immune_to` for [param entity] onto [param combat]'s resolver, creating the
-## [code]DotDamageImmunity[/code] on first use. A null [param def] (or one with none) clears the
+## [code]GSDamageImmunity[/code] on first use. A null [param def] (or one with none) clears the
 ## entity, so a respawn as another class keeps nothing of the old one. Returns the kinds written.
 static func apply(combat: Object, def: Object, entity: int) -> int:
 	var immunity := ensure(combat)
@@ -33,7 +33,7 @@ static func call_apply(script: Variant, def: Object, immunity: Object, entity: i
 	if not (script as GDScript).get_script_method_list().any(func(m: Dictionary) -> bool: return m.name == "to_immunity"):
 		if not _warned_old:
 			_warned_old = true
-			DotLog.warn(CHANNEL, "dot-player-class has no to_immunity (older than v0.1.7); class immunity is off", {"script": (script as GDScript).resource_path})
+			GSLog.warn(CHANNEL, "dot-player-class has no to_immunity (older than v0.1.7); class immunity is off", {"script": (script as GDScript).resource_path})
 		return 0
 	return int((script as GDScript).call(&"to_immunity", def, immunity, entity))
 

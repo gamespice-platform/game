@@ -24,14 +24,14 @@ static var _sig_cls: Variant = null
 static func wanted() -> bool:
 	if OFF_FLAG in OS.get_cmdline_user_args() or OFF_FLAG in OS.get_cmdline_args():
 		return false
-	return DotConfig.gs_env(OFF_ENV) != "0"
+	return GSConfig.gs_env(OFF_ENV) != "0"
 
 
 ## Starts compiling the profiler script on a loader thread, so [method add] later finds it cached instead of compiling it in one frame. True while a load is already in flight; false when there is nothing to load or no threads (web): [method add] then loads it itself.
 static func request_script() -> bool:
 	if requested():
 		return true
-	if not wanted() or not ResourceLoader.exists(SCRIPT) or ResourceLoader.has_cached(SCRIPT) or not DotPlatform.has_threads():
+	if not wanted() or not ResourceLoader.exists(SCRIPT) or ResourceLoader.has_cached(SCRIPT) or not GSPlatform.has_threads():
 		return false
 	return ResourceLoader.load_threaded_request(SCRIPT) == OK
 
@@ -56,7 +56,7 @@ static func await_script(tree: SceneTree, block: bool = false) -> Resource:
 static func add(host: Node) -> Node:
 	if not wanted() or not ResourceLoader.exists(SCRIPT) or host.get_node_or_null(NODE_NAME) != null:
 		return null
-	if DotRegistry.get_service(&"dot_profiler") != null:
+	if GSRegistry.get_service(&"dot_profiler") != null:
 		return null
 	var script: Variant = ResourceLoader.load_threaded_get(SCRIPT) if requested() else load(SCRIPT)
 	if not (script is GDScript):
@@ -66,7 +66,7 @@ static func add(host: Node) -> Node:
 	# The profiler builds its config in _ready; identify the game right after.
 	node.ready.connect(configure.bind(node), CONNECT_ONE_SHOT)
 	host.add_child(node)
-	DotLog.debug(CHANNEL, "profiler placed", {"host": str(host.get_path())})
+	GSLog.debug(CHANNEL, "profiler placed", {"host": str(host.get_path())})
 	return node
 
 
@@ -84,15 +84,15 @@ static func install_server(node: Node) -> void:
 	if not (script is GDScript):
 		return
 	var res: Variant = ((script as GDScript).new() as Object).call(&"install", node)
-	if res is DotResult and not (res as DotResult).ok:
-		DotLog.info(CHANNEL, "server profiler commands not installed", {"why": (res as DotResult).error.message})
+	if res is GSResult and not (res as GSResult).ok:
+		GSLog.info(CHANNEL, "server profiler commands not installed", {"why": (res as GSResult).error.message})
 
 
-## The game id for perf reports: the game's `gamespice/perf_game_id` setting, else [member DotAddonConfig.game] when a game set it, else the repository directory name without its `game-` or `mg-` prefix, else the project name as a slug.
+## The game id for perf reports: the game's `gamespice/perf_game_id` setting, else [member GSAddonConfig.game] when a game set it, else the repository directory name without its `game-` or `mg-` prefix, else the project name as a slug.
 static func perf_game_id() -> String:
 	var id := str(ProjectSettings.get_setting(SETTING_GAME_ID, ""))
 	if id == "":
-		id = DotAddonConfig.game
+		id = GSAddonConfig.game
 	if id == "":
 		id = repo_name()
 		for prefix: String in ["game-", "mg-"]:

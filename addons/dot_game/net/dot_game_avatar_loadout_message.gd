@@ -1,9 +1,9 @@
-class_name DotGameAvatarLoadoutMessage
-extends DotNetMessage
+class_name GSGameAvatarLoadoutMessage
+extends GSNetMessage
 
 ## One player's equipped emotes, poses and gestures, as the server read them from the backbone:
 ## server to client only, so a client never claims a loadout. No entries means "forget this
-## player" (they left, or play the starter set). Registered by [method DotGameAvatarActionMessage.register].
+## player" (they left, or play the starter set). Registered by [method GSGameAvatarActionMessage.register].
 
 const NAME := &"game.avatar_loadout"
 
@@ -12,7 +12,7 @@ const NAME := &"game.avatar_loadout"
 static var max_entries: int = 0
 const MAX_ID := 32
 const MAX_CLIP := 64
-## Wearable slots the site has (GameSpice User Avatar's DotAvatarWearables.SLOT_BONES), one item each.
+## Wearable slots the site has (GameSpice User Avatar's GSAvatarWearables.SLOT_BONES), one item each.
 const MAX_WEARABLES := 7
 
 ## Wire order of [code]kind[/code]: emote, pose, gesture.
@@ -32,7 +32,7 @@ func _type_name() -> StringName:
 	return NAME
 
 
-func _write(w: DotNetWriter) -> void:
+func _write(w: GSNetWriter) -> void:
 	w.write_varint(actor)
 	var n := entries.size()
 	w.write_varint(n)
@@ -48,7 +48,7 @@ func _write(w: DotNetWriter) -> void:
 		w.write_string(wearables[i], MAX_ID)
 
 
-func _read(r: DotNetReader) -> void:
+func _read(r: GSNetReader) -> void:
 	actor = r.read_varint()
 	var n := r.read_varint()
 	entries = []
@@ -65,16 +65,16 @@ func _read(r: DotNetReader) -> void:
 		wearables.append(r.read_string(MAX_ID))
 
 
-func _validate() -> DotResult:
+func _validate() -> GSResult:
 	if actor <= 0 or wearables.size() > MAX_WEARABLES:
-		return DotResult.fail(DotError.CODE_INVALID, "avatar loadout out of range")
+		return GSResult.fail(GSError.CODE_INVALID, "avatar loadout out of range")
 	if max_entries > 0 and entries.size() > max_entries:
-		return DotResult.fail(DotError.CODE_QUOTA, "avatar loadout has more entries than max_entries", "%d > %d" % [entries.size(), max_entries])
+		return GSResult.fail(GSError.CODE_QUOTA, "avatar loadout has more entries than max_entries", "%d > %d" % [entries.size(), max_entries])
 	for e: Dictionary in entries:
 		var id := String(e.get("id", ""))
 		if id == "" or id.length() > MAX_ID or int(e.get("kind", 0)) > 2 or String(e.get("clip", "")).length() > MAX_CLIP:
-			return DotResult.fail(DotError.CODE_INVALID, "avatar loadout entry out of range")
-	return DotResult.success(true)
+			return GSResult.fail(GSError.CODE_INVALID, "avatar loadout entry out of range")
+	return GSResult.success(true)
 
 
 ## The equipped ids, in order.

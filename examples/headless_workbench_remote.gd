@@ -17,25 +17,25 @@ class FakeRuntime:
 	var save_flag := "root"
 
 
-## Stands in for DotWorkbenchApi: counts what got past the gate.
+## Stands in for GSWorkbenchApi: counts what got past the gate.
 class FakeApi:
 	extends RefCounted
 	var read_flag := "cvar"
 	var runtime := FakeRuntime.new()
 	var calls: Array = []
 
-	func handle(actor: Variant, req: Dictionary) -> DotResult:
+	func handle(actor: Variant, req: Dictionary) -> GSResult:
 		# The server's own look at the old value is a get; only real requests count.
 		if req.get("op") != "get":
 			calls.append([actor, req])
-		return DotResult.success({"changed": true})
+		return GSResult.success({"changed": true})
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.INFO)
-	DotLog.print_to_stdout = false
-	DotLog.mirror_to_engine = false
-	DotLog.add_sink(func(r: Dictionary) -> void: _records.append(r))
+	GSLog.set_level(GSLog.Level.INFO)
+	GSLog.print_to_stdout = false
+	GSLog.mirror_to_engine = false
+	GSLog.add_sink(func(r: Dictionary) -> void: _records.append(r))
 	_run.call_deferred()
 
 
@@ -47,8 +47,8 @@ func _check(ok: bool, what: String) -> void:
 		_failures.append(what)
 
 
-func _net(server: bool) -> DotNetManager:
-	var n := DotNetManager.new()
+func _net(server: bool) -> GSNetManager:
+	var n := GSNetManager.new()
 	n.is_server = server
 	n.local_peer_id = 0 if server else 5
 	n.config_file = ""
@@ -70,9 +70,9 @@ func _req(op: String, extra: Dictionary = {}) -> String:
 	return JSON.stringify(d)
 
 
-func _ask(remote: DotGameWorkbenchRemote, peer: int, text: String) -> void:
-	var m := DotGameWorkbenchMessage.new()
-	m.kind = DotGameWorkbenchMessage.KIND_REQUEST
+func _ask(remote: GSGameWorkbenchRemote, peer: int, text: String) -> void:
+	var m := GSGameWorkbenchMessage.new()
+	m.kind = GSGameWorkbenchMessage.KIND_REQUEST
 	m.sender_peer_id = peer
 	m.seq = 1
 	m.text = text
@@ -88,10 +88,10 @@ func _run() -> void:
 	var net := _net(true)
 	var sent: Array = []
 	net.send_fn = func(peer: int, payload: PackedByteArray, _d: int) -> void: sent.append([peer, payload])
-	var made := DotGameWorkbenchRemote.serve(net)
+	var made := GSGameWorkbenchRemote.serve(net)
 	net.messages.seal()
-	_check(made.ok and DotGameWorkbenchRemote.of(net) == made.value, "the server serves the frame and keeps it on the manager")
-	var remote: DotGameWorkbenchRemote = made.value
+	_check(made.ok and GSGameWorkbenchRemote.of(net) == made.value, "the server serves the frame and keeps it on the manager")
+	var remote: GSGameWorkbenchRemote = made.value
 	var api := FakeApi.new()
 	remote.api = api
 	remote.enabled_fn = func() -> bool: return enabled[0]
@@ -121,11 +121,11 @@ func _run() -> void:
 	_check(api.calls.is_empty(), "malformed and non-object bodies are refused before the api")
 	_ask(remote, 6, _req("set", {"pad": "x".repeat(5000)}))
 	_check(api.calls.is_empty() and _log("WARN", "refused", "why", "too large") == 1, "an oversized request is refused and logged")
-	var edge := DotGameWorkbenchMessage.new()
+	var edge := GSGameWorkbenchMessage.new()
 	edge.kind = 9
 	_check(not edge.validate().ok, "an unknown frame kind is invalid on the wire")
-	var peer0 := DotGameWorkbenchMessage.new()
-	peer0.kind = DotGameWorkbenchMessage.KIND_REQUEST
+	var peer0 := GSGameWorkbenchMessage.new()
+	peer0.kind = GSGameWorkbenchMessage.KIND_REQUEST
 	peer0.sender_peer_id = 0
 	peer0.text = _req("set")
 	remote.handle_message(peer0)
@@ -160,10 +160,10 @@ func _run() -> void:
 	_finish()
 
 
-func _client_phase(net: DotNetManager, remote: DotGameWorkbenchRemote, api: FakeApi, flags: Dictionary, clock: Array) -> DotGameWorkbenchRemoteClient:
+func _client_phase(net: GSNetManager, remote: GSGameWorkbenchRemote, api: FakeApi, flags: Dictionary, clock: Array) -> GSGameWorkbenchRemoteClient:
 	# Access notices ride the real wire to a client; a revoked flag closes the panel.
 	var cnet := _net(false)
-	var client := DotGameWorkbenchRemoteClient.attach(cnet)
+	var client := GSGameWorkbenchRemoteClient.attach(cnet)
 	cnet.messages.seal()
 	cnet.send_fn = func(_p: int, payload: PackedByteArray, _d: int) -> void:
 		var rec := net.receive(payload, 5)
@@ -172,10 +172,10 @@ func _client_phase(net: DotNetManager, remote: DotGameWorkbenchRemote, api: Fake
 	net.send_fn = func(_peer: int, payload: PackedByteArray, _d: int) -> void: cnet.receive(payload, 1)
 	var changes: Array = []
 	client.access_changed.connect(func(a: bool) -> void: changes.append(a))
-	_check(not client.allowed and not client.permit(DotGameWorkbenchRemoteClient.ACTOR, "cvar"), "a client starts with no access and a local actor with no flags")
+	_check(not client.allowed and not client.permit(GSGameWorkbenchRemoteClient.ACTOR, "cvar"), "a client starts with no access and a local actor with no flags")
 	client.ask()
 	_check(client.allowed and client.flags == PackedStringArray(["cvar", "root"]) and changes == [true], "the server tells an admin which flags it holds")
-	_check(client.permit(DotGameWorkbenchRemoteClient.ACTOR, "root") and not client.permit("someone-else", "cvar"), "only the panel's actor is permitted, and by the flags the server named")
+	_check(client.permit(GSGameWorkbenchRemoteClient.ACTOR, "root") and not client.permit("someone-else", "cvar"), "only the panel's actor is permitted, and by the flags the server named")
 	flags["admin"] = ["cvar"]
 	clock[0] += 1500
 	remote.poll()
@@ -197,35 +197,35 @@ func _client_phase(net: DotNetManager, remote: DotGameWorkbenchRemote, api: Fake
 	return client
 
 
-func _panel_phase(client: DotGameWorkbenchRemoteClient) -> void:
+func _panel_phase(client: GSGameWorkbenchRemoteClient) -> void:
 	# Not trusted locally against a remote server.
-	_check(DotGameWorkbench.local_allowed(false, true, false, false), "offline, a debug build trusts its own panel")
-	_check(not DotGameWorkbench.local_allowed(false, true, false, true), "a debug build connected to a remote server does not")
-	_check(not DotGameWorkbench.local_allowed(true, true, false, true), "nor does the editor")
-	_check(DotGameWorkbench.local_allowed(false, false, true, true), "a listen host still does")
-	_check(not DotGameWorkbench.local_allowed(false, false, false, false), "production is never trusted")
+	_check(GSGameWorkbench.local_allowed(false, true, false, false), "offline, a debug build trusts its own panel")
+	_check(not GSGameWorkbench.local_allowed(false, true, false, true), "a debug build connected to a remote server does not")
+	_check(not GSGameWorkbench.local_allowed(true, true, false, true), "nor does the editor")
+	_check(GSGameWorkbench.local_allowed(false, false, true, true), "a listen host still does")
+	_check(not GSGameWorkbench.local_allowed(false, false, false, false), "production is never trusted")
 
 	# The panel is not built for a non-admin.
-	var wb := DotGameWorkbench.new()
+	var wb := GSGameWorkbench.new()
 	wb.remote_client = client
 	wb.dedicated = false
 	add_child(wb)
 	var started := wb.start()
 	_check(started.ok and wb.overlay == null, "a remote client has no panel node before the server says so")
-	_check(str(wb.console_command(PackedStringArray(["open"]))) == "workbench: not allowed" or not DotGameWorkbench.available(), "the console says a neutral not allowed")
+	_check(str(wb.console_command(PackedStringArray(["open"]))) == "workbench: not allowed" or not GSGameWorkbench.available(), "the console says a neutral not allowed")
 	wb.toggle()
 	_check(not wb.is_open(), "F9 does nothing for a non-admin")
 
 
 ## Needs GameSpice Workbench linked into this project; skipped (and counted as such) when it is not.
-func _real_api(remote: DotGameWorkbenchRemote, flags: Dictionary, clock: Array, enabled: Array) -> void:
+func _real_api(remote: GSGameWorkbenchRemote, flags: Dictionary, clock: Array, enabled: Array) -> void:
 	if not ResourceLoader.exists(API_SCRIPT):
 		print("   dot-workbench not linked: real-api checks skipped")
 		_passed += 12
 		return
 	var root := "user://wb_remote_test"
-	var set := DotProfileSet.create("dot-npc", "mygame", "npc", [
-		DotProfileSet.field("health", "int", 100, {"min": 1, "max": 1000}),
+	var set := GSProfileSet.create("dot-npc", "mygame", "npc", [
+		GSProfileSet.field("health", "int", 100, {"min": 1, "max": 1000}),
 	])
 	set.roots = PackedStringArray([root])
 	set.override_prefix = "wbt"
@@ -245,7 +245,7 @@ func _real_api(remote: DotGameWorkbenchRemote, flags: Dictionary, clock: Array, 
 	flags["mod"] = ["cvar"]
 	enabled[0] = true
 	clock[0] += 5000
-	remote.limiter = DotRateLimiter.new(1000.0, 1000.0)
+	remote.limiter = GSRateLimiter.new(1000.0, 1000.0)
 	var ok_set := '{"op":"set","kind":"npc","id":"zombie","key":"health","value":42}'
 	_ask(remote, 6, ok_set)
 	_check(rows.size() == 1 and rows[0].get("kind") == "npc", "a mod's edit is applied and replicated to everybody (a row broadcast)")
@@ -270,9 +270,9 @@ func _real_api(remote: DotGameWorkbenchRemote, flags: Dictionary, clock: Array, 
 		if r["message"] == "workbench edit" and str((r["fields"] as Dictionary).get("new")) in ["7", "7.0"]:
 			edit = r["fields"]
 	_check(str(edit.get("old")) == "42" and edit.get("uid") == "admin" and edit.get("ok") == true, "its audit line has the old value 42 and the new 7")
-	var direct: DotResult = api.call("handle", "remote:ghost", {"op": "set", "kind": "npc", "id": "zombie", "key": "health", "value": 3})
+	var direct: GSResult = api.call("handle", "remote:ghost", {"op": "set", "kind": "npc", "id": "zombie", "key": "health", "value": 3})
 	_check(not direct.ok, "an actor the server never made cannot use the api directly")
-	var direct2: DotResult = api.call("handle", "workbench-local", {"op": "set", "kind": "npc", "id": "zombie", "key": "health", "value": 3})
+	var direct2: GSResult = api.call("handle", "workbench-local", {"op": "set", "kind": "npc", "id": "zombie", "key": "health", "value": 3})
 	_check(not direct2.ok, "nor can the local actor through this permit")
 	flags["mod"] = []
 	_ask(remote, 6, ok_set)
@@ -281,7 +281,7 @@ func _real_api(remote: DotGameWorkbenchRemote, flags: Dictionary, clock: Array, 
 
 
 func _finish() -> void:
-	DotLog.clear_sinks()
+	GSLog.clear_sinks()
 	print("")
 	print("%d passed, %d failed" % [_passed, _failed])
 	for f in _failures:

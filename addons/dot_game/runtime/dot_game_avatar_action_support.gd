@@ -1,6 +1,6 @@
-class_name DotGameAvatarActionSupport
+class_name GSGameAvatarActionSupport
 extends RefCounted
-## Row building and optional-addon script loading for [DotGameAvatarActionClient], kept out of its file so none of it counts as per-frame code.
+## Row building and optional-addon script loading for [GSGameAvatarActionClient], kept out of its file so none of it counts as per-frame code.
 
 static var _loaded: Dictionary = {}
 static var _cache: RefCounted = null
@@ -10,7 +10,7 @@ static var _cache: RefCounted = null
 static func input_rows(entries: Array, current: Object, url_fn: Callable, flags: Dictionary) -> Dictionary:
 	var rows := {}
 	for e: Dictionary in entries:
-		var kind := String(DotGameAvatarLoadoutMessage.KINDS[clampi(int(e["kind"]), 0, DotGameAvatarLoadoutMessage.KINDS.size() - 1)]).to_upper()
+		var kind := String(GSGameAvatarLoadoutMessage.KINDS[clampi(int(e["kind"]), 0, GSGameAvatarLoadoutMessage.KINDS.size() - 1)]).to_upper()
 		if not rows.has(kind):
 			rows[kind] = []
 		if String(e.get("clip", "")) == "":

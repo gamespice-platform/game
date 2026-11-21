@@ -1,4 +1,4 @@
-class_name DotGameWorkbench
+class_name GSGameWorkbench
 extends Node
 
 ## Hosts GameSpice Workbench in a game: the in-game panel (the `;` key, or console `workbench`) and, when asked for,
@@ -36,14 +36,14 @@ var dedicated: bool = false
 ## Callable() -> bool: this process is connected to somebody else's server. While it is, even an editor or debug build is not trusted locally; the server decides.
 var remote_fn: Callable = Callable()
 ## Set on a connected client: the panel is built only while the server says this player holds a workbench flag, and edits are forwarded to it.
-var remote_client: DotGameWorkbenchRemoteClient = null
+var remote_client: GSGameWorkbenchRemoteClient = null
 ## The server half, set by [method serve_remote]; remote admins act as `remote:<uid>`.
-var remote_server: DotGameWorkbenchRemote = null
+var remote_server: GSGameWorkbenchRemote = null
 ## Callable(actor, flag) -> bool for actors other than [constant LOCAL_ACTOR] (the console's or admin manager's permit).
 var permit_fn: Callable = Callable()
 ## Callable() -> {cvar: value} of cvars changed from the shipped default, for the export.
 var cvars_fn: Callable = Callable()
-## On by default: with GameSpice Auth running a ticket key, a connect ticket is also accepted as the bearer ([DotGameWorkbenchAuth]).
+## On by default: with GameSpice Auth running a ticket key, a connect ticket is also accepted as the bearer ([GSGameWorkbenchAuth]).
 var accounts: bool = true
 ## Callable(token) -> identity or null, replacing the ticket check. Unset means dot-auth's offline ticket check.
 var account_resolver: Callable = Callable()
@@ -60,7 +60,7 @@ var overlay: Control = null
 var exporter: RefCounted = null
 var running_http := false
 
-## Offer the DotServer's [constant THREAD_CVARS] as a set; Save writes `cfg/server/addon/dot_server/threads/server.yml`, applied at the next start.
+## Offer the GSServer's [constant THREAD_CVARS] as a set; Save writes `cfg/server/addon/dot_server/threads/server.yml`, applied at the next start.
 var thread_cvars: bool = true
 
 ## Offer the relevance cvars (net_interest_radius, net_far_every, net_far_distance) as a set; Save writes `cfg/server/addon/dot_server/relevance/server.yml`, applied at the next start (the console changes them at once).
@@ -105,16 +105,16 @@ func add_set(set: Object, label: String = "") -> void:
 
 
 ## Builds the api over [param runtime] (a fresh one when null) and opens what is wanted. Value: true when something is live.
-func start(runtime: Object = null) -> DotResult:
+func start(runtime: Object = null) -> GSResult:
 	if not available():
-		DotLog.info(CHANNEL, "dot-workbench is not in this build: no workbench")
-		return DotResult.success(false)
+		GSLog.info(CHANNEL, "dot-workbench is not in this build: no workbench")
+		return GSResult.success(false)
 	if config.is_empty():
 		var http_script: GDScript = load(HTTP_SCRIPT)
 		config = http_script.call("read_config")
 	var api_script: GDScript = load(API_SCRIPT)
 	api = api_script.new(runtime)
-	var server := DotRegistry.get_node_service(DotServer.SERVICE) as DotServer
+	var server := GSRegistry.get_node_service(GSServer.SERVICE) as GSServer
 	if server != null and server.console != null:
 		if thread_cvars:
 			var made := cvar_set(server.console, THREAD_CVARS, THREADS_KIND, THREADS_ADDON)
@@ -128,8 +128,8 @@ func start(runtime: Object = null) -> DotResult:
 				bind_cvar_set(rel, api.get("runtime"), server.console)
 				add_set(rel, "Relevance (saved values apply at next start)")
 		if npc_lod_cvars:
-			DotGameNpcLod.ensure_cvars(server.console)
-			var lod := cvar_set(server.console, DotGameNpcLod.TYPES, NPC_LOD_KIND, THREADS_ADDON)
+			GSGameNpcLod.ensure_cvars(server.console)
+			var lod := cvar_set(server.console, GSGameNpcLod.TYPES, NPC_LOD_KIND, THREADS_ADDON)
 			if lod != null:
 				bind_cvar_set(lod, api.get("runtime"), server.console)
 				add_set(lod, "NPC level of detail")
@@ -142,9 +142,9 @@ func start(runtime: Object = null) -> DotResult:
 	api.set("permit", func(actor: Variant, flag: String) -> bool:
 		if actor is String and actor == LOCAL_ACTOR:
 			return local_allowed(editor, debug, listen, remote_fn.is_valid() and bool(remote_fn.call()))
-		if actor is String and actor == DotGameWorkbenchRemoteClient.ACTOR:
+		if actor is String and actor == GSGameWorkbenchRemoteClient.ACTOR:
 			return remote_client != null and remote_client.permit(actor, flag)
-		if actor is String and (actor as String).begins_with(DotGameWorkbenchRemote.ACTOR_PREFIX):
+		if actor is String and (actor as String).begins_with(GSGameWorkbenchRemote.ACTOR_PREFIX):
 			return remote_server != null and remote_server.permit_actor(actor, flag)
 		return permit_fn.is_valid() and bool(permit_fn.call(actor, flag)))
 	_attach_accounts()
@@ -168,11 +168,11 @@ func start(runtime: Object = null) -> DotResult:
 	var res := _start_http()
 	if not res.ok:
 		return res
-	return DotResult.success(overlay != null or _panel_pending or running_http)
+	return GSResult.success(overlay != null or _panel_pending or running_http)
 
 
 ## A profile set over [param types] ({cvar name: "int" | "bool" | "float" | "string"}) of [param console]'s cvars, one implicit id [constant CVAR_SET_ID]; names that are not cvars are left out. Null when none is.
-static func cvar_set(console: DotConsole, types: Dictionary, kind: String, addon: String = "") -> DotProfileSet:
+static func cvar_set(console: GSConsole, types: Dictionary, kind: String, addon: String = "") -> GSProfileSet:
 	var fields: Array = []
 	for name: String in types:
 		var c := console.find_cvar(name)
@@ -183,30 +183,30 @@ static func cvar_set(console: DotConsole, types: Dictionary, kind: String, addon
 			opts["min"] = c.min_value
 		if c.has_max:
 			opts["max"] = c.max_value
-		fields.append(DotProfileSet.field(name, types[name], _cvar_value(c, types[name]), opts))
+		fields.append(GSProfileSet.field(name, types[name], _cvar_value(c, types[name]), opts))
 	if fields.is_empty():
 		return null
-	var made := DotProfileSet.create(addon, "", kind, fields)
+	var made := GSProfileSet.create(addon, "", kind, fields)
 	made.implicit_ids = PackedStringArray([CVAR_SET_ID])
 	return made
 
 
 ## Applies a saved file of [param set] to the cvars, then follows [param runtime]'s edits of it into them. Value: the cvars the file set.
-static func bind_cvar_set(set: DotProfileSet, runtime: DotProfileRuntime, console: DotConsole) -> int:
+static func bind_cvar_set(set: GSProfileSet, runtime: GSProfileRuntime, console: GSConsole) -> int:
 	var pushed := {}
 	for f: Dictionary in set.schema:
 		pushed[f["name"]] = f["default"]
 	var applied := 0
 	var loaded := set.load_profile(CVAR_SET_ID)
 	if loaded.ok:
-		var p: DotProfile = loaded.value
+		var p: GSProfile = loaded.value
 		for path in p.file_keys:
 			var name := String(path).split(".")[0]
 			if pushed.has(name) and _push_cvar(console, name, p.values[name]):
 				pushed[name] = p.values[name]
 				applied += 1
 	if applied > 0:
-		DotLog.info(CHANNEL, "saved cvars applied", {"kind": set.rel_path, "cvars": applied})
+		GSLog.info(CHANNEL, "saved cvars applied", {"kind": set.rel_path, "cvars": applied})
 	if runtime != null:
 		runtime.profile_changed.connect(func(kind: String, id: String, _rev: int) -> void:
 			if kind != set.rel_path or id != CVAR_SET_ID:
@@ -214,7 +214,7 @@ static func bind_cvar_set(set: DotProfileSet, runtime: DotProfileRuntime, consol
 			var now := set.load_profile(CVAR_SET_ID)
 			if not now.ok:
 				return
-			var values: Dictionary = (now.value as DotProfile).values
+			var values: Dictionary = (now.value as GSProfile).values
 			# Only what this edit moved: a cvar changed at the console since is left alone.
 			for name: String in pushed:
 				if values.has(name) and str(values[name]) != str(pushed[name]):
@@ -223,7 +223,7 @@ static func bind_cvar_set(set: DotProfileSet, runtime: DotProfileRuntime, consol
 	return applied
 
 
-static func _cvar_value(c: DotConVar, type: String) -> Variant:
+static func _cvar_value(c: GSConVar, type: String) -> Variant:
 	match type:
 		"int":
 			return c.get_int()
@@ -234,11 +234,11 @@ static func _cvar_value(c: DotConVar, type: String) -> Variant:
 	return c.get_string()
 
 
-static func _push_cvar(console: DotConsole, name: String, value: Variant) -> bool:
+static func _push_cvar(console: GSConsole, name: String, value: Variant) -> bool:
 	var text := ("1" if value else "0") if value is bool else str(value)
 	var res := console.set_cvar(name, text)
 	if not res.ok:
-		DotLog.warn(CHANNEL, "cvar refused the workbench value", {"cvar": name, "value": text, "error": res.error.message})
+		GSLog.warn(CHANNEL, "cvar refused the workbench value", {"cvar": name, "value": text, "error": res.error.message})
 	return res.ok
 
 
@@ -247,27 +247,27 @@ func _attach_accounts() -> void:
 		return
 	var resolver := account_resolver
 	if not resolver.is_valid():
-		resolver = DotGameWorkbenchAuth.ticket_resolver(DotRegistry.get_node_service(DotGameWorkbenchAuth.AUTH_SERVICE))
+		resolver = GSGameWorkbenchAuth.ticket_resolver(GSRegistry.get_node_service(GSGameWorkbenchAuth.AUTH_SERVICE))
 	var permit: Callable = account_permit_fn if account_permit_fn.is_valid() else permit_fn
-	account_gate = DotGameWorkbenchAuth.attach(self, resolver, permit)
+	account_gate = GSGameWorkbenchAuth.attach(self, resolver, permit)
 	if account_gate != null:
-		DotLog.info(CHANNEL, "workbench accepts dot-auth accounts")
+		GSLog.info(CHANNEL, "workbench accepts dot-auth accounts")
 
 
-## Answers requests from admin clients through this workbench's api. Value: the [DotGameWorkbenchRemote], whose message must already be registered by [method DotGameWorkbenchRemote.serve] on [param net].
-func serve_remote(net: DotNetManager) -> DotGameWorkbenchRemote:
-	var remote := DotGameWorkbenchRemote.of(net)
+## Answers requests from admin clients through this workbench's api. Value: the [GSGameWorkbenchRemote], whose message must already be registered by [method GSGameWorkbenchRemote.serve] on [param net].
+func serve_remote(net: GSNetManager) -> GSGameWorkbenchRemote:
+	var remote := GSGameWorkbenchRemote.of(net)
 	if remote == null:
 		return null
 	remote.api = api
-	remote.bind_server(DotRegistry.get_node_service(DotServer.SERVICE))
+	remote.bind_server(GSRegistry.get_node_service(GSServer.SERVICE))
 	remote_server = remote
 	return remote
 
 
 func _on_remote_access(allowed: bool) -> void:
 	if allowed and overlay == null and api != null and not dedicated:
-		_build_panel(DotGameWorkbenchRemoteClient.ACTOR)
+		_build_panel(GSGameWorkbenchRemoteClient.ACTOR)
 	elif not allowed and overlay != null:
 		_drop_panel()
 
@@ -286,7 +286,7 @@ func _build_panel(actor: String = LOCAL_ACTOR) -> void:
 	var o_script: GDScript = load(OVERLAY_SCRIPT)
 	var built: Variant = o_script.call("create", api, actor, _labels)
 	if not (built is Control):
-		DotLog.info(CHANNEL, "dot-menu or dot-ui is not linked: no workbench panel")
+		GSLog.info(CHANNEL, "dot-menu or dot-ui is not linked: no workbench panel")
 		return
 	overlay = built
 	overlay.visible = false
@@ -297,13 +297,13 @@ func _build_panel(actor: String = LOCAL_ACTOR) -> void:
 	add_child(_canvas)
 	_canvas.add_child(overlay)
 	overlay.connect(&"closed", func() -> void: open_changed.emit(false))
-	DotLog.info(CHANNEL, "workbench panel ready", {"action": String(toggle_action)})
+	GSLog.info(CHANNEL, "workbench panel ready", {"action": String(toggle_action)})
 	panel_built.emit(overlay)
 
 
-func _start_http() -> DotResult:
+func _start_http() -> GSResult:
 	if not bool(config.get("enabled", false)):
-		return DotResult.success(0)
+		return GSResult.success(0)
 	var cfg := config.duplicate(true)
 	var token_file := str(cfg.get("token_file", DEFAULT_TOKEN_FILE))
 	cfg["token_file"] = token_file
@@ -314,23 +314,23 @@ func _start_http() -> DotResult:
 	cfg["bind"] = cfg.get("bind", "127.0.0.1")
 	var http_script: GDScript = load(HTTP_SCRIPT)
 	http = http_script.new(api)
-	var res: DotResult = http.call("start_from_config", cfg)
+	var res: GSResult = http.call("start_from_config", cfg)
 	if not res.ok:
-		DotLog.result(CHANNEL, "workbench http", res)
+		GSLog.result(CHANNEL, "workbench http", res)
 		http = null
 		return res
 	running_http = true
-	DotLog.info(CHANNEL, "workbench http listening", {"bind": cfg["bind"], "port": int(cfg.get("port", 8790)), "token_file": ProjectSettings.globalize_path(token_file)})
+	GSLog.info(CHANNEL, "workbench http listening", {"bind": cfg["bind"], "port": int(cfg.get("port", 8790)), "token_file": ProjectSettings.globalize_path(token_file)})
 	return res
 
 
 ## A fresh random token in [param path], for a developer's machine; a deployment names its own token_file.
-func _make_token(path: String) -> DotResult:
+func _make_token(path: String) -> GSResult:
 	var crypto := Crypto.new()
 	var token := crypto.generate_random_bytes(24).hex_encode()
-	var wrote := DotPaths.write_text(path, token + "\n")
+	var wrote := GSPaths.write_text(path, token + "\n")
 	if wrote.ok:
-		DotWeb.sync_filesystem()
+		GSWeb.sync_filesystem()
 	return wrote
 
 
@@ -406,20 +406,20 @@ func console_command(args: PackedStringArray) -> Variant:
 			if overlay == null:
 				if remote_client != null:
 					return "workbench: not allowed"
-				return DotResult.fail(DotError.CODE_STATE, "no workbench panel in this build or process")
+				return GSResult.fail(GSError.CODE_STATE, "no workbench panel in this build or process")
 			if verb == "open" or (verb == "toggle" and not is_open()):
 				open()
 			else:
 				overlay.call("close")
 			return "workbench " + ("open" if is_open() else "closed")
 		"export":
-			var res: DotResult = exporter.call("export_changes") if exporter != null else DotResult.fail(DotError.CODE_STATE, "workbench is not running")
+			var res: GSResult = exporter.call("export_changes") if exporter != null else GSResult.fail(GSError.CODE_STATE, "workbench is not running")
 			if not res.ok:
 				return res
 			return PackedStringArray(["exported to " + ProjectSettings.globalize_path(res.value["dir"]), "zip: " + ProjectSettings.globalize_path(res.value["zip"])])
 		"http":
 			return "http " + (JSON.stringify(http.call("describe")) if running_http else "off (workbench.enabled in cfg/server.yml)")
-	return DotResult.fail(DotError.CODE_INVALID, "usage: workbench [open|close|toggle|export|http]")
+	return GSResult.fail(GSError.CODE_INVALID, "usage: workbench [open|close|toggle|export|http]")
 
 
 func stop() -> void:

@@ -21,22 +21,22 @@ class _FakePlatformPlayer extends RefCounted:
 	func key() -> String: return k
 
 
-func _fake_session(peer_id: int, userid: int, who: String) -> DotClientSession:
-	var session := DotClientSession.new()
+func _fake_session(peer_id: int, userid: int, who: String) -> GSClientSession:
+	var session := GSClientSession.new()
 	session.peer_id = peer_id
 	session.userid = userid
 	session.display_name = who
 	return session
 
 
-func _who(userid: int, uid: String, guest: bool = false, claims: Dictionary = {}) -> DotClientSession:
+func _who(userid: int, uid: String, guest: bool = false, claims: Dictionary = {}) -> GSClientSession:
 	var s := _fake_session(userid + 100, userid, uid)
 	s.identity = _FakeIdentity.new(uid, guest, claims)
 	return s
 
 
-func _feed_on(file: String) -> DotGameStatsFeed:
-	var f := DotGameStatsFeed.new()
+func _feed_on(file: String) -> GSGameStatsFeed:
+	var f := GSGameStatsFeed.new()
 	f.scope_key_file = file
 	return f
 
@@ -53,11 +53,11 @@ func _test_stats_report() -> void:
 
 	var calls: Array = []
 	var cv := _module.bind_stats_report(
-		func(on: bool) -> DotResult:
+		func(on: bool) -> GSResult:
 			calls.append(on)
-			return DotResult.success(on),
+			return GSResult.success(on),
 		PackedStringArray(["old_stats_report"]))
-	var old: DotConVar = _module.console.find_cvar("old_stats_report")
+	var old: GSConVar = _module.console.find_cvar("old_stats_report")
 	_check(cv != null and cv.get_string() == "0", "stats_report is off by default")
 	_check(old != null and calls.is_empty(), "the old name is registered and nothing applies at boot")
 	var _r1 := cv.set_value("1")
@@ -66,7 +66,7 @@ func _test_stats_report() -> void:
 	_check(cv.get_string() == "0" and calls == [true, false], "the old name turns the new one off, once", str(calls))
 	var _r3 := cv.set_value("0")
 	_check(calls.size() == 2, "setting the value it already has applies nothing")
-	var res := DotGameStatsReport.apply_default(_module, true)
+	var res := GSGameStatsReport.apply_default(_module, true)
 	_check(not res.ok, "the default apply refuses, not crashes, with no real tracker")
 
 	# A signal connection that captures its own cvar is a cycle that shows as "leaked objects at exit".
@@ -141,10 +141,10 @@ class _FakeSchema extends RefCounted:
 
 class _FakeStore extends RefCounted:
 	var lifetime: Dictionary = {}
-	func values_for(key: StringName) -> DotResult:
+	func values_for(key: StringName) -> GSResult:
 		var out := _FakeValues.new()
 		out.v = lifetime.get(key, {}).duplicate()
-		return DotResult.success(out)
+		return GSResult.success(out)
 
 
 class _FakeBoardTracker extends RefCounted:
@@ -191,7 +191,7 @@ func _test_stats_keys() -> void:
 	_section("stats keys: stable across a restart, scoped per server, never an account id")
 	for f in [KEY_A, KEY_B]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
-	if not ResourceLoader.exists(DotGameStatsFeed.SCOPE_SCRIPT):
+	if not ResourceLoader.exists(GSGameStatsFeed.SCOPE_SCRIPT):
 		_check(_feed_on(KEY_A).key_for(_who(1, "backbone:ann")) == &"u1", "without dot-user a key is the seat's")
 		_done()
 		return

@@ -1,4 +1,4 @@
-extends DotGameVisualQaCapture
+extends GSGameVisualQaCapture
 
 ## The judge loop's GPU proof (tests/visual_judge, docs/visual-qa.md "The judge loop"): the demo capsule
 ## (examples/visual_qa_demo.gd) turning smoothly ("turn"), and "pop", its circle walk with two planted defects a judge
@@ -18,7 +18,7 @@ func _clips(_item: String) -> PackedStringArray:
 	return PackedStringArray(["turn", "pop"])
 
 
-func _stage(_item: String, clip: String) -> DotResult:
+func _stage(_item: String, clip: String) -> GSResult:
 	if _body == null:
 		_body = Node3D.new()
 		var mesh := MeshInstance3D.new()
@@ -33,11 +33,11 @@ func _stage(_item: String, clip: String) -> DotResult:
 		_body.add_child(nose)
 		root.add_child(_body)
 		# Your own body on its own layer, which the first-person camera leaves out.
-		DotGameVisualQaViews.tag_layers(_body, 1 << 18)
+		GSGameVisualQaViews.tag_layers(_body, 1 << 18)
 		first_person.cull_mask &= ~(1 << 18)
 	_body.position = Vector3.ZERO
 	_body.rotation = Vector3.ZERO
-	return DotResult.success(clip)
+	return GSResult.success(clip)
 
 
 func _subject(_item: String) -> Node3D:

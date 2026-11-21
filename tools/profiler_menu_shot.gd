@@ -10,7 +10,7 @@ func _initialize() -> void:
 
 
 func _find_menu(n: Node) -> Node:
-	if n.get_script() != null and n.get_script().get_global_name() == &"DotMenu":
+	if n.get_script() != null and n.get_script().get_global_name() == &"GSMenu":
 		return n
 	for c in n.get_children():
 		var m := _find_menu(c)
@@ -31,7 +31,7 @@ func _run() -> void:
 		await process_frame
 		if f % 10 == 0 and f >= 30:
 			menu = _find_menu(root)
-			prof = DotRegistry.get_service(&"dot_profiler")
+			prof = GSRegistry.get_service(&"dot_profiler")
 			if menu != null and prof != null:
 				break
 	print("profiler_menu_shot: scene=%s menu=%s profiler=%s at %d ms" % [scene_path, menu != null, prof != null, Time.get_ticks_msec()])
@@ -41,7 +41,7 @@ func _run() -> void:
 	for f in 90:
 		await process_frame
 	var claimed := false
-	var con: Object = DotRegistry.get_service(&"dot_console")
+	var con: Object = GSRegistry.get_service(&"dot_console")
 	if con != null and con.has_method(&"sources"):
 		for src: Object in con.call(&"sources"):
 			if src.has_method(&"claims") and bool(src.call(&"claims", "profiler_enabled")):

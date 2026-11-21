@@ -1,6 +1,6 @@
-extends DotGameVisualQaCapture
+extends GSGameVisualQaCapture
 
-## The smallest DotGameVisualQaCapture: a capsule "avatar" that turns in place and walks a circle on the default stage.
+## The smallest GSGameVisualQaCapture: a capsule "avatar" that turns in place and walks a circle on the default stage.
 ## Renders, so it runs on a GPU box or xvfb, never in the headless suites (docs/visual-qa.md):
 ##   bash addons/dot_game/tools/dot_game_visual_qa_shot.sh --script examples/visual_qa_demo.gd -- --out /tmp/vq-demo
 
@@ -15,9 +15,9 @@ func _clips(_item: String) -> PackedStringArray:
 	return PackedStringArray(["turn", "walk_circle", "missing"])
 
 
-func _stage(_item: String, clip: String) -> DotResult:
+func _stage(_item: String, clip: String) -> GSResult:
 	if clip == "missing":
-		return DotResult.fail(DotError.CODE_INVALID, "the capsule has no missing clip")
+		return GSResult.fail(GSError.CODE_INVALID, "the capsule has no missing clip")
 	if _body == null:
 		_body = Node3D.new()
 		var mesh := MeshInstance3D.new()
@@ -32,11 +32,11 @@ func _stage(_item: String, clip: String) -> DotResult:
 		_body.add_child(nose)
 		root.add_child(_body)
 		# Your own body on its own layer, which the first-person camera leaves out.
-		DotGameVisualQaViews.tag_layers(_body, 1 << 18)
+		GSGameVisualQaViews.tag_layers(_body, 1 << 18)
 		first_person.cull_mask &= ~(1 << 18)
 	_body.position = Vector3.ZERO
 	_body.rotation = Vector3.ZERO
-	return DotResult.success(clip)
+	return GSResult.success(clip)
 
 
 func _subject(_item: String) -> Node3D:

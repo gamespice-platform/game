@@ -1,4 +1,4 @@
-class_name DotGamePrejoin
+class_name GSGamePrejoin
 extends RefCounted
 
 ## Fetches the avatar files a server advertises before a shell connects to it. Never blocks past
@@ -15,36 +15,36 @@ var timeout_sec: float = 20.0
 ## Longest the rules query may take.
 var query_timeout_sec: float = 3.0
 ## The site the library is read from, and this server's id on it (0: the advertised
-## [constant DotGameAvatarContent.SERVER_CVAR]).
+## [constant GSGameAvatarContent.SERVER_CVAR]).
 var site_url: String = ""
 var server_id: int = 0
 ## Called as `func(fraction: float, text: String)` while files arrive; the shell's loading screen.
 var progress_fn: Callable = Callable()
 ## Assigned, replaces the rules query: `func(address: String) -> Dictionary`.
 var rules_fn: Callable = Callable()
-## Assigned, replaces the download: `func(ids: Array, gate: DotLoadGate) -> DotResult`. For suites.
+## Assigned, replaces the download: `func(ids: Array, gate: GSLoadGate) -> GSResult`. For suites.
 var fetch_fn: Callable = Callable()
-var http: DotHttp = null
-## Extra steps an addon adds, each `func(rules: Dictionary) -> DotResult`, run in order with the server's rules before the avatar files (a content pack the rules name, say). A failure is a warning; the join goes ahead.
+var http: GSHttp = null
+## Extra steps an addon adds, each `func(rules: Dictionary) -> GSResult`, run in order with the server's rules before the avatar files (a content pack the rules name, say). A failure is a warning; the join goes ahead.
 var extra_steps: Array[Callable] = []
 
 
 ## Success holds the number of files downloaded. A failure means the files are not ready;
 ## the caller logs it and connects regardless.
-func prepare(host: Node, address: String) -> DotResult:
+func prepare(host: Node, address: String) -> GSResult:
 	var rules: Dictionary = await _rules(host, address)
 	for step in extra_steps:
 		if not step.is_valid():
 			continue
-		var done: DotResult = await step.call(rules)
+		var done: GSResult = await step.call(rules)
 		if done != null and not done.ok:
-			DotLog.warn(CHANNEL, "extra pre-join step failed; joining anyway", {"why": done.error.message, "address": address})
-	var ids := DotGameAvatarContent.ids_from_rules(rules)
+			GSLog.warn(CHANNEL, "extra pre-join step failed; joining anyway", {"why": done.error.message, "address": address})
+	var ids := GSGameAvatarContent.ids_from_rules(rules)
 	if ids.is_empty():
-		return DotResult.success(0)
+		return GSResult.success(0)
 	if server_id <= 0:
-		server_id = DotGameAvatarContent.server_id_from_rules(rules)
-	var gate := DotLoadGate.new()
+		server_id = GSGameAvatarContent.server_id_from_rules(rules)
+	var gate := GSLoadGate.new()
 	gate.register_service = false
 	gate.require_camera = false
 	if progress_fn.is_valid():
@@ -55,25 +55,25 @@ func prepare(host: Node, address: String) -> DotResult:
 	var tree := host.get_tree()
 	while not state["done"] and Time.get_ticks_msec() < deadline:
 		await tree.process_frame
-	var res: DotResult
+	var res: GSResult
 	if state["done"]:
 		res = state["res"]
 	else:
-		res = DotResult.fail(DotError.CODE_TIMEOUT, "Avatar downloads took longer than %.1f s." % timeout_sec)
+		res = GSResult.fail(GSError.CODE_TIMEOUT, "Avatar downloads took longer than %.1f s." % timeout_sec)
 	if not res.ok:
-		DotLog.warn(CHANNEL, "avatar content not ready; joining anyway", {"why": res.error.message, "address": address})
+		GSLog.warn(CHANNEL, "avatar content not ready; joining anyway", {"why": res.error.message, "address": address})
 	if is_instance_valid(gate):
 		gate.free()
 	return res
 
 
-func _run(host: Node, ids: Array, gate: DotLoadGate, state: Dictionary) -> void:
-	var res: DotResult
+func _run(host: Node, ids: Array, gate: GSLoadGate, state: Dictionary) -> void:
+	var res: GSResult
 	if fetch_fn.is_valid():
 		res = await fetch_fn.call(ids, gate)
 	else:
-		var site := site_url if site_url != "" else DotGameAvatarContent.default_site_url()
-		res = await DotGameAvatarContent.prepare(host, ids, site, server_id, gate, http)
+		var site := site_url if site_url != "" else GSGameAvatarContent.default_site_url()
+		res = await GSGameAvatarContent.prepare(host, ids, site, server_id, gate, http)
 	state["res"] = res
 	state["done"] = true
 
@@ -83,13 +83,13 @@ func _rules(host: Node, address: String) -> Dictionary:
 		return await rules_fn.call(address)
 	if not ResourceLoader.exists(BROWSER_SCRIPT) or not ResourceLoader.exists(TARGET_SCRIPT):
 		return {}
-	var parsed: DotResult = (load(TARGET_SCRIPT) as GDScript).call(&"parse", address)
+	var parsed: GSResult = (load(TARGET_SCRIPT) as GDScript).call(&"parse", address)
 	if not parsed.ok:
 		return {}
 	var browser: Node = (load(BROWSER_SCRIPT) as GDScript).new()
 	browser.set(&"timeout_ms", int(query_timeout_sec * 1000.0))
 	host.add_child(browser)
-	var res: DotResult = await browser.call(&"query", parsed.value, PackedStringArray(["info", "rules"]))
+	var res: GSResult = await browser.call(&"query", parsed.value, PackedStringArray(["info", "rules"]))
 	var rules := {}
 	if res.ok and res.value != null:
 		rules = (res.value.get(&"rules") as Dictionary) if res.value.get(&"rules") is Dictionary else {}

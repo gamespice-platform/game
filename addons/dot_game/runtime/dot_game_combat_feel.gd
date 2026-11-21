@@ -1,25 +1,25 @@
-class_name DotGameCombatFeel
+class_name GSGameCombatFeel
 extends RefCounted
 
 ## Movement-dependent spread, recoil patterns and the spread crosshair for a game that opts in.
 ## GameSpice Weapon and GameSpice UI are loaded by path and named nowhere: a build without them gets inert no-ops.
-## Wire it with [method attach], [method track_tunables], [method bind_cvars] and [method DotGameClient.add_combat_feel].
+## Wire it with [method attach], [method track_tunables], [method bind_cvars] and [method GSGameClient.add_combat_feel].
 
 const SPREAD_SCRIPT := "res://addons/dot_weapon/math/dot_weapon_spread_rules.gd"
 const RECOIL_SCRIPT := "res://addons/dot_weapon/math/dot_weapon_recoil_rules.gd"
 const BALLISTICS_SCRIPT := "res://addons/dot_weapon/math/dot_weapon_ballistics_rules.gd"
 const SPRINT_SCRIPT := "res://addons/dot_player_controller/fp/core/dot_fps_sprint_rules.gd"
-const CVAR_FLAGS := DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED
+const CVAR_FLAGS := GSConVar.FLAG_ARCHIVE | GSConVar.FLAG_NOTIFY | GSConVar.FLAG_REPLICATED
 
-## DotWeaponSpreadRules, or null without GameSpice Weapon.
+## GSWeaponSpreadRules, or null without GameSpice Weapon.
 var spread: RefCounted = null
-## DotWeaponRecoilRules, or null without GameSpice Weapon.
+## GSWeaponRecoilRules, or null without GameSpice Weapon.
 var recoil: RefCounted = null
-## DotWeaponBallisticsRules (`sv_ballistics*`, always off until the cvar is set), or null without GameSpice Weapon.
+## GSWeaponBallisticsRules (`sv_ballistics*`, always off until the cvar is set), or null without GameSpice Weapon.
 var ballistics: RefCounted = null
-## DotFpsSprintRules (sv_sprint*, sv_stamina*), or null without GameSpice Player Controller API 11 or when built with [code]sprint = false[/code].
+## GSFpsSprintRules (sv_sprint*, sv_stamina*), or null without GameSpice Player Controller API 11 or when built with [code]sprint = false[/code].
 var sprint: RefCounted = null
-## DotCrosshairCvars (cl_crosshair_*), or null without GameSpice UI API 10.
+## GSCrosshairCvars (cl_crosshair_*), or null without GameSpice UI API 10.
 var crosshair_cvars: RefCounted = null
 
 
@@ -35,7 +35,7 @@ func _init(on: bool = false, with_sprint: bool = true) -> void:
 		sprint = _make(SPRINT_SCRIPT, true)
 		if sprint != null and sprint.has_signal(&"changed"):
 			sprint.connect(&"changed", _push_sprint)
-	if DotAddonApi.build_level("dot_ui") >= 10:
+	if GSAddonApi.build_level("dot_ui") >= 10:
 		var cvars: Variant = load("res://addons/dot_ui/hud/dot_crosshair_cvars.gd")
 		if cvars is GDScript:
 			crosshair_cvars = (cvars as GDScript).new() as RefCounted
@@ -71,7 +71,7 @@ func sprint_defaults(source: Object) -> void:
 		var _applied: Variant = sprint.call(&"apply_from", source)
 
 
-## Keeps [param tunables] (a player's DotFpsTunables) on the sprint rules now and on every later change, on both sides.
+## Keeps [param tunables] (a player's GSFpsTunables) on the sprint rules now and on every later change, on both sides.
 func track_tunables(tunables: Object) -> void:
 	if tunables == null:
 		return

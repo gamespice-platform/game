@@ -1,6 +1,6 @@
 extends RefCounted
 
-## [DotGameClient]'s opt-in map culling: GameSpice Map's DotMapVisibility over a converted map, by path, and the `vis_mode` console variable. No class_name: the client preloads it.
+## [GSGameClient]'s opt-in map culling: GameSpice Map's GSMapVisibility over a converted map, by path, and the `vis_mode` console variable. No class_name: the client preloads it.
 
 const CHANNEL := "game.client.vis"
 const VIS_SCRIPT := "res://addons/dot_map/bsp/dot_map_visibility.gd"
@@ -49,19 +49,19 @@ static func _build(c: Node) -> void:
 	if drawn == null or parent == null:
 		return
 	if not ResourceLoader.exists(VIS_SCRIPT):
-		DotLog.info(CHANNEL, "dot-map is not in this build: no map culling")
+		GSLog.info(CHANNEL, "dot-map is not in this build: no map culling")
 		return
 	var vis: Node = (load(VIS_SCRIPT) as GDScript).new()
 	vis.name = "MapVisibility"
 	vis.set(&"mode", vis.call(&"parse_mode", c.vis_mode))
 	parent.add_child(vis)
 	var res: Variant = vis.call(&"setup", c._vis_world, drawn)
-	if res is DotResult and not (res as DotResult).ok:
-		DotLog.info(CHANNEL, "map culling is off for this map", {"why": (res as DotResult).error.message})
+	if res is GSResult and not (res as GSResult).ok:
+		GSLog.info(CHANNEL, "map culling is off for this map", {"why": (res as GSResult).error.message})
 		vis.queue_free()
 		return
 	c.visibility = vis
-	DotLog.debug(CHANNEL, "map culling on", {"mode": c.vis_mode})
+	GSLog.debug(CHANNEL, "map culling on", {"mode": c.vis_mode})
 
 
 ## The client console's own variable source that does not already claim [param name], or null.
@@ -89,8 +89,8 @@ static func add_console_var(c: Node) -> bool:
 		func() -> Variant: return c.vis_mode,
 		func(v: Variant) -> Variant:
 			if set_mode(c, str(v)):
-				return DotResult.success(c.vis_mode)
-			return DotResult.fail(DotError.CODE_INVALID, "vis_mode is one of %s" % ", ".join(MODES)))
+				return GSResult.success(c.vis_mode)
+			return GSResult.fail(GSError.CODE_INVALID, "vis_mode is one of %s" % ", ".join(MODES)))
 	return true
 
 

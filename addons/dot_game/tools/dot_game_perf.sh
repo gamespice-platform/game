@@ -6,12 +6,12 @@
 #
 #   tools/perf.sh --platform native|web --role client|server [--bots N] [--map M] [--duration S] [--out report.json] [--box staging02] [-- extra args]
 #
-# native client: the game's perf bench (tools/perf_bench.sh, a DotGamePerfBench) windowed on a GPU box through gpu.sh: Vulkan on the
+# native client: the game's perf bench (tools/perf_bench.sh, a GSGamePerfBench) windowed on a GPU box through gpu.sh: Vulkan on the
 #   NVIDIA card. The report's gpu string is checked and a software renderer (llvmpipe, swiftshader, empty) is refused (exit 4): a frame
 #   time from it says nothing about a player's machine.
 # native server: the game's headless dedicated-server scene (PERF_SERVER_SCENE; PERF_SERVER_BOTS_ARG and PERF_SERVER_MAP_ARG are printf
 #   formats for the scene's own flags) under dot-profiler's dot_profiler_run.tscn on this box. Headless has no renderer, so the report is
-#   the per-frame and per-system cost (the tick breakdown the scene reports through DotFrameCost), not a draw time.
+#   the per-frame and per-system cost (the tick breakdown the scene reports through GSFrameCost), not a draw time.
 # web: dot_game_perf_web.mjs on the game's PERF_WEB_URL, or the game's own PERF_WEB_CMD (writes a perf report v1 to $PERF_OUT), run through
 #   gpu.sh cdp-run so Chrome has real WebGL on the GPU box; PERF_WEB_UP/PERF_WEB_DOWN start and stop the server and page host around it,
 #   PERF_WEB_SERVE is the port tunnelled to the box. A game with none of them exits 3 ("web capture not wired"), never a fake report.

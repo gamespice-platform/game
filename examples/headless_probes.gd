@@ -1,6 +1,6 @@
 extends Node
 
-## DotLoadProbe and DotAudioProbe: the hooks reach the loop, the gate/body columns and the exit are right.
+## GSLoadProbe and GSAudioProbe: the hooks reach the loop, the gate/body columns and the exit are right.
 
 const CHECKS := 12
 
@@ -36,7 +36,7 @@ class Client:
 
 
 class Load:
-	extends DotLoadProbe
+	extends GSLoadProbe
 
 	var lines: Array[String] = []
 	var shots: Array[int] = []
@@ -95,7 +95,7 @@ class Audio:
 
 
 class Sound:
-	extends DotAudioProbe
+	extends GSAudioProbe
 
 	var lines: Array[String] = []
 	var exit := -1
@@ -132,7 +132,7 @@ class Sound:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 

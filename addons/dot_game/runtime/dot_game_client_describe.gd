@@ -1,7 +1,7 @@
-class_name DotGameClientDescribe
+class_name GSGameClientDescribe
 extends RefCounted
 
-## The state dump of [DotGameClient].
+## The state dump of [GSGameClient].
 
 
 static func describe(c: Node) -> Dictionary:

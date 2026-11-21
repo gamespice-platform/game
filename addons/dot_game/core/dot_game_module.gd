@@ -1,6 +1,6 @@
 @tool
-class_name DotGameModule
-extends DotModule
+class_name GSGameModule
+extends GSModule
 
 ## The order a server game is built in, written once: game object, netcode and bridge, identity, services, roster, one tick, then the reverse on unload.
 ##
@@ -25,7 +25,7 @@ signal loading_changed(seat: int, loading: bool)
 ## The property a game object may declare to be handed [method is_peer_loading]: `var peer_loading_fn: Callable`. Assigned before [method _game_load], cleared at unload.
 const PEER_LOADING_PROPERTY := &"peer_loading_fn"
 const _Profiler := preload("res://addons/dot_game/runtime/dot_game_profiler.gd")
-# DotGameModuleWiring and DotGameStatsReport take the module typed, so they are loaded by uid at use:
+# GSGameModuleWiring and GSGameStatsReport take the module typed, so they are loaded by uid at use:
 # naming them here would put the three in one script loop, which Godot 4.7 never frees.
 const _WIRING_UID := "uid://d1wk1ddon2tyq"
 const _STATS_REPORT_UID := "uid://b0alyooc3qid7"
@@ -40,19 +40,19 @@ const _STATS_REPORT_UID := "uid://b0alyooc3qid7"
 ## After a map change, seconds to wait for a client's cover to go up again before counting it loaded.
 @export var reload_grace_sec: float = 5.0
 
-## The game object, resolved from [DotRegistry] under [method _game_service].
+## The game object, resolved from [GSRegistry] under [method _game_service].
 var game: Object = null
 
 ## The netcode, or null for a game that declared no [method _net_config].
-var net: DotNetManager = null
+var net: GSNetManager = null
 
 ## The game's own bridge between itself and [member net]. Duck-typed.
 var bridge: Node = null
 
 ## The NPC level-of-detail and sense-thread cvars, once the game called [method attach_npc_lod].
-var npc_lod: DotGameNpcLod = null
+var npc_lod: GSGameNpcLod = null
 
-## The movement cvars (`sv_gravity` and the rest), once [method bind_movement_cvars] ran: GameSpice Player Controller's `DotFpsCvars`.
+## The movement cvars (`sv_gravity` and the rest), once [method bind_movement_cvars] ran: GameSpice Player Controller's `GSFpsCvars`.
 var movement_cvars: Object = null
 
 ## The identity layer, when [method _make_identity] returned one.
@@ -62,13 +62,13 @@ var identity: Node = null
 var services: Node = null
 
 ## Who is in the game, as opposed to who is connected.
-var roster: DotGameRoster = null
+var roster: GSGameRoster = null
 
 ## Reports each seat to a GameSpice Stats tracker when one is set or registered as `dot_stats_tracker`; null feeds nothing.
-var stats_feed: DotGameStatsFeed = null
+var stats_feed: GSGameStatsFeed = null
 
 ## Adds the tracker's per-player figures to the Tab board (`st_*`, `lt_*`, `stat_columns`). Null without a roster.
-var stats_board: DotGameStatsBoard = null
+var stats_board: GSGameStatsBoard = null
 
 ## Authoritative ticks since load. The number the bridge is driven with.
 var tick: int = 0
@@ -77,9 +77,9 @@ var tick: int = 0
 var _warned_no_map_report := false
 
 ## The per-map settings, built on the first [method report_map] when [method _map_config_keys] names any.
-var map_config: DotGameMapConfig = null
-## Assign to handle a DotMapWorld's `script.*` events; its per-map switches join [method _map_config_keys] and it restores on a map change and on unload.
-var map_scripts: DotGameMapScripts = null
+var map_config: GSGameMapConfig = null
+## Assign to handle a GSMapWorld's `script.*` events; its per-map switches join [method _map_config_keys] and it restores on a map change and on unload.
+var map_scripts: GSGameMapScripts = null
 
 ## The map [method report_map] last reported; a different one re-marks every seat loading.
 var _reported_map := ""
@@ -89,7 +89,7 @@ var _handles_cover := false
 var _set_peer_loading := false
 
 
-## The [DotRegistry] name the game object publishes itself under. Required; `&""` means a scene-only game with no object.
+## The [GSRegistry] name the game object publishes itself under. Required; `&""` means a scene-only game with no object.
 func _game_service() -> StringName:
 	return &""
 
@@ -103,25 +103,25 @@ func _game_missing_hint() -> String:
 
 
 ## The netcode settings, or null for a game that does not replicate. No default: tick and snapshot rates are the game's own numbers.
-func _net_config() -> DotNetConfig:
+func _net_config() -> GSNetConfig:
 	return null
 
 
-## The operator's limits on [method _net_config] (see [method DotGameNetcode.cap]); the default reads [constant DotGameNetcode.CEILING_META] off the server. An empty dictionary changes nothing.
+## The operator's limits on [method _net_config] (see [method GSGameNetcode.cap]); the default reads [constant GSGameNetcode.CEILING_META] off the server. An empty dictionary changes nothing.
 func _net_ceiling() -> Dictionary:
-	if server != null and server.has_meta(DotGameNetcode.CEILING_META):
-		var v: Variant = server.get_meta(DotGameNetcode.CEILING_META)
+	if server != null and server.has_meta(GSGameNetcode.CEILING_META):
+		var v: Variant = server.get_meta(GSGameNetcode.CEILING_META)
 		if v is Dictionary:
 			return v
 	return {}
 
 
-## The game's bridge to the netcode. Required with a netcode. Duck-typed: `attach(game, net) -> DotResult`, `open_link(server)`, and `server_tick(tick)` if driven.
+## The game's bridge to the netcode. Required with a netcode. Duck-typed: `attach(game, net) -> GSResult`, `open_link(server)`, and `server_tick(tick)` if driven.
 func _make_bridge() -> Node:
 	return null
 
 
-## Content, profiles, avatars and admission. Optional; needs `setup() -> DotResult`. Null for none.
+## Content, profiles, avatars and admission. Optional; needs `setup() -> GSResult`. Null for none.
 func _make_identity() -> Node:
 	return null
 
@@ -131,17 +131,17 @@ func _wants_platform_module() -> bool:
 	return true
 
 
-## Chat, voice and moderation. Optional; needs `setup(server, game, link) -> DotResult` (link is the bridge's or null).
+## Chat, voice and moderation. Optional; needs `setup(server, game, link) -> GSResult` (link is the bridge's or null).
 func _make_services() -> Node:
 	return null
 
 
 ## Everything this game adds that the skeleton does not know. Runs last, after everything else is up; a failure refuses to load.
-func _game_load() -> DotResult:
-	return DotResult.success(null)
+func _game_load() -> GSResult:
+	return GSResult.success(null)
 
 
-## Anything [method _game_load] set up that the [DotModule] helpers do not undo (commands, cvars and hooks they registered are removed for you).
+## Anything [method _game_load] set up that the [GSModule] helpers do not undo (commands, cvars and hooks they registered are removed for you).
 func _game_unload() -> void:
 	pass
 
@@ -163,7 +163,7 @@ func _game_board_extra() -> Dictionary:
 	return {}
 
 
-## The movement tunables the `sv_*` cvars drive (anything with `cvar_specs()` and `set_cvar()`: `DotFpsTunables`, swim, ladder). The default asks the game object's `movement_targets()`; empty binds nothing.
+## The movement tunables the `sv_*` cvars drive (anything with `cvar_specs()` and `set_cvar()`: `GSFpsTunables`, swim, ladder). The default asks the game object's `movement_targets()`; empty binds nothing.
 func _movement_targets() -> Array:
 	if game != null and game.has_method(&"movement_targets"):
 		var targets: Variant = game.call(&"movement_targets")
@@ -176,16 +176,16 @@ func bind_movement_cvars(targets: Array = []) -> Array:
 	return _wiring().bind_movement_cvars(self, targets if not targets.is_empty() else _movement_targets())
 
 
-## Registers the family's `stats_report` cvar (default 0) and aliases for a game's old names; see [DotGameStatsReport].
-func bind_stats_report(apply: Callable = Callable(), legacy: PackedStringArray = PackedStringArray()) -> DotConVar:
+## Registers the family's `stats_report` cvar (default 0) and aliases for a game's old names; see [GSGameStatsReport].
+func bind_stats_report(apply: Callable = Callable(), legacy: PackedStringArray = PackedStringArray()) -> GSConVar:
 	return (load(_STATS_REPORT_UID) as GDScript).bind(self, apply, legacy)
 
 
-## Wires a DotNpcSpawner to `sv_threads_npc` and the `npc_lod*` / `npc_sense_quiet` cvars (all off by default; see [DotGameNpcLod]). Call it once the spawner is in the tree; [param players] returns the positions NPCs measure distance from (default: the spawner's candidates).
-func attach_npc_lod(spawner: Object, players: Callable = Callable()) -> DotGameNpcLod:
+## Wires a GSNpcSpawner to `sv_threads_npc` and the `npc_lod*` / `npc_sense_quiet` cvars (all off by default; see [GSGameNpcLod]). Call it once the spawner is in the tree; [param players] returns the positions NPCs measure distance from (default: the spawner's candidates).
+func attach_npc_lod(spawner: Object, players: Callable = Callable()) -> GSGameNpcLod:
 	if npc_lod != null:
 		npc_lod.release()
-	npc_lod = DotGameNpcLod.attach(self, console, spawner, server.config if server != null else null, players)
+	npc_lod = GSGameNpcLod.attach(self, console, spawner, server.config if server != null else null, players)
 	return npc_lod
 
 
@@ -197,16 +197,16 @@ func _game_tick(_tick: int, _delta: float) -> void:
 
 ## Builds the game, in the one order that works.
 ## The netcode is fatal and everything after it is not: no netcode accepts players into nothing, but an unreadable punishment file must not take the whole server down.
-func _module_load() -> DotResult:
+func _module_load() -> GSResult:
 	var service := _game_service()
 
 	if service != &"":
-		game = DotRegistry.get_node_service(service)
+		game = GSRegistry.get_node_service(service)
 
 		if game == null:
 						# Refusing is right: a module that did nothing admits players into a match that does not exist.
-			return DotResult.fail(
-				DotError.CODE_STATE,
+			return GSResult.fail(
+				GSError.CODE_STATE,
 				"No game is registered under '%s'." % String(service),
 				_game_missing_hint()
 			)
@@ -214,19 +214,19 @@ func _module_load() -> DotResult:
 	var config := _net_config()
 
 	if config != null:
-		var capped := DotGameNetcode.cap(config, _net_ceiling())
+		var capped := GSGameNetcode.cap(config, _net_ceiling())
 
 		if not capped.is_empty():
-			DotLog.info(CHANNEL, "operator net limits applied", {
+			GSLog.info(CHANNEL, "operator net limits applied", {
 				"module": String(_module_name()), "changes": "; ".join(capped),
 			})
 
 		_wiring().adapt_snapshot_rate(self, config)
 
-		DotGameNetcode.follow_server_threads(config, server.config if server != null else null)
-		DotGameNetcode.follow_map_threads(console)
+		GSGameNetcode.follow_server_threads(config, server.config if server != null else null)
+		GSGameNetcode.follow_map_threads(console)
 
-		var built := DotGameNetcode.build(
+		var built := GSGameNetcode.build(
 			self, server, game, config, _make_bridge()
 		)
 
@@ -236,17 +236,17 @@ func _module_load() -> DotResult:
 		net = built.value["net"]
 		bridge = built.value["bridge"]
 		_bind_avatar_hooks()
-		var _latency := net.latency.bind_server_cvar(Callable(self, "add_cvar"), DotConVar.FLAG_NOTIFY | DotConVar.FLAG_REPLICATED)
+		var _latency := net.latency.bind_server_cvar(Callable(self, "add_cvar"), GSConVar.FLAG_NOTIFY | GSConVar.FLAG_REPLICATED)
 
-	var identified: DotResult = await _build_identity()
-	DotLog.result(CHANNEL, "the identity layer", identified)
+	var identified: GSResult = await _build_identity()
+	GSLog.result(CHANNEL, "the identity layer", identified)
 
-	var serviced: DotResult = await _build_services()
-	DotLog.result(CHANNEL, "chat, voice and moderation", serviced)
+	var serviced: GSResult = await _build_services()
+	GSLog.result(CHANNEL, "chat, voice and moderation", serviced)
 
 	_build_roster()
 
-	var loaded: DotResult = await _game_load()
+	var loaded: GSResult = await _game_load()
 
 	if not loaded.ok:
 				# The game refused, so everything built above it comes down; else a ticking netcode outlives the module.
@@ -270,7 +270,7 @@ func _module_load() -> DotResult:
 	start_auto_update(server)
 
 	log_info("%s loaded" % _module_name(), describe())
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 ## Hands GameSpice Server's Tab board this game's columns. Asked, not assumed: an older GameSpice Server lacks the properties.
@@ -279,8 +279,8 @@ func _attach_board() -> void:
 		return
 	server.set(&"scoreboard_fields", func(session: Object) -> Dictionary:
 		var own := _game_board_fields(session)
-		if stats_board != null and session is DotClientSession:
-			own.merge(stats_board.fields(session as DotClientSession))
+		if stats_board != null and session is GSClientSession:
+			own.merge(stats_board.fields(session as GSClientSession))
 		return own)
 	server.set(&"scoreboard_extra", func() -> Dictionary:
 		var own := _game_board_extra()
@@ -300,12 +300,12 @@ func _detach_board() -> void:
 
 
 ## Builds the identity layer and loads GameSpice Platform beside it.
-func _build_identity() -> DotResult:
+func _build_identity() -> GSResult:
 	return await _wiring().build_identity(self)
 
 
 ## Builds the services layer over whatever link the bridge opened.
-func _build_services() -> DotResult:
+func _build_services() -> GSResult:
 	return await _wiring().build_services(self)
 
 
@@ -314,7 +314,7 @@ func _build_roster() -> void:
 	_wiring().build_roster(self)
 
 
-## Puts this module's handler for [constant DotGameRoster.COVER_KIND] on the server's envelope.
+## Puts this module's handler for [constant GSGameRoster.COVER_KIND] on the server's envelope.
 ## A kind on the existing envelope, because the RPC set is frozen and each game's bridge is its own. Duck-typed and optional: a client that predates it is released by the timeout.
 func _handle_cover_reports() -> void:
 	if server == null or not ("envelope" in server):
@@ -322,7 +322,7 @@ func _handle_cover_reports() -> void:
 	var env: Object = server.get(&"envelope")
 	if env == null or not env.has_method("register"):
 		return
-	env.call("register", DotGameRoster.COVER_KIND, Callable(self, "_on_cover_report"), false)
+	env.call("register", GSGameRoster.COVER_KIND, Callable(self, "_on_cover_report"), false)
 	_handles_cover = true
 
 
@@ -333,7 +333,7 @@ func _release_cover_reports() -> void:
 	var env: Object = server.get(&"envelope") if server != null else null
 	if env != null and env.has_method("handle"):
 				# The kind stays known (an advert cannot be taken back); with no handler the envelope drops it.
-		env.call("handle", DotGameRoster.COVER_KIND, Callable())
+		env.call("handle", GSGameRoster.COVER_KIND, Callable())
 
 
 func _on_cover_report(peer_id: int, payload: Dictionary) -> void:
@@ -385,7 +385,7 @@ func mark_reloading() -> void:
 ## The spawn hook, kept here rather than handed to the roster directly.
 ##
 ## Moderation records are checked here, not at connect: GameSpice Server's mute dies with its session, so a muted player would reconnect and talk.
-func _on_client_spawn(event: DotEvent) -> void:
+func _on_client_spawn(event: GSEvent) -> void:
 	if roster == null:
 		return
 
@@ -398,8 +398,8 @@ func _on_client_spawn(event: DotEvent) -> void:
 	if services != null and services.has_method("check_admission"):
 		var admitted: Variant = services.call("check_admission", session)
 
-		if admitted is DotResult and not (admitted as DotResult).ok:
-			server.kick(session, (admitted as DotResult).error.message)
+		if admitted is GSResult and not (admitted as GSResult).ok:
+			server.kick(session, (admitted as GSResult).error.message)
 			return
 
 	roster.add(session)
@@ -420,9 +420,9 @@ func _physics_process(delta: float) -> void:
 	tick += 1
 
 	# The cvars are live; the game's own net config is left alone.
-	DotGameNetcode.follow_map_threads(console)
+	GSGameNetcode.follow_map_threads(console)
 	if net != null and server != null and net.config != null:
-		DotGameNetcode.follow_server_threads(net.config, server.config)
+		GSGameNetcode.follow_server_threads(net.config, server.config)
 
 	if npc_lod != null:
 		npc_lod.follow(delta)
@@ -454,7 +454,7 @@ func _follow_hibernation() -> void:
 	if not server.hibernation_changed.is_connected(_on_hibernation_changed):
 		server.hibernation_changed.connect(_on_hibernation_changed)
 
-	DotLog.debug(CHANNEL, "following the server's hibernation", {
+	GSLog.debug(CHANNEL, "following the server's hibernation", {
 		"clocks": followed, "hibernating": server.is_hibernating(),
 	})
 
@@ -463,10 +463,10 @@ func _on_hibernation_changed(hibernating: bool) -> void:
 	_game_hibernation(hibernating)
 
 
-## Snapshot interest from [param world]'s potentially visible set (a dot-map DotMapBspMesh placed at the origin), switched by the `net_visibility` cvar; call on every server map load, with null on unload. Value: whether a set is in force (false without a netcode, a default interest or the map's data).
+## Snapshot interest from [param world]'s potentially visible set (a dot-map GSMapBspMesh placed at the origin), switched by the `net_visibility` cvar; call on every server map load, with null on unload. Value: whether a set is in force (false without a netcode, a default interest or the map's data).
 func use_map_visibility(world: Object, bounds: AABB = AABB()) -> bool:
-	var on := DotGameNetcode.attach_visibility(net, world, bounds)
-	DotLog.info(CHANNEL, "snapshot visibility", {"in_force": on})
+	var on := GSGameNetcode.attach_visibility(net, world, bounds)
+	GSLog.info(CHANNEL, "snapshot visibility", {"in_force": on})
 	return on
 
 
@@ -487,7 +487,7 @@ func report_map(map_id: String) -> bool:
 	if not server.games.has_method("set_current_map"):
 		if not _warned_no_map_report:
 			_warned_no_map_report = true
-			DotLog.info(CHANNEL, "this server cannot be told the map; listings show the game", {
+			GSLog.info(CHANNEL, "this server cannot be told the map; listings show the game", {
 				"map": map_id,
 			})
 		return false
@@ -523,16 +523,16 @@ func _map_config_defaults() -> Dictionary:
 	return {}
 
 
-## The `cfg/game/<game>/dot_map/` folder's game name (the repository's, such as `game-fatal-contact`): `DotAddonConfig.game` when the host set it, else the module's name.
+## The `cfg/game/<game>/dot_map/` folder's game name (the repository's, such as `game-fatal-contact`): `GSAddonConfig.game` when the host set it, else the module's name.
 func _map_config_game() -> String:
-	return DotAddonConfig.game if DotAddonConfig.game != "" else String(_module_name())
+	return GSAddonConfig.game if GSAddonConfig.game != "" else String(_module_name())
 
 
 ## The key's current value; the server console's cvar unless overridden.
 func _map_config_get(key: String) -> Variant:
 	if map_scripts != null and map_scripts.owns_key(key):
 		return map_scripts.config_get(key)
-	var cv: DotConVar = console.find_cvar(key) if console != null else null
+	var cv: GSConVar = console.find_cvar(key) if console != null else null
 	return cv.get_string() if cv != null else null
 
 
@@ -556,7 +556,7 @@ func _module_unload() -> void:
 
 
 ## Starts GameSpice Cloud's auto-update once per headless server process, under the server. No-op without GameSpice Cloud, on a listen server and in a browser.
-static func start_auto_update(host: DotServer) -> Node:
+static func start_auto_update(host: GSServer) -> Node:
 	return _wiring().start_auto_update(host)
 
 
@@ -566,7 +566,7 @@ static func watched_packs(host: Object) -> Array:
 
 
 ## The block rules (teammates pass, enemies stop) when the game has a `body_rules`; null when off.
-var noblock: DotGameNoblock = null
+var noblock: GSGameNoblock = null
 
 
 ## Has the roster tell the relay's loadouts who joins and leaves.
@@ -592,11 +592,11 @@ func _avatar_action_veto(peer_id: int, id: String) -> bool:
 	return false
 
 
-## This server's id on the site, advertised as [constant DotGameAvatarContent.SERVER_CVAR]; 0 while unknown. Default: GameSpice Auth's `server:<id>` audience.
+## This server's id on the site, advertised as [constant GSGameAvatarContent.SERVER_CVAR]; 0 while unknown. Default: GameSpice Auth's `server:<id>` audience.
 func _site_server_id() -> int:
-	var auth: Object = DotRegistry.get_service(&"dot_auth_server")
+	var auth: Object = GSRegistry.get_service(&"dot_auth_server")
 	if auth != null and auth.has_method(&"join_audience"):
-		return DotGameAvatarContent.server_id_from_audience(String(auth.call(&"join_audience")))
+		return GSGameAvatarContent.server_id_from_audience(String(auth.call(&"join_audience")))
 	return 0
 
 
@@ -632,14 +632,14 @@ func _noblock_side(id: Variant) -> Variant:
 	return str(team) if team > 0 else ""
 
 
-## The game's `DotProfileRuntime`, so the workbench lists the `noblock` kind; the started `game.workbench`'s by default, null for none.
+## The game's `GSProfileRuntime`, so the workbench lists the `noblock` kind; the started `game.workbench`'s by default, null for none.
 func _noblock_runtime() -> Object:
 	var wb: Variant = game.get("workbench") if game != null and "workbench" in game else null
 	var api: Variant = wb.get("api") if wb is Object else null
 	return api.get("runtime") if api is Object else null
 
 
-func _build_noblock() -> DotResult:
+func _build_noblock() -> GSResult:
 	return _wiring().build_noblock(self)
 
 
@@ -717,7 +717,7 @@ func _drop(child: Node) -> void:
 	child.queue_free()
 
 
-## Extends [DotModule]'s rather than replacing it: the base reports the counts the module host and `modules` read.
+## Extends [GSModule]'s rather than replacing it: the base reports the counts the module host and `modules` read.
 func describe() -> Dictionary:
 	var out := super.describe()
 
@@ -755,6 +755,6 @@ func describe_lines() -> PackedStringArray:
 	return lines
 
 
-## DotGameModuleWiring, loaded (see [constant _WIRING_UID]).
+## GSGameModuleWiring, loaded (see [constant _WIRING_UID]).
 static func _wiring() -> GDScript:
 	return load(_WIRING_UID) as GDScript

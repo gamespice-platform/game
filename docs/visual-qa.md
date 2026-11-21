@@ -8,8 +8,8 @@ Nothing here ships in a pack, so none of it bumps the API level.
 
 | File | What |
 | --- | --- |
-| `addons/dot_game/qa/dot_game_visual_qa_capture.gd` | `DotGameVisualQaCapture`, a `SceneTree` script: the capture scene contract. A game extends it and overrides the hooks |
-| `addons/dot_game/qa/dot_game_visual_qa_views.gd` | `DotGameVisualQaViews`: the behind-right and opponent cameras as SubViewports of the game's world, `place(feet, yaw)`, `save(dir, i, first_person)` (f/t/o jpgs), `tag_layers` |
+| `addons/dot_game/qa/dot_game_visual_qa_capture.gd` | `GSGameVisualQaCapture`, a `SceneTree` script: the capture scene contract. A game extends it and overrides the hooks |
+| `addons/dot_game/qa/dot_game_visual_qa_views.gd` | `GSGameVisualQaViews`: the behind-right and opponent cameras as SubViewports of the game's world, `place(feet, yaw)`, `save(dir, i, first_person)` (f/t/o jpgs), `tag_layers` |
 | `addons/dot_game/tools/dot_game_visual_qa_shot.sh` | the on-box half: runs the capture under xvfb at `--fixed-fps`, makes the sheets and the side-by-side clip (into `--clip-dir`, default `--out`), drops the frames |
 | `addons/dot_game/tools/dot_game_visual_qa.sh` | the driver: routes the shot tool to a GPU box (`gpu.sh shot --route --pull`), falls back to `heavy`, files the clips, writes `report.md` |
 | `addons/dot_game/tools/dot_game_visual_qa_post.sh` | posts clips (with `fps`, frames and verdict in `--metrics`) and first-person sheets to a nightly review item |
@@ -21,7 +21,7 @@ Nothing here ships in a pack, so none of it bumps the API level.
 1. `tools/visual_qa.gd`:
 
 ```gdscript
-extends DotGameVisualQaCapture
+extends GSGameVisualQaCapture
 
 var _avatar: Node3D
 
@@ -31,16 +31,16 @@ func _items() -> PackedStringArray:
 func _clips(_item: String) -> PackedStringArray:
 	return PackedStringArray(["idle", "walk", "run", "jump"])
 
-func _stage(item: String, clip: String) -> DotResult:
+func _stage(item: String, clip: String) -> GSResult:
 	if _avatar == null:
 		_avatar = (load("res://avatars/%s.tscn" % item) as PackedScene).instantiate()
 		root.add_child(_avatar)
 	var player := _avatar.find_child("AnimationPlayer") as AnimationPlayer
 	if not player.has_animation(clip):
-		return DotResult.fail(DotError.CODE_INVALID, "no %s clip" % clip)
+		return GSResult.fail(GSError.CODE_INVALID, "no %s clip" % clip)
 	player.play(clip)
 	player.pause()
-	return DotResult.success(clip)
+	return GSResult.success(clip)
 
 func _subject(_item: String) -> Node3D:
 	return _avatar
@@ -68,7 +68,7 @@ Add `screenshots/` to `.gitignore` if it is not there.
 
 ## The capture scene contract
 
-`DotGameVisualQaCapture` builds on the first frame (`_initialize` runs before the tree is ready), then for each (item, clip) after `--only` and `--clips`: `_stage`, `_warmup_frames` frames, one staged draw so the outside views have caught up, then `round(_seconds * fps)` frames. Each frame: `_drive(item, clip, t, frame)`, then just before the draw `_before_draw`, `_place_first_person` and the outside cameras' `place` at the subject's feet and yaw, a `DotClipMetrics` pose sample of `_skeleton` and the T-pose count; after the draw all three views are saved to `<out>/<item>/_frames/<clip>/{f,t,o}_NNN.jpg`. Then one line per clip:
+`GSGameVisualQaCapture` builds on the first frame (`_initialize` runs before the tree is ready), then for each (item, clip) after `--only` and `--clips`: `_stage`, `_warmup_frames` frames, one staged draw so the outside views have caught up, then `round(_seconds * fps)` frames. Each frame: `_drive(item, clip, t, frame)`, then just before the draw `_before_draw`, `_place_first_person` and the outside cameras' `place` at the subject's feet and yaw, a `GSClipMetrics` pose sample of `_skeleton` and the T-pose count; after the draw all three views are saved to `<out>/<item>/_frames/<clip>/{f,t,o}_NNN.jpg`. Then one line per clip:
 
 `VISUALQA {"item","clip","fps","frames","pass","fail":["check value (limit x) note"],"worst":{check: value},"checks":[rows]}`, or `VISUALQA {"item","clip","status":"skip","why"}` when `_stage` fails (shown as N/A). `VISUALQA_DONE` ends the run; exit 1 if a frame could not be saved.
 
@@ -76,7 +76,7 @@ Add `screenshots/` to `.gitignore` if it is not there.
 | --- | --- | --- |
 | `_items()`, `_clips(item)` | none | always |
 | `_build()` | `build_stage()`: a 40 m grid floor at y 0, a sun with shadows, a plain sky, a current first-person `Camera3D` | the game's own client or map must stand around the subject (FC builds its offline client) |
-| `_stage(item, clip) -> DotResult` | fails (unsupported) | always: spawn or reuse the subject, ready the clip; fail with the reason when the item has no such clip |
+| `_stage(item, clip) -> GSResult` | fails (unsupported) | always: spawn or reuse the subject, ready the clip; fail with the reason when the item has no such clip |
 | `_subject(item) -> Node3D` | null | always: its position is the feet, its Y rotation the facing (-Z forward) |
 | `_skeleton(item)` | the first `Skeleton3D` under the subject | several skeletons (pick the body, not the arms) |
 | `_seconds`, `_warmup_frames` | 2.0 s, 2 frames | per clip length, streaming assets |
@@ -86,9 +86,9 @@ Add `screenshots/` to `.gitignore` if it is not there.
 | `_place_first_person(item)` | eyes at 1.6 m, looking down-forward | the game has its own player camera |
 | `_checks(item, clip, rows)` | rows unchanged | add the game's own rows: grip distance, muzzle offset, held-item offset |
 
-Args after `--`: `--out DIR` (default `screenshots/visual_qa`), `--fps N` (60), `--only a,b`, `--clips a,b` (`--anims` too), `--limits res://x.json` (a `DotClipMetrics.limits_for` file; add `"tpose_frames"` to allow some rest-pose frames). Layers: the outside cameras draw everything but layers 18 and 20 (bits 17 and 19); put the first-person arms there with `DotGameVisualQaViews.tag_layers(arms, 1 << 17)`, and your own body on another layer the first-person camera culls.
+Args after `--`: `--out DIR` (default `screenshots/visual_qa`), `--fps N` (60), `--only a,b`, `--clips a,b` (`--anims` too), `--limits res://x.json` (a `GSClipMetrics.limits_for` file; add `"tpose_frames"` to allow some rest-pose frames). Layers: the outside cameras draw everything but layers 18 and 20 (bits 17 and 19); put the first-person arms there with `GSGameVisualQaViews.tag_layers(arms, 1 << 17)`, and your own body on another layer the first-person camera culls.
 
-A game that already has its own capture scene (FC's `tools/anim_review.gd`) can skip the class and use only `DotGameVisualQaViews` and the shot tool: anything that writes `<out>/<item>/_frames/<clip>/{f,t,o}_NNN.jpg` (or `fp_<clip>` folders) gets the sheets and clips. Its own log lines survive the shot tool's filter with `--keep REGEX`, and the driver's `--no-report` leaves `report.md` to it.
+A game that already has its own capture scene (FC's `tools/anim_review.gd`) can skip the class and use only `GSGameVisualQaViews` and the shot tool: anything that writes `<out>/<item>/_frames/<clip>/{f,t,o}_NNN.jpg` (or `fp_<clip>` folders) gets the sheets and clips. Its own log lines survive the shot tool's filter with `--keep REGEX`, and the driver's `--no-report` leaves `report.md` to it.
 
 ## Output and cost
 
@@ -109,7 +109,7 @@ bash addons/dot_game/tools/dot_game_visual_judge.sh --clips screenshots/visual_q
 - It exits 4, never skips, when a requested `--only` item or `--anims` clip has no mp4, when a pack cannot be built from a clip, or when `--capture` did not rewrite a clip (a stale mp4 would be judged as new).
 - One run per `--out`: a second run on the same directory exits 2 (flock on `<out>/.lock`). Each round starts clean: the previous round's `verdict.json`, `results.tsv` and `pass*/` packs are removed, so a later round never inherits an earlier round's passes.
 - Per clip it builds a pack: full-resolution stills (start, quarter, mid, three-quarter, end and the top motion peaks, every camera side by side), two motion bursts (five consecutive frames around a peak, so pops and teleports show frame to frame), a frame-delta strip and the clip's sheets. It has no metrics and no author notes.
-- Passes: `--passes N` (`VISUAL_JUDGE_PASSES`, default 3, refused below 3). Pass k is a new fresh judge on variant k-1: the quarter stills shift, the bursts move to other peaks, passes 2+ add a doubled close-up of one camera (first person, then behind-right, then opponent), and with `--capture` the clips are recaptured with `SHOT_VQA_VARIANT=k-1` (gpu.sh carries `SHOT_*` to the box; `DotGameVisualQaViews` moves both outside cameras and turns and dims or brightens every `DirectionalLight3D`, and logs a `VISUALQA variant` line). The first pass with any defect, minor included, ends the round. `verdict.json` holds the streak (`passes_clean`, `passes_required`, each pass's variant, judge sessions and image counts) and the source state it judged (HEAD, uncommitted diff and capture command).
+- Passes: `--passes N` (`VISUAL_JUDGE_PASSES`, default 3, refused below 3). Pass k is a new fresh judge on variant k-1: the quarter stills shift, the bursts move to other peaks, passes 2+ add a doubled close-up of one camera (first person, then behind-right, then opponent), and with `--capture` the clips are recaptured with `SHOT_VQA_VARIANT=k-1` (gpu.sh carries `SHOT_*` to the box; `GSGameVisualQaViews` moves both outside cameras and turns and dims or brightens every `DirectionalLight3D`, and logs a `VISUALQA variant` line). The first pass with any defect, minor included, ends the round. `verdict.json` holds the streak (`passes_clean`, `passes_required`, each pass's variant, judge sessions and image counts) and the source state it judged (HEAD, uncommitted diff and capture command).
 - Evidence: the judge runs with `--output-format stream-json`; `judge.jsonl` is its transcript and `evidence.json` its session id, every image it Read, the images' sha256 and the sha256 of the `verdict.json` it wrote. `evidence.json` also records the item, clip, the judged mp4 and its sha256, pass, variant, round and renderer. A judge that skipped an image, or a verdict file that differs from what it wrote, is invalid and judged again (two judges per pack, then exit 5). Each judge is killed after `--timeout`/`VISUAL_JUDGE_TIMEOUT` seconds (default 1800), and a timeout counts as an invalid judge.
 - Anchor: the gate does not trust `judge.jsonl` alone, since whoever writes the pack could write it too. It looks up the judge's own Claude transcript (`<session>.jsonl` under christian's `~/.claude*/projects/`, owned by christian, not by the pack's author) and checks that the session ran in this pack directory, Read every image and that its last Write of `verdict.json` has the exact content on disk. A pack with no such transcript is unsound. Limit: root can forge anything; the anchor stops an agent working as gamedev or core. `VISUAL_JUDGE_TRANSCRIPTS` overrides the lookup for the self-test only; the post tools unset it.
 - It runs a fresh `claude -p` judge (`VISUAL_JUDGE_MODEL`, default opus; haiku, sonnet or opus, never Fable) on the pack with [visual-judge-rubric.md](visual-judge-rubric.md). The judge writes `verdict.json`: per-frame findings, defects (category, severity, camera, frames, what, fix hint), `production_ready` and a justification. An invalid verdict (an image not Read or not in `looked_at`, a frame without findings, true with any defect, a thin justification) is rejected and judged again.
@@ -125,7 +125,7 @@ The review viewer already plays clips at their own rate: it reads the file's fra
 
 ## The checklist
 
-The numbers catch some of it (`foot_slide`, `floor_contact`, `framing`, `bone_pop` from `DotClipMetrics`, `tpose` from the capture, plus the game's own rows); the eye catches the rest. Read the first-person sheet left to right as a flip book, then behind-right, then opponent, and ask whether it looks like a real game:
+The numbers catch some of it (`foot_slide`, `floor_contact`, `framing`, `bone_pop` from `GSClipMetrics`, `tpose` from the capture, plus the game's own rows); the eye catches the rest. Read the first-person sheet left to right as a flip book, then behind-right, then opponent, and ask whether it looks like a real game:
 
 - **Floor clipping:** feet or body sinking into the floor, or hovering over it while grounded (`floor_contact`).
 - **T-pose:** arms straight out, a body in its rest pose, a frame with no animation applied (`tpose`).

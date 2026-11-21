@@ -1,7 +1,7 @@
-class_name DotGameConfigSchema
+class_name GSGameConfigSchema
 extends RefCounted
 
-## What a [DotConfig]'s exported fields look like to a form: type, bounds, options, group and
+## What a [GSConfig]'s exported fields look like to a form: type, bounds, options, group and
 ## description, read from the property list and the doc comments.
 
 ## Fields of this type are not exposed (no scalar or list form).
@@ -13,7 +13,7 @@ const _TYPES := {
 
 ## One entry per exposed field, in declaration order. Keys: key, type, default, group,
 ## description, min, max, step, enum (allowed values), options ([{name, value}]).
-static func of(config: DotConfig, skip: PackedStringArray = PackedStringArray()) -> Array:
+static func of(config: GSConfig, skip: PackedStringArray = PackedStringArray()) -> Array:
 	var docs := docs_of(config.get_script())
 	var allowed := config.config_keys()
 	var blocked := config.sensitive_keys()
@@ -74,7 +74,7 @@ static func _hint(entry: Dictionary, hint: int, text: String, kind: String) -> v
 
 
 ## field name -> the first paragraph of its doc comment, read from the script source (and the
-## scripts it extends). Empty where the source is not shipped; see [method DotGameConfigBinder.write_schema].
+## scripts it extends). Empty where the source is not shipped; see [method GSGameConfigBinder.write_schema].
 static func docs_of(script: Script) -> Dictionary:
 	var out := {}
 	var chain: Array[Script] = []

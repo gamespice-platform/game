@@ -1,4 +1,4 @@
-class_name DotGameStoreEntitlements
+class_name GSGameStoreEntitlements
 extends RefCounted
 
 ## Adds what the site store says a player owns to a GameSpice Loadout manager's entitlements, with no per-game code.
@@ -14,13 +14,13 @@ static var _scripts: Dictionary = {}
 static func attach(manager: Object) -> bool:
 	if manager == null or manager.has_meta(META) or not "entitlement_source" in manager:
 		return false
-	var site_script: Script = _class_script("DotLoadoutSiteSource")
-	var ents_script: Script = _class_script("DotLoadoutEntitlements")
+	var site_script: Script = _class_script("GSLoadoutSiteSource")
+	var ents_script: Script = _class_script("GSLoadoutEntitlements")
 	if site_script == null or ents_script == null:
 		return false
 	manager.set_meta(META, true)
 	if "store_url" in manager and str(manager.get("store_url")) == "":
-		manager.set("store_url", DotGameStorePanel.default_store_url())
+		manager.set("store_url", GSGameStorePanel.default_store_url())
 	var site: Object = site_script.new()
 	var inner: Callable = manager.get("entitlement_source")
 	manager.set("entitlement_source", func(key: String) -> Object:
@@ -29,12 +29,12 @@ static func attach(manager: Object) -> bool:
 		if base is Object:
 			out.call("merge", base)
 		if site.get("client") == null:
-			site.set("client", DotRegistry.get_service(&"dot_backbone_client"))
+			site.set("client", GSRegistry.get_service(&"dot_backbone_client"))
 		if site.get("client") != null:
 			site.call("source", key)
 			out.call("merge", ents_script.call("of", site.call("ids_of", key)))
 		return out)
-	DotLog.debug(CHANNEL, "site store entitlements attached", {"manager": str(manager.get_path()) if manager is Node and manager.is_inside_tree() else ""})
+	GSLog.debug(CHANNEL, "site store entitlements attached", {"manager": str(manager.get_path()) if manager is Node and manager.is_inside_tree() else ""})
 	return true
 
 
@@ -48,7 +48,7 @@ static func wire_menu(menu: Object, command_fn: Callable, key_fn: Callable) -> b
 		var command: Object = command_fn.call()
 		var key := str(key_fn.call())
 		if command == null or key == "":
-			return DotResult.fail(DotError.CODE_STATE, "Join the match first.")
+			return GSResult.fail(GSError.CODE_STATE, "Join the match first.")
 		attach(command.get("manager"))
 		var live: Object = weak.get_ref()
 		return await command.call("offer", key, live == null or bool(live.get("include_locked"))))
@@ -57,7 +57,7 @@ static func wire_menu(menu: Object, command_fn: Callable, key_fn: Callable) -> b
 		var manager: Object = command.get("manager") if command != null else null
 		if manager != null and manager.has_method("request_store"):
 			return str(manager.call("request_store", item_id))
-		return DotGameStorePanel.default_store_url())
+		return GSGameStorePanel.default_store_url())
 	return true
 
 

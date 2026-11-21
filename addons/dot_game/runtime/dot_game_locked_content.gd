@@ -1,4 +1,4 @@
-class_name DotGameLockedContent
+class_name GSGameLockedContent
 extends RefCounted
 ## Mounts what a game's `content.lock.json` pins, through dot-cloud's `ensure_locked`, behind the load gate. A game with no lock does nothing.
 
@@ -45,29 +45,29 @@ static func find_lock() -> String:
 	return ""
 
 
-## Ensures the lock's packs with [param cloud] (a DotCloudClient) and holds [param gate] meanwhile. The value is ensure_locked's report, or null when there was nothing to do. Never blocks the game on failure: the gate is released and the failure logged.
-static func run(cloud: Object, gate: DotLoadGate = null, opts: Dictionary = {}) -> DotResult:
+## Ensures the lock's packs with [param cloud] (a GSCloudClient) and holds [param gate] meanwhile. The value is ensure_locked's report, or null when there was nothing to do. Never blocks the game on failure: the gate is released and the failure logged.
+static func run(cloud: Object, gate: GSLoadGate = null, opts: Dictionary = {}) -> GSResult:
 	if disabled_by_cmdline():
-		DotLog.info(CHANNEL, "locked content switched off by --locked_content")
-		return DotResult.success(null)
+		GSLog.info(CHANNEL, "locked content switched off by --locked_content")
+		return GSResult.success(null)
 	var lock := find_lock()
 	if lock == "":
-		return DotResult.success(null)
+		return GSResult.success(null)
 	if cloud == null or not cloud.has_method(&"ensure_locked"):
-		DotLog.warn(CHANNEL, "a content.lock.json is shipped but there is no dot-cloud client to mount it", {"lock": lock})
-		return DotResult.success(null)
+		GSLog.warn(CHANNEL, "a content.lock.json is shipped but there is no dot-cloud client to mount it", {"lock": lock})
+		return GSResult.success(null)
 	if gate != null and is_instance_valid(gate) and not gate.is_open():
 		gate.hold(REASON, "Fetching game content")
-	DotLog.info(CHANNEL, "mounting locked content", {"lock": lock})
-	var got: DotResult = await cloud.call(&"ensure_locked", lock, opts)
+	GSLog.info(CHANNEL, "mounting locked content", {"lock": lock})
+	var got: GSResult = await cloud.call(&"ensure_locked", lock, opts)
 	if gate != null and is_instance_valid(gate):
 		gate.release(REASON)
-	DotWeb.sync_filesystem()
+	GSWeb.sync_filesystem()
 	if got.ok:
-		DotLog.info(CHANNEL, "locked content ready", {
+		GSLog.info(CHANNEL, "locked content ready", {
 			"mounted": ", ".join(PackedStringArray(got.value["mounted"])),
 			"skipped": (got.value["skipped"] as Array).size(),
 		})
 	else:
-		DotLog.warn(CHANNEL, "locked content not mounted", {"lock": lock, "error": str(got.error)})
+		GSLog.warn(CHANNEL, "locked content not mounted", {"lock": lock, "error": str(got.error)})
 	return got

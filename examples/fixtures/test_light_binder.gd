@@ -4,11 +4,11 @@ extends RefCounted
 ## so its config comes from make_config(), never from new().
 
 
-static func make_config() -> DotConfig:
+static func make_config() -> GSConfig:
 	return preload("test_config.gd").new()
 
 
-static func make_binder(cfg: DotConfig) -> DotGameConfigBinder:
-	var b := DotGameConfigBinder.create(cfg, "tl", "tl")
+static func make_binder(cfg: GSConfig) -> GSGameConfigBinder:
+	var b := GSGameConfigBinder.create(cfg, "tl", "tl")
 	b.profile_kind = "light"
 	return b

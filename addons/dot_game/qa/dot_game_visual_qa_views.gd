@@ -1,4 +1,4 @@
-class_name DotGameVisualQaViews
+class_name GSGameVisualQaViews
 extends RefCounted
 
 ## The two outside cameras of a visual QA capture (docs/visual-qa.md): behind-right (how a teammate sees you) and an
@@ -54,7 +54,7 @@ func place(feet: Vector3, yaw: float) -> void:
 
 ## Writes frame [param index] of all three views into [param dir]: f_NNN.jpg ([param first_person]), t_NNN.jpg, o_NNN.jpg.
 ## Call it after RenderingServer.frame_post_draw so all three hold the same frame.
-func save(dir: String, index: int, first_person: Viewport) -> DotResult:
+func save(dir: String, index: int, first_person: Viewport) -> GSResult:
 	var shots := {"f": first_person, "t": behind_view, "o": opponent_view}
 	for prefix: String in shots:
 		var view := shots[prefix] as Viewport
@@ -63,8 +63,8 @@ func save(dir: String, index: int, first_person: Viewport) -> DotResult:
 		var path := "%s/%s_%03d.jpg" % [dir, prefix, index]
 		var err := view.get_texture().get_image().save_jpg(path, jpg_quality)
 		if err != OK:
-			return DotResult.fail(DotError.CODE_IO, "visual QA frame not saved", "%s: %s" % [path, error_string(err)])
-	return DotResult.success(index)
+			return GSResult.fail(GSError.CODE_IO, "visual QA frame not saved", "%s: %s" % [path, error_string(err)])
+	return GSResult.success(index)
 
 
 ## Puts every VisualInstance3D under [param node] on [param layer] (skipping the [param skip] subtree), so one camera

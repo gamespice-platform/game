@@ -1,6 +1,6 @@
 extends Node
 
-## DotGameShardArgs: the shard name, the merge logs, the round-robin slice, the missing-log and sections-entered readers.
+## GSGameShardArgs: the shard name, the merge logs, the round-robin slice, the missing-log and sections-entered readers.
 
 const CHECKS := 12
 
@@ -18,7 +18,7 @@ func _check(ok: bool, what: String) -> void:
 
 
 func _ready() -> void:
-	var S := DotGameShardArgs
+	var S := GSGameShardArgs
 	_check(S.shard(PackedStringArray(["--shard", "m2"])) == "m2", "--shard NAME names the shard")
 	_check(S.shard(PackedStringArray()) == "", "no --shard is the whole suite")
 	_check(S.shard(PackedStringArray(["--shard"])) == "", "a trailing --shard names nothing")

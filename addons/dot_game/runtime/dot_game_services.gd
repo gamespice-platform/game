@@ -1,5 +1,5 @@
 @tool
-class_name DotGameServices
+class_name GSGameServices
 extends Node
 
 ## Chat, a website relay, moderation and voice, in the one order that works.
@@ -60,7 +60,7 @@ signal said(peer_id: int, wire: Dictionary)
 @export var voice_enabled: bool = true
 
 
-var server: DotServer = null
+var server: GSServer = null
 
 ## The game object. Duck-typed: this addon holds no opinion about what a game is.
 var game: Object = null
@@ -73,10 +73,10 @@ var voice: Node = null
 var moderation: Node = null
 var relay: Node = null
 
-## dot-moderation's `DotModTools`, when it is installed and [member mod_tools_enabled].
+## dot-moderation's `GSModTools`, when it is installed and [member mod_tools_enabled].
 var mod_tools: Node = null
 
-## Its `DotModToolCommands`, bound to the server's console.
+## Its `GSModToolCommands`, bound to the server's console.
 var mod_commands: Object = null
 
 ## The backbone client the relay posts through. Assigned by a host BEFORE setup, or found.
@@ -95,12 +95,12 @@ var _started: bool = false
 ## Builds all four, in the order the class note sets out.
 ##
 ## Not a coroutine: dot-moderation's `load_all` runs to completion for the file store. [param p_server] may be null (an offline game); only what is bound TO a server is skipped then. A subclass that wants no live tools offline sets [member mod_tools_enabled] false first.
-func setup(p_server: DotServer, p_game: Object, p_link: Object) -> DotResult:
+func setup(p_server: GSServer, p_game: Object, p_link: Object) -> GSResult:
 	if _started:
-		return DotResult.fail(DotError.CODE_STATE, "Already set up.")
+		return GSResult.fail(GSError.CODE_STATE, "Already set up.")
 
 	if p_server == null:
-		DotLog.debug(CHANNEL, "services with no server: offline, and nothing is bound to a console")
+		GSLog.debug(CHANNEL, "services with no server: offline, and nothing is bound to a console")
 
 	server = p_server
 	game = p_game
@@ -109,13 +109,13 @@ func setup(p_server: DotServer, p_game: Object, p_link: Object) -> DotResult:
 	# FIRST. See the class note: it publishes the mute source both routers look up when
 	# they start, and a router that starts before it enforces no gag, for ever, silently.
 	var moderated := _build_moderation()
-	DotLog.result(CHANNEL, "moderation", moderated)
+	GSLog.result(CHANNEL, "moderation", moderated)
 
 	# After moderation, so every action lands on the target's history; reported rather
 	# than fatal, because a server with no noclip is a server.
 	if mod_tools_enabled:
 		var tooled := _build_mod_tools()
-		DotLog.result(CHANNEL, "the live mod tools", tooled)
+		GSLog.result(CHANNEL, "the live mod tools", tooled)
 
 	var chatted := _build_chat()
 
@@ -125,21 +125,21 @@ func setup(p_server: DotServer, p_game: Object, p_link: Object) -> DotResult:
 	# After chat, because it wraps the router; reported rather than fatal, because a relay
 	# that cannot start is a server that still runs a perfectly good match.
 	var relayed := _build_relay()
-	DotLog.result(CHANNEL, "the website chat relay", relayed)
+	GSLog.result(CHANNEL, "the website chat relay", relayed)
 
 	if voice_enabled:
 		var voiced := _build_voice()
-		DotLog.result(CHANNEL, "voice", voiced)
+		GSLog.result(CHANNEL, "voice", voiced)
 
 	_started = true
-	return DotResult.success(self)
+	return GSResult.success(self)
 
 
-func _build_moderation() -> DotResult:
+func _build_moderation() -> GSResult:
 	var made := _instance(MODERATION_SCRIPT, "moderation")
 
 	if made == null:
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 	moderation = made
 	moderation.name = "Moderation"
@@ -166,17 +166,17 @@ func _build_moderation() -> DotResult:
 	moderation.call("load_all")
 	punishments_loaded = true
 
-	return DotResult.success(moderation)
+	return GSResult.success(moderation)
 
 
 ## The live tools and their commands.
 ##
-## By path, like the manager; `DotModToolCommands` binds to the console duck-typed. What each ability does is [method _mod_abilities]; the rest (immunity, audit, respawn clearing) is the tools' own.
-func _build_mod_tools() -> DotResult:
+## By path, like the manager; `GSModToolCommands` binds to the console duck-typed. What each ability does is [method _mod_abilities]; the rest (immunity, audit, respawn clearing) is the tools' own.
+func _build_mod_tools() -> GSResult:
 	var made := _instance(MOD_TOOLS_SCRIPT, "the mod tools")
 
 	if made == null:
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 	mod_tools = made
 	mod_tools.name = "ModTools"
@@ -210,12 +210,12 @@ func _build_mod_tools() -> DotResult:
 	add_child(mod_tools)
 
 	if server == null or server.console == null:
-		return DotResult.success(mod_tools)
+		return GSResult.success(mod_tools)
 
 	var commands_script: Variant = load(MOD_COMMANDS_SCRIPT) if ResourceLoader.exists(MOD_COMMANDS_SCRIPT) else null
 
 	if not (commands_script is GDScript):
-		return DotResult.success(mod_tools)
+		return GSResult.success(mod_tools)
 
 	mod_commands = (commands_script as GDScript).new()
 	mod_commands.set("tools", mod_tools)
@@ -224,10 +224,10 @@ func _build_mod_tools() -> DotResult:
 
 	var bound: Variant = mod_commands.call("bind", server.console)
 
-	if bound is DotResult and not (bound as DotResult).ok:
-		return (bound as DotResult).wrap("the mod tool commands would not bind")
+	if bound is GSResult and not (bound as GSResult).ok:
+		return (bound as GSResult).wrap("the mod tool commands would not bind")
 
-	return DotResult.success(mod_tools)
+	return GSResult.success(mod_tools)
 
 
 func _punishments_path() -> String:
@@ -237,13 +237,13 @@ func _punishments_path() -> String:
 	return "user://%s_punishments.json" % _services_name()
 
 
-func _build_chat() -> DotResult:
+func _build_chat() -> GSResult:
 	var made := _instance(CHAT_ROUTER_SCRIPT, "chat")
 
 	if made == null:
 		# Not a failure. A server with no chat is a server nobody stays on and it IS a
-		# server; the same judgement [DotGameModule] makes about this whole layer.
-		return DotResult.success(null)
+		# server; the same judgement [GSGameModule] makes about this whole layer.
+		return GSResult.success(null)
 
 	chat = made
 	chat.name = "Chat"
@@ -268,36 +268,36 @@ func _build_chat() -> DotResult:
 
 	var started: Variant = chat.call("start")
 
-	if started is DotResult and not (started as DotResult).ok:
-		return (started as DotResult).wrap("the chat router would not start")
+	if started is GSResult and not (started as GSResult).ok:
+		return (started as GSResult).wrap("the chat router would not start")
 
 	for channel in _chat_channels():
 		var added: Variant = chat.call("add_channel", channel)
 
-		if added is DotResult and not (added as DotResult).ok:
-			return (added as DotResult).wrap("a chat channel was refused")
+		if added is GSResult and not (added as GSResult).ok:
+			return (added as GSResult).wrap("a chat channel was refused")
 
 	chat.connect("command_entered", _on_command_entered)
 	chat.connect("message_accepted", _on_message_accepted)
 
-	return DotResult.success(chat)
+	return GSResult.success(chat)
 
 
-func _build_voice() -> DotResult:
+func _build_voice() -> GSResult:
 	var made := _instance(VOICE_ROUTER_SCRIPT, "voice")
 
 	if made == null:
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 	var config := _voice_config()
 
 	if config == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No voice configuration.")
+		return GSResult.fail(GSError.CODE_INVALID, "No voice configuration.")
 
 	var problem: Variant = config.call("validate") if config.has_method("validate") else null
 
-	if problem is DotResult and not (problem as DotResult).ok:
-		return (problem as DotResult).wrap("the voice configuration is not usable")
+	if problem is GSResult and not (problem as GSResult).ok:
+		return (problem as GSResult).wrap("the voice configuration is not usable")
 
 	voice = made
 	voice.name = "Voice"
@@ -314,15 +314,15 @@ func _build_voice() -> DotResult:
 		voice.set("max_bytes_per_second", config.get("max_bytes_per_second"))
 
 	add_child(voice)
-	return DotResult.success(voice)
+	return GSResult.success(voice)
 
 
 ## Joins this server's chat to its room on the website.
 ##
-## Every seam is existing code: GameSpice Auth's backbone client, GameSpice Server's `uid_has_permission`, and `DotServer.run_command_as_uid` (that uid's OWN flags, not RCON's root). A relayed command is checked like the same person typing it in game.
-func _build_relay() -> DotResult:
+## Every seam is existing code: GameSpice Auth's backbone client, GameSpice Server's `uid_has_permission`, and `GSServer.run_command_as_uid` (that uid's OWN flags, not RCON's root). A relayed command is checked like the same person typing it in game.
+func _build_relay() -> GSResult:
 	if chat == null:
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 	if relay_config == null:
 		relay_config = _instance_refcounted(
@@ -330,43 +330,43 @@ func _build_relay() -> DotResult:
 		)
 
 		if relay_config == null:
-			return DotResult.success(null)
+			return GSResult.success(null)
 
-				# LAYERED: a bare `DotConfig.new()` has only defaults, so the environment and command
+				# LAYERED: a bare `GSConfig.new()` has only defaults, so the environment and command
 				# line did nothing and nothing errored. Only on the config built here; a host's own
 				# config is not re-layered over a deliberate choice.
 		var layered: Variant = relay_config.call("load_layered", RELAY_CONFIG_PATH)
 
-		if layered is DotResult and not (layered as DotResult).ok:
-			DotLog.warn(CHANNEL, "the chat relay configuration is not usable", {
-				"why": str((layered as DotResult).error),
+		if layered is GSResult and not (layered as GSResult).ok:
+			GSLog.warn(CHANNEL, "the chat relay configuration is not usable", {
+				"why": str((layered as GSResult).error),
 			})
-			return DotResult.success(null)
+			return GSResult.success(null)
 
 	if not bool(relay_config.get("enabled")):
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 	if backbone == null:
 		# **Found, not handed over.** A backbone client is built by whatever owns the
 		# server's credential, and a relay built during module load exists before any host
 		# could assign one.
-		backbone = DotRegistry.get_service(&"dot_backbone_client")
+		backbone = GSRegistry.get_service(&"dot_backbone_client")
 
 	if backbone == null:
 		# Info and success, not a failure. A fleet that exports the relay's switch and
 		# holds a credential for only some of its boxes is the ordinary case, and a red
 		# line on every boot of the others is how a real warning stops being read.
-		DotLog.info(
+		GSLog.info(
 			CHANNEL,
 			"the chat relay is on but there is no backbone client, so it will not start",
 			{"fix": "give this server a scoped integration token"}
 		)
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 	var made := _instance(CHAT_RELAY_SCRIPT, "the chat relay")
 
 	if made == null:
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 	relay = made
 	relay.name = "ChatRelay"
@@ -381,7 +381,7 @@ func _build_relay() -> DotResult:
 
 	var started: Variant = relay.call("start")
 
-	if started is DotResult and not (started as DotResult).ok:
+	if started is GSResult and not (started as GSResult).ok:
 		remove_child(relay)
 		relay.queue_free()
 		relay = null
@@ -395,7 +395,7 @@ func _build_relay() -> DotResult:
 	if server != null and server.chat != null and server.chat.has_method("watch_relay"):
 		server.chat.call("watch_relay", relay)
 
-	return DotResult.success(relay)
+	return GSResult.success(relay)
 
 
 func _uid_has_permission(uid: String, flag: String) -> bool:
@@ -412,7 +412,7 @@ func _run_relayed_command(
 		return
 
 	for reply in server.run_command_as_uid(uid, command, args, source):
-		DotLog.info(CHANNEL, "relayed command reply", {"uid": uid, "line": reply})
+		GSLog.info(CHANNEL, "relayed command reply", {"uid": uid, "line": reply})
 
 
 func _on_site_command(uid: String, command: String, allowed: bool) -> void:
@@ -432,24 +432,24 @@ func _relay_command_document() -> Array[Dictionary]:
 	return server.console.command_document(int(relay_config.get("command_source")))
 
 
-## The channels this game talks on. An [Array] of `DotChatChannel`.
+## The channels this game talks on. An [Array] of `GSChatChannel`.
 ##
 ## No default on purpose: channels the designer did not choose can expose a private conversation.
 func _chat_channels() -> Array:
 	return []
 
 
-## What a line may be. A `DotChatRules`, or null to take GameSpice Chat's own defaults.
+## What a line may be. A `GSChatRules`, or null to take GameSpice Chat's own defaults.
 func _chat_rules() -> Object:
 	return null
 
 
-## The voice format, which both ends must agree on exactly. A `DotVoiceConfig`.
+## The voice format, which both ends must agree on exactly. A `GSVoiceConfig`.
 func _voice_config() -> Object:
 	return null
 
 
-## `DotVoiceRouter.Channel`. Zero is that enum's first entry, which is ALL.
+## `GSVoiceRouter.Channel`. Zero is that enum's first entry, which is ALL.
 func _voice_default_channel() -> int:
 	return 0
 
@@ -477,9 +477,9 @@ func _peer_can_receive(_peer_id: int) -> bool:
 	return true
 
 
-## What each live admin ability does in this game: `{DotModTools.ACTION_*: Callable}`.
+## What each live admin ability does in this game: `{GSModTools.ACTION_*: Callable}`.
 ##
-## Each is `func(id: StringName, args: Dictionary) -> DotResult` with `id` the userid string; keys are plain strings (`"noclip"`). Empty means no live tools but teleport. Called once; look the player up per call, not capture one.
+## Each is `func(id: StringName, args: Dictionary) -> GSResult` with `id` the userid string; keys are plain strings (`"noclip"`). Empty means no live tools but teleport. Called once; look the player up per call, not capture one.
 func _mod_abilities() -> Dictionary:
 	return {}
 
@@ -506,20 +506,20 @@ func _mod_teleport(_id: StringName, _to: Variant) -> void:
 
 
 ## A last chance to set the commands' `alive_fn`, `team_fn`, `items_fn`, `names` or
-## `permissions` before they are bound. `commands` is a `DotModToolCommands`.
+## `permissions` before they are bound. `commands` is a `GSModToolCommands`.
 func _mod_configure_commands(_commands: Object) -> void:
 	pass
 
 
 ## A last chance to configure the tools themselves (`goto_standoff`, `persist_on_respawn`) before they enter the tree or any command is bound.
 ##
-## An [Object] rather than `DotModTools`, since GameSpice Moderation is loaded by path; a subclass that configures it may cast.
+## An [Object] rather than `GSModTools`, since GameSpice Moderation is loaded by path; a subclass that configures it may cast.
 func _mod_configure_tools(_tools: Object) -> void:
 	pass
 
 
 ## The session behind a live-tools id.
-func _mod_session(id: StringName) -> DotClientSession:
+func _mod_session(id: StringName) -> GSClientSession:
 	if server == null or not String(id).is_valid_int():
 		return null
 
@@ -602,7 +602,7 @@ func _send_voice(peer_id: int, payload: PackedByteArray) -> void:
 		link.call("send_voice", peer_id, payload)
 
 
-func _session_for(peer_id: int) -> DotClientSession:
+func _session_for(peer_id: int) -> GSClientSession:
 	return server.session_of(peer_id) if server != null else null
 
 
@@ -626,18 +626,18 @@ func _on_message_accepted(message: Object, _recipients: PackedInt32Array) -> voi
 
 ## Whether this person may join at all. GameSpice Server's admission runs first; this is the second gate.
 ## Checked HERE, not at connect, because GameSpice Server's mute dies with the session and a muted player would reconnect and talk.
-func check_admission(session: DotClientSession) -> DotResult:
+func check_admission(session: GSClientSession) -> GSResult:
 	if moderation == null or session == null:
-		return DotResult.success(null)
+		return GSResult.success(null)
 
 	var checked: Variant = moderation.call(
 		"check_admission", str(session.userid), session.address
 	)
 
-	return checked if checked is DotResult else DotResult.success(null)
+	return checked if checked is GSResult else GSResult.success(null)
 
 
-## A voice frame from the wire. What [DotGameModule] wires the bridge's relay to.
+## A voice frame from the wire. What [GSGameModule] wires the bridge's relay to.
 ##
 ## The speaker is stamped here from the transport's peer: an id inside the payload is a claim any client could forge.
 func relay_voice(speaker_peer: int, bytes: PackedByteArray) -> void:
@@ -646,12 +646,12 @@ func relay_voice(speaker_peer: int, bytes: PackedByteArray) -> void:
 
 
 ## Somebody typed a line. Everything about what it means is GameSpice Chat's.
-func say(peer_id: int, channel_id: StringName, text: String) -> DotResult:
+func say(peer_id: int, channel_id: StringName, text: String) -> GSResult:
 	if chat == null:
-		return DotResult.fail(DotError.CODE_UNSUPPORTED, "This server has no chat.")
+		return GSResult.fail(GSError.CODE_UNSUPPORTED, "This server has no chat.")
 
 	var sent: Variant = chat.call("submit", peer_id, channel_id, text)
-	return sent if sent is DotResult else DotResult.success(null)
+	return sent if sent is GSResult else GSResult.success(null)
 
 
 ## A client is in the game: it may be heard, and — if it can receive yet — it is handed
@@ -675,7 +675,7 @@ func send_backlog(peer_id: int) -> void:
 		_send_chat(row, PackedInt32Array([peer_id]))
 
 
-## Everything the live tools hold about a person who has left. [DotGameRoster] calls it.
+## Everything the live tools hold about a person who has left. [GSGameRoster] calls it.
 func forget_player(id: StringName) -> void:
 	if mod_tools != null:
 		mod_tools.call("forget", id)
@@ -683,7 +683,7 @@ func forget_player(id: StringName) -> void:
 
 ## A player came back with a new body. A game calls this from its own spawn path, so the
 ## tools can switch a freeze or a noclip off and put god back on — see
-## `DotModTools.respawned`.
+## `GSModTools.respawned`.
 func mod_player_respawned(id: StringName) -> void:
 	if mod_tools != null:
 		mod_tools.call("respawned", id)
@@ -713,7 +713,7 @@ func _exit_tree() -> void:
 ## Absent is a configuration, not a failure: a project without GameSpice Voice has players who do not talk.
 func _instance(path: String, what: String) -> Node:
 	if not ResourceLoader.exists(path):
-		DotLog.info(CHANNEL, "%s is not installed in this build, so it is skipped" % what, {
+		GSLog.info(CHANNEL, "%s is not installed in this build, so it is skipped" % what, {
 			"path": path,
 		})
 		return null
@@ -721,13 +721,13 @@ func _instance(path: String, what: String) -> Node:
 	var script: Variant = load(path)
 
 	if script == null or not (script is GDScript):
-		DotLog.warn(CHANNEL, "%s would not load" % what, {"path": path})
+		GSLog.warn(CHANNEL, "%s would not load" % what, {"path": path})
 		return null
 
 	var made: Variant = (script as GDScript).new()
 
 	if not (made is Node):
-		DotLog.warn(CHANNEL, "%s is not a Node" % what, {"path": path})
+		GSLog.warn(CHANNEL, "%s is not a Node" % what, {"path": path})
 		return null
 
 	return made as Node
@@ -736,13 +736,13 @@ func _instance(path: String, what: String) -> Node:
 ## The same, for something that is not a Node. [param args] is passed to `new()`.
 func _instance_refcounted(path: String, what: String, args: Array) -> Object:
 	if not ResourceLoader.exists(path):
-		DotLog.info(CHANNEL, "%s is not installed in this build" % what, {"path": path})
+		GSLog.info(CHANNEL, "%s is not installed in this build" % what, {"path": path})
 		return null
 
 	var script: Variant = load(path)
 
 	if script == null or not (script is GDScript):
-		DotLog.warn(CHANNEL, "%s would not load" % what, {"path": path})
+		GSLog.warn(CHANNEL, "%s would not load" % what, {"path": path})
 		return null
 
 	return (script as GDScript).callv("new", args)

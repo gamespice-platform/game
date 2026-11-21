@@ -8,14 +8,14 @@ extends "selftest_avatar.gd"
 func _test_chat_client_without_the_addons() -> void:
 	_section("the client's chat box, in a build with neither of its addons")
 
-	var box := DotGameChatClient.new()
+	var box := GSGameChatClient.new()
 	box.name = "ChatClient"
 	add_child(box)
 	await get_tree().process_frame
 
 	_check(box.window == null, "it builds no box, because there is no dot-ui")
 	_check(
-		box.voice == null or ResourceLoader.exists(DotGameChatClient.VOICE_SCRIPT),
+		box.voice == null or ResourceLoader.exists(GSGameChatClient.VOICE_SCRIPT),
 		"and no microphone unless dot-voice is linked"
 	)
 	_check(box.attach(null).ok, "offline is not an error")
@@ -42,9 +42,9 @@ func _test_chat_client_server_lines() -> void:
 	_section("the client's chat box draws the server's own lines, once")
 
 	var link := FakeClientLink.new()
-	DotRegistry.register(&"dot_client_link", link)
+	GSRegistry.register(&"dot_client_link", link)
 
-	var box := DotGameChatClient.new()
+	var box := GSGameChatClient.new()
 	box.name = "ServerLinesClient"
 	add_child(box)
 	await get_tree().process_frame
@@ -100,7 +100,7 @@ func _test_chat_client_server_lines() -> void:
 	_check(link.get_signal_connection_list(&"chat_received").is_empty(),
 		"a freed box leaves nothing connected to the link, which outlives every game")
 
-	var quiet := DotGameChatClient.new()
+	var quiet := GSGameChatClient.new()
 	quiet.server_lines = false
 	add_child(quiet)
 	await get_tree().process_frame
@@ -108,14 +108,14 @@ func _test_chat_client_server_lines() -> void:
 		"server_lines false, for a game that reads the link itself, connects nothing")
 	quiet.queue_free()
 
-	var offline := DotGameChatClient.new()
+	var offline := GSGameChatClient.new()
 	add_child(offline)
 	await get_tree().process_frame
 	_check(offline.attach(null).ok and link.get_signal_connection_list(&"chat_received").is_empty(),
 		"offline, with no bridge, the link is not read")
 	offline.queue_free()
 
-	DotRegistry.unregister(&"dot_client_link")
+	GSRegistry.unregister(&"dot_client_link")
 	link.free()
 	_done()
 
@@ -159,9 +159,9 @@ class FakeChatBridge:
 func _test_store_entitlements_absent() -> void:
 	_section("store entitlements: a project without dot-loadout, or a non-manager, is left alone")
 	var plain := Node.new()
-	_check(not DotGameStoreEntitlements.attach(plain), "a node without entitlement_source is not wrapped")
-	_check(not DotGameStoreEntitlements.attach(null), "null is not wrapped")
-	_check(DotGameStoreEntitlements.attach_tree(plain) == 0, "an empty tree attaches nothing")
+	_check(not GSGameStoreEntitlements.attach(plain), "a node without entitlement_source is not wrapped")
+	_check(not GSGameStoreEntitlements.attach(null), "null is not wrapped")
+	_check(GSGameStoreEntitlements.attach_tree(plain) == 0, "an empty tree attaches nothing")
 	plain.free()
 	_done()
 
@@ -172,24 +172,24 @@ class StoreClient:
 	var refuse := false
 	var query: Dictionary = {}
 	var bought: Array = []
-	func get_integration(path: String, p_query: Dictionary) -> DotResult:
+	func get_integration(path: String, p_query: Dictionary) -> GSResult:
 		if fail:
-			return DotResult.fail(DotError.CODE_NETWORK, "site unreachable")
-		if path == DotGameStorePanel.ITEMS_PATH:
-			return DotResult.success({"ok": true, "items": [{"id": "i1", "key": "fc_gold_skin", "name": "Gold skin", "price": 50, "owned": true},
+			return GSResult.fail(GSError.CODE_NETWORK, "site unreachable")
+		if path == GSGameStorePanel.ITEMS_PATH:
+			return GSResult.success({"ok": true, "items": [{"id": "i1", "key": "fc_gold_skin", "name": "Gold skin", "price": 50, "owned": true},
 				{"id": "i2", "key": "new_hat", "name": "Hat", "price": 50, "owned": false}, {"name": "no id"}]})
 		query = p_query
-		return DotResult.success(_answer(str(p_query.get("player")), 120))
-	func post_integration(_path: String, body: Dictionary) -> DotResult:
+		return GSResult.success(_answer(str(p_query.get("player")), 120))
+	func post_integration(_path: String, body: Dictionary) -> GSResult:
 		if refuse:
-			return DotResult.fail(DotError.CODE_FORBIDDEN, "insufficient_points")
+			return GSResult.fail(GSError.CODE_FORBIDDEN, "insufficient_points")
 		bought.append(body)
 		var answer := _answer(str(body.get("player")), 70)
 		(answer["items"] as Array).append({"key": "new_hat", "name": "Hat", "kind": "AVATAR"})
 		answer["status"] = "purchased"
-		return DotResult.success(answer)
+		return GSResult.success(answer)
 	func _answer(player: String, balance: int) -> Dictionary:
-		var token := DotHash.base64url_encode_text(JSON.stringify({"v": 2, "aud": "app:7", "sub": player})) + ".sig"
+		var token := GSHash.base64url_encode_text(JSON.stringify({"v": 2, "aud": "app:7", "sub": player})) + ".sig"
 		return {"ok": true, "player": player, "points": {"enabled": true, "balance": balance, "label": "Gems"}, "token": token, "items": [
 			{"key": "fc_gold_skin", "name": "Gold skin", "kind": "AVATAR"},
 			{"key": "fc_gold_skin", "name": "dup"},
@@ -198,11 +198,11 @@ class StoreClient:
 
 func _test_store_panel() -> void:
 	_section("store panel: owned items by key, deduplicated, a store button that reports its address")
-	var panel := DotGameStorePanel.new()
+	var panel := GSGameStorePanel.new()
 	add_child(panel)
 	_check(not panel.is_owned("x") and panel.owned().is_empty(), "empty before a read")
 	var store := StoreClient.new()
-	var res: DotResult = await panel.refresh(store, "p1")
+	var res: GSResult = await panel.refresh(store, "p1")
 	_check(res.ok and res.value == 2, "refresh returns the distinct owned count", str(res.value))
 	_check(panel.is_owned("fc_gold_skin") and panel.is_owned("launcher_pack") and not panel.is_owned("dup"), "owned by key")
 	_check((panel.owned()[0] as Dictionary)["name"] == "Gold skin", "the first entry for a key wins")
@@ -210,11 +210,11 @@ func _test_store_panel() -> void:
 	var balance := panel.find_child("Balance", true, false) as Label
 	_check(panel.points().get("balance") == 120 and balance.visible and balance.text == "Balance: 120 Gems", "the balance is shown", balance.text)
 	_check(panel.offers().size() == 2 and panel.find_child("Buy_i2", true, false) != null and panel.find_child("Buy_i1", true, false) == null, "what is not owned gets a Buy button", str(panel.offers()))
-	_check(DotGameStorePanel.audience_of(str(store._answer("p1", 0)["token"])) == "app:7", "the token's audience names the store")
-	_check(DotGameStorePanel.store_url_for("https://x.test", "app:7") == "https://x.test/dashboard/store/app/7"
-		and DotGameStorePanel.store_url_for("https://x.test", "server:3") == "https://x.test/dashboard/store/server/3"
-		and DotGameStorePanel.store_url_for("https://x.test", "") == "https://x.test/dashboard/store"
-		and DotGameStorePanel.store_url_for("", "app:7") == "", "Get more opens the app's or server's own store page")
+	_check(GSGameStorePanel.audience_of(str(store._answer("p1", 0)["token"])) == "app:7", "the token's audience names the store")
+	_check(GSGameStorePanel.store_url_for("https://x.test", "app:7") == "https://x.test/dashboard/store/app/7"
+		and GSGameStorePanel.store_url_for("https://x.test", "server:3") == "https://x.test/dashboard/store/server/3"
+		and GSGameStorePanel.store_url_for("https://x.test", "") == "https://x.test/dashboard/store"
+		and GSGameStorePanel.store_url_for("", "app:7") == "", "Get more opens the app's or server's own store page")
 	var bought: Array = []
 	panel.purchased.connect(func(id: String, _a: Dictionary) -> void: bought.append(id))
 	res = await panel.buy("i2")
@@ -240,10 +240,10 @@ func _test_store_panel() -> void:
 	panel.store_requested.connect(func(url: String) -> void: got.append(url))
 	panel.open_store()
 	_check(got == ["https://example.test/dashboard/store"], "the button reports the store address")
-	_check(DotGameStorePanel.owned_from({"items": "bad"}).is_empty(), "a malformed body owns nothing")
+	_check(GSGameStorePanel.owned_from({"items": "bad"}).is_empty(), "a malformed body owns nothing")
 	panel.queue_free()
-	_check(DotGameStorePanel.add_to_menu(null, Callable()) == null, "no menu: no store page")
-	_check(DotGameStorePanel.add_to_menu(Node.new(), Callable()) == null, "a non-menu is left alone")
+	_check(GSGameStorePanel.add_to_menu(null, Callable()) == null, "no menu: no store page")
+	_check(GSGameStorePanel.add_to_menu(Node.new(), Callable()) == null, "a non-menu is left alone")
 	_done()
 
 
@@ -272,13 +272,13 @@ class FakeLoadoutMenu:
 
 func _test_loadout_store() -> void:
 	_section("loadout menu: locked store items solo (offer asks for locked, store button reaches the manager)")
-	_check(not DotGameStoreEntitlements.wire_menu(null, Callable(), Callable()), "no menu: nothing wired")
-	_check(not DotGameStoreEntitlements.wire_menu(Node.new(), Callable(), Callable()), "a non-loadout menu is left alone")
+	_check(not GSGameStoreEntitlements.wire_menu(null, Callable(), Callable()), "no menu: nothing wired")
+	_check(not GSGameStoreEntitlements.wire_menu(Node.new(), Callable(), Callable()), "a non-loadout menu is left alone")
 	var menu := FakeLoadoutMenu.new()
 	var holder: Array = [null]
-	_check(DotGameStoreEntitlements.wire_menu(menu, func() -> Object: return holder[0], func() -> String: return "p1"), "wired")
+	_check(GSGameStoreEntitlements.wire_menu(menu, func() -> Object: return holder[0], func() -> String: return "p1"), "wired")
 	var early: Variant = await menu.offer_fn.call()
-	_check(early is DotResult and not early.ok, "before the match exists the offer fails, not crashes")
+	_check(early is GSResult and not early.ok, "before the match exists the offer fails, not crashes")
 	var command := FakeCommand.new()
 	holder[0] = command
 	var offer: Dictionary = await menu.offer_fn.call()
@@ -366,8 +366,8 @@ func _test_look_mute() -> void:
 	_done()
 
 
-func _look_client(with_script := true) -> DotGameClient:
-	var c := DotGameClient.new()
+func _look_client(with_script := true) -> GSGameClient:
+	var c := GSGameClient.new()
 	c.require_camera = false
 	c.use_settings = false
 	c.use_console = false
@@ -398,22 +398,22 @@ func _look_rostered(host: Node) -> void:
 
 func _test_workbench_hosting() -> void:
 	_section("the workbench is on where the player owns the process, off in production")
-	_check(DotGameWorkbench.default_panel(true, false, false, false), "the editor gets the panel")
-	_check(DotGameWorkbench.default_panel(false, true, false, false), "a debug build gets the panel")
-	_check(DotGameWorkbench.default_panel(false, false, true, false), "a listen host gets the panel")
-	_check(not DotGameWorkbench.default_panel(false, false, false, false), "a production client does not")
-	_check(not DotGameWorkbench.default_panel(true, true, true, true), "a dedicated server never builds a panel")
-	_check(not DotGameWorkbench.local_allowed(false, false, false), "the panel's actor is untrusted in production")
+	_check(GSGameWorkbench.default_panel(true, false, false, false), "the editor gets the panel")
+	_check(GSGameWorkbench.default_panel(false, true, false, false), "a debug build gets the panel")
+	_check(GSGameWorkbench.default_panel(false, false, true, false), "a listen host gets the panel")
+	_check(not GSGameWorkbench.default_panel(false, false, false, false), "a production client does not")
+	_check(not GSGameWorkbench.default_panel(true, true, true, true), "a dedicated server never builds a panel")
+	_check(not GSGameWorkbench.local_allowed(false, false, false), "the panel's actor is untrusted in production")
 	# this project links no GameSpice Workbench: start() says so and builds nothing
-	var wb := DotGameWorkbench.new()
+	var wb := GSGameWorkbench.new()
 	add_child(wb)
 	var res := wb.start()
 	_check(res.ok and res.value == false and wb.overlay == null, "without the addon there is no workbench and no error")
 	_check(wb.accounts and wb.account_gate == null, "accounts default on, and no gate without dot-auth or dot-workbench")
 	var fake_auth := Node.new()
-	_check(not DotGameWorkbenchAuth.ticket_resolver(null).is_valid() and not DotGameWorkbenchAuth.ticket_resolver(fake_auth).is_valid(), "no auth server or no ticket key gives no resolver")
-	_check(DotGameWorkbenchAuth.identity_of_ticket("a.b.c", "", "srv", 0) == null, "a ticket nobody can verify is no identity")
-	_check(DotGameWorkbenchAuth.attach(wb, func(_t: String) -> Variant: return null, Callable()) == null, "attach without an api builds no gate")
+	_check(not GSGameWorkbenchAuth.ticket_resolver(null).is_valid() and not GSGameWorkbenchAuth.ticket_resolver(fake_auth).is_valid(), "no auth server or no ticket key gives no resolver")
+	_check(GSGameWorkbenchAuth.identity_of_ticket("a.b.c", "", "srv", 0) == null, "a ticket nobody can verify is no identity")
+	_check(GSGameWorkbenchAuth.attach(wb, func(_t: String) -> Variant: return null, Callable()) == null, "attach without an api builds no gate")
 	fake_auth.free()
 	wb.queue_free()
 	_done()
@@ -421,12 +421,12 @@ func _test_workbench_hosting() -> void:
 
 func _test_workbench_key() -> void:
 	_section("the workbench key: the semicolon by default, ignored while typing, a toggle otherwise")
-	if InputMap.has_action(DotGameWorkbench.TOGGLE_ACTION):
-		InputMap.erase_action(DotGameWorkbench.TOGGLE_ACTION)
-	DotGameWorkbench.ensure_action()
-	var ev := InputMap.action_get_events(DotGameWorkbench.TOGGLE_ACTION)
+	if InputMap.has_action(GSGameWorkbench.TOGGLE_ACTION):
+		InputMap.erase_action(GSGameWorkbench.TOGGLE_ACTION)
+	GSGameWorkbench.ensure_action()
+	var ev := InputMap.action_get_events(GSGameWorkbench.TOGGLE_ACTION)
 	_check(ev.size() == 1 and (ev[0] as InputEventKey).physical_keycode == KEY_SEMICOLON, "the default binding is the semicolon")
-	var wb := DotGameWorkbench.new()
+	var wb := GSGameWorkbench.new()
 	var stub := GDScript.new()
 	stub.source_code = "extends Control\nfunc open() -> void:\n\tvisible = true\nfunc close() -> void:\n\tvisible = false\n"
 	var _r := stub.reload()
@@ -441,10 +441,10 @@ func _test_workbench_key() -> void:
 	var line := LineEdit.new()
 	add_child(line)
 	line.grab_focus()
-	_check(DotGameWorkbench.text_has_focus(get_viewport().gui_get_focus_owner()), "a focused LineEdit counts as typing")
+	_check(GSGameWorkbench.text_has_focus(get_viewport().gui_get_focus_owner()), "a focused LineEdit counts as typing")
 	_check(not wb.handle_key(key, get_viewport().gui_get_focus_owner()) and not wb.is_open(), "the key is ignored with a LineEdit focused")
 	var edit := TextEdit.new()
-	_check(DotGameWorkbench.text_has_focus(edit) and DotGameWorkbench.text_has_focus(CodeEdit.new()), "TextEdit and CodeEdit count too")
+	_check(GSGameWorkbench.text_has_focus(edit) and GSGameWorkbench.text_has_focus(CodeEdit.new()), "TextEdit and CodeEdit count too")
 	line.release_focus()
 	var chatting := [true]
 	wb.typing_fn = func() -> bool: return chatting[0]
@@ -456,25 +456,25 @@ func _test_workbench_key() -> void:
 	other.physical_keycode = KEY_BACKSLASH
 	other.pressed = true
 	_check(not wb.handle_key(other, null), "another key does nothing")
-	InputMap.action_erase_events(DotGameWorkbench.TOGGLE_ACTION)
+	InputMap.action_erase_events(GSGameWorkbench.TOGGLE_ACTION)
 	var moved := InputEventKey.new()
 	moved.physical_keycode = KEY_BACKSLASH
-	InputMap.action_add_event(DotGameWorkbench.TOGGLE_ACTION, moved)
+	InputMap.action_add_event(GSGameWorkbench.TOGGLE_ACTION, moved)
 	_check(wb.handle_key(other, null) and not wb.handle_key(key, null), "a rebound action follows the new key and not the semicolon")
 	line.queue_free()
 	edit.free()
 	panel.queue_free()
 	wb.overlay = null
 	wb.queue_free()
-	InputMap.erase_action(DotGameWorkbench.TOGGLE_ACTION)
+	InputMap.erase_action(GSGameWorkbench.TOGGLE_ACTION)
 	_done()
 
 
 func _test_class_immunity() -> void:
 	_section("class immunity: a class that lists fall takes none and breaks no legs; respawn clears it")
 	var combat_path := "res://addons/dot_combat/dot_combat_manager.gd"
-	if not ResourceLoader.exists(combat_path) or not ResourceLoader.exists(DotGameClassImmunity.APPLY_SCRIPT):
-		_check(DotGameClassImmunity.apply(null, null, 1) == 0, "without dot-combat it is a no-op")
+	if not ResourceLoader.exists(combat_path) or not ResourceLoader.exists(GSGameClassImmunity.APPLY_SCRIPT):
+		_check(GSGameClassImmunity.apply(null, null, 1) == 0, "without dot-combat it is a no-op")
 		_done()
 		return
 	var manager: Node = load(combat_path).new()
@@ -483,7 +483,7 @@ func _test_class_immunity() -> void:
 	manager.set(&"rules", load("res://addons/dot_combat/resolve/dot_damage_rules.gd").new())
 	manager.set(&"config", load("res://addons/dot_combat/dot_combat_config.gd").new())
 	add_child(manager)
-	# Immunity matches DotDamageType.id; an unregistered kind resolves as the default type, so games register "fall".
+	# Immunity matches GSDamageType.id; an unregistered kind resolves as the default type, so games register "fall".
 	manager.call(&"register_damage_type", load("res://addons/dot_combat/core/dot_damage_type.gd").call(&"make", &"fall", "Fall"))
 	var health := _immune_health()
 	manager.call(&"register_health", 7, health)
@@ -498,10 +498,10 @@ func _test_class_immunity() -> void:
 	var fall: Node = load("res://addons/dot_combat/core/dot_fall_damage.gd").new()
 	fall.set(&"rules", rules)
 	fall.set(&"victim", 7)
-	var cref: DotNodeRef = DotNodeRef.of_path(ctl.get_path())
-	cref.mode = DotNodeRef.Mode.ABSOLUTE
-	var mref: DotNodeRef = DotNodeRef.of_path(manager.get_path())
-	mref.mode = DotNodeRef.Mode.ABSOLUTE
+	var cref: GSNodeRef = GSNodeRef.of_path(ctl.get_path())
+	cref.mode = GSNodeRef.Mode.ABSOLUTE
+	var mref: GSNodeRef = GSNodeRef.of_path(manager.get_path())
+	mref.mode = GSNodeRef.Mode.ABSOLUTE
 	fall.set(&"controller", cref)
 	fall.set(&"combat", mref)
 	add_child(fall)
@@ -510,28 +510,28 @@ func _test_class_immunity() -> void:
 	var immune_def := ImmuneDef.new([&"fall"])
 	var plain_def := ImmuneDef.new([])
 
-	_check(DotGameClassImmunity.ensure(manager, false) == null, "nothing is created until a class is applied")
+	_check(GSGameClassImmunity.ensure(manager, false) == null, "nothing is created until a class is applied")
 	ctl.landed.emit(15.0)
 	_check(is_equal_approx(health.get(&"health"), 90.0) and legs.size() == 1, "no class applied: unchanged (10 damage, legs break)")
 	health.set(&"health", 100.0)
 
-	_check(DotGameClassImmunity.apply(manager, immune_def, 7) == 1, "a class with immune [fall] writes one kind")
+	_check(GSGameClassImmunity.apply(manager, immune_def, 7) == 1, "a class with immune [fall] writes one kind")
 	ctl.landed.emit(15.0)
 	_check(is_equal_approx(health.get(&"health"), 100.0), "immune to fall: no damage")
 	_check(legs.size() == 1, "immune to fall: legs_broken is not emitted")
 
-	_check(DotGameClassImmunity.apply(manager, plain_def, 8) == 0, "a class without immune writes none")
-	_check(not DotGameClassImmunity.ensure(manager).call(&"is_immune", 7, &"bullet"), "other kinds still hurt")
+	_check(GSGameClassImmunity.apply(manager, plain_def, 8) == 0, "a class without immune writes none")
+	_check(not GSGameClassImmunity.ensure(manager).call(&"is_immune", 7, &"bullet"), "other kinds still hurt")
 
-	_check(DotGameClassImmunity.apply(manager, plain_def, 7) == 0, "respawn as another class")
+	_check(GSGameClassImmunity.apply(manager, plain_def, 7) == 0, "respawn as another class")
 	ctl.landed.emit(15.0)
 	_check(is_equal_approx(health.get(&"health"), 90.0) and legs.size() == 2, "the old immunity is gone")
-	_check(DotGameClassImmunity.apply(manager, immune_def, 7) == 1 and DotGameClassImmunity.apply(manager, null, 7) == 0, "a null class clears")
+	_check(GSGameClassImmunity.apply(manager, immune_def, 7) == 1 and GSGameClassImmunity.apply(manager, null, 7) == 0, "a null class clears")
 	var old := GDScript.new()
 	old.source_code = "static func other() -> int:\n\treturn 1\n"
 	old.reload()
-	_check(DotGameClassImmunity.call_apply(old, immune_def, RefCounted.new(), 7) == 0, "an older dot-player-class without to_immunity is skipped, not a script error")
-	_check(not DotGameClassImmunity.ensure(manager).call(&"is_immune", 7, &"fall"), "cleared")
+	_check(GSGameClassImmunity.call_apply(old, immune_def, RefCounted.new(), 7) == 0, "an older dot-player-class without to_immunity is skipped, not a script error")
+	_check(not GSGameClassImmunity.ensure(manager).call(&"is_immune", 7, &"fall"), "cleared")
 	manager.queue_free()
 	ctl.queue_free()
 	fall.queue_free()
@@ -561,7 +561,7 @@ class ImmuneDef extends RefCounted:
 
 func _test_combat_feel_inert() -> void:
 	_section("combat feel is an inert no-op without dot-weapon, dot-ui and dot-player-controller")
-	var feel := DotGameCombatFeel.new(true)
+	var feel := GSGameCombatFeel.new(true)
 	_check(feel.spread == null and feel.recoil == null and feel.sprint == null, "no addon, no rules")
 	var names: Array[String] = []
 	feel.bind_cvars(func(n: String, _d: String, _h: String, _f: int) -> Object:
@@ -605,7 +605,7 @@ class FakeCrosshair:
 
 func _test_combat_feel_gap_scale() -> void:
 	_section("drive carries the weapon's crosshair_scale to the crosshair: a sniper wider, an automatic tighter")
-	var feel := DotGameCombatFeel.new(true)
+	var feel := GSGameCombatFeel.new(true)
 	feel.spread = FakeSpread.new()
 	var arsenal := FakeArsenal.new()
 	var cross := FakeCrosshair.new()

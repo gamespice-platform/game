@@ -7,7 +7,7 @@ extends EditorPlugin
 
 const _TYPES := [
 	[
-		"DotGameModule",
+		"GSGameModule",
 		"Node",
 		"res://addons/dot_game/core/dot_game_module.gd",
 	],

@@ -1,10 +1,10 @@
-class_name DotGameClientFeel
+class_name GSGameClientFeel
 extends RefCounted
 
-## The combat-feel driver of [DotGameClient]; the client keeps the state.
+## The combat-feel driver of [GSGameClient]; the client keeps the state.
 
 
-static func add(c: Node, feel: DotGameCombatFeel, crosshair: Control, arsenal_fn: Callable, camera_fn: Callable) -> void:
+static func add(c: Node, feel: GSGameCombatFeel, crosshair: Control, arsenal_fn: Callable, camera_fn: Callable) -> void:
 	c._feel = feel
 	c._feel_crosshair = crosshair
 	c._feel_arsenal_fn = arsenal_fn

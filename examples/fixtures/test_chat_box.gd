@@ -1,6 +1,6 @@
 extends Node
 
-## A stand-in chat box in DotGameChatClient's shape: typing_changed and is_typing().
+## A stand-in chat box in GSGameChatClient's shape: typing_changed and is_typing().
 
 signal typing_changed(typing: bool)
 

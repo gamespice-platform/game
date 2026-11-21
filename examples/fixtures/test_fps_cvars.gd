@@ -1,6 +1,6 @@
 extends RefCounted
 
-## Stands in for GameSpice Player Controller's DotFpsCvars: the suite runs without that addon.
+## Stands in for GameSpice Player Controller's GSFpsCvars: the suite runs without that addon.
 
 var targets: Array = []
 

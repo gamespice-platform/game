@@ -1,9 +1,9 @@
-class_name DotGameTouchLayout
+class_name GSGameTouchLayout
 extends RefCounted
 
 ## Named touch-button presets (fps, driving, platformer) with canonical ids, places and sizes, so jump, fire, crouch and reload sit in the same spot in every game.
-## A game takes a preset, overrides per button, and hands the result to GameSpice UI's DotTouchButtons and [method DotGameClient.fit_touch_buttons] through [method apply]:
-## [code]var res := DotGameTouchLayout.build(DotGameTouchLayout.FPS, {&"alt": null, &"grab": &"inner"})[/code], then [code]if res.ok: res.value.apply(touch_buttons, platform)[/code].
+## A game takes a preset, overrides per button, and hands the result to GameSpice UI's GSTouchButtons and [method GSGameClient.fit_touch_buttons] through [method apply]:
+## [code]var res := GSGameTouchLayout.build(GSGameTouchLayout.FPS, {&"alt": null, &"grab": &"inner"})[/code], then [code]if res.ok: res.value.apply(touch_buttons, platform)[/code].
 
 const CHANNEL := "game.touch_layout"
 
@@ -37,7 +37,7 @@ const PLATFORMER := &"platformer"
 ## Same buttons as [constant PLATFORMER]: the mini-games are jump-and-use games.
 const MINIGAME := &"minigame"
 
-## The thumbs' cluster in the bottom-right corner, and the driving games' steering strip on the left (a second DotTouchButtons).
+## The thumbs' cluster in the bottom-right corner, and the driving games' steering strip on the left (a second GSTouchButtons).
 const RIGHT := &"right"
 const LEFT := &"left"
 
@@ -45,7 +45,7 @@ const LEFT := &"left"
 const MIN_RADIUS := 22.0
 const MIN_GAP := 4.0
 
-## Slot -> [offset from the bottom-right corner, radius], in design units (the 720-unit canvas DotGameScreenFit scales).
+## Slot -> [offset from the bottom-right corner, radius], in design units (the 720-unit canvas GSGameScreenFit scales).
 const SLOTS := {
 	&"primary": [Vector2(80, 84), 44.0],
 	&"secondary": [Vector2(190, 60), 30.0],
@@ -92,34 +92,34 @@ var _rows: Array[Dictionary] = []
 
 
 ## The preset's layout for [param p_cluster], unchanged; CODE_INVALID for an unknown preset. A preset with nothing in the cluster gives an empty layout.
-static func make(preset: StringName, p_cluster: StringName = RIGHT) -> DotResult:
+static func make(preset: StringName, p_cluster: StringName = RIGHT) -> GSResult:
 	var key := PLATFORMER if preset == MINIGAME else preset
 	if not PRESETS.has(key):
-		return DotResult.fail(DotError.CODE_INVALID, "unknown touch preset", String(preset))
-	var out := DotGameTouchLayout.new()
+		return GSResult.fail(GSError.CODE_INVALID, "unknown touch preset", String(preset))
+	var out := GSGameTouchLayout.new()
 	out.preset_name = key
 	out.cluster = p_cluster
 	for pair: Array in PRESETS[key].get(p_cluster, []):
 		out.put(pair[0], pair[1])
-	return DotResult.success(out)
+	return GSResult.success(out)
 
 
 ## [method make], then [method override] with [param overrides], then [method validate]: the one call a game makes.
-static func build(preset: StringName, overrides: Dictionary = {}, p_cluster: StringName = RIGHT) -> DotResult:
+static func build(preset: StringName, overrides: Dictionary = {}, p_cluster: StringName = RIGHT) -> GSResult:
 	var res := make(preset, p_cluster)
 	if res.ok:
-		res = (res.value as DotGameTouchLayout).override(overrides)
+		res = (res.value as GSGameTouchLayout).override(overrides)
 	if res.ok:
-		res = (res.value as DotGameTouchLayout).validate()
+		res = (res.value as GSGameTouchLayout).validate()
 	if not res.ok:
 		return res.wrap("touch layout %s/%s" % [preset, p_cluster])
-	DotLog.debug(CHANNEL, "touch layout built", {"preset": String(preset), "cluster": String(p_cluster), "ids": res.value.ids()})
+	GSLog.debug(CHANNEL, "touch layout built", {"preset": String(preset), "cluster": String(p_cluster), "ids": res.value.ids()})
 	return res
 
 
 ## An empty layout, for a game whose buttons share no preset (it still uses the slots).
-static func custom(p_cluster: StringName = RIGHT) -> DotGameTouchLayout:
-	var out := DotGameTouchLayout.new()
+static func custom(p_cluster: StringName = RIGHT) -> GSGameTouchLayout:
+	var out := GSGameTouchLayout.new()
 	out.cluster = p_cluster
 	return out
 
@@ -130,16 +130,16 @@ static func canonical_id(id: StringName) -> StringName:
 
 
 ## Adds [param id] at [param slot_name] (or moves it there, keeping its label unless one is given).
-func put(id: StringName, slot_name: StringName, label: String = "") -> DotGameTouchLayout:
+func put(id: StringName, slot_name: StringName, label: String = "") -> GSGameTouchLayout:
 	if not SLOTS.has(slot_name):
-		push_error("DotGameTouchLayout: unknown slot %s" % slot_name)
+		push_error("GSGameTouchLayout: unknown slot %s" % slot_name)
 		return self
 	var slot: Array = SLOTS[slot_name]
 	return place(id, slot[0], slot[1], label, slot_name)
 
 
 ## Adds or moves [param id] to a free position, for a button no slot suits.
-func place(id: StringName, offset: Vector2, radius: float, label: String = "", slot_name: StringName = &"") -> DotGameTouchLayout:
+func place(id: StringName, offset: Vector2, radius: float, label: String = "", slot_name: StringName = &"") -> GSGameTouchLayout:
 	var i := _find(id)
 	var text := label
 	if text == "":
@@ -152,21 +152,21 @@ func place(id: StringName, offset: Vector2, radius: float, label: String = "", s
 	return self
 
 
-func drop(id: StringName) -> DotGameTouchLayout:
+func drop(id: StringName) -> GSGameTouchLayout:
 	var i := _find(id)
 	if i >= 0:
 		_rows.remove_at(i)
 	return self
 
 
-func relabel(id: StringName, label: String) -> DotGameTouchLayout:
+func relabel(id: StringName, label: String) -> GSGameTouchLayout:
 	var i := _find(id)
 	if i >= 0:
 		_rows[i]["label"] = label
 	return self
 
 
-func resize(id: StringName, radius: float) -> DotGameTouchLayout:
+func resize(id: StringName, radius: float) -> GSGameTouchLayout:
 	var i := _find(id)
 	if i >= 0:
 		_rows[i]["radius"] = radius
@@ -174,7 +174,7 @@ func resize(id: StringName, radius: float) -> DotGameTouchLayout:
 
 
 ## Per-game changes as data: id -> null (drop), a slot name, or {slot, offset, radius, label}. All or nothing; CODE_INVALID names the first bad entry.
-func override(changes: Dictionary) -> DotResult:
+func override(changes: Dictionary) -> GSResult:
 	var saved := _rows.duplicate(true)
 	for key: Variant in changes:
 		var id := StringName(key)
@@ -192,27 +192,27 @@ func override(changes: Dictionary) -> DotResult:
 			bad = "an override is null, a slot name or a Dictionary"
 		if bad != "":
 			_rows = saved
-			return DotResult.fail(DotError.CODE_INVALID, "bad touch override for %s" % id, bad)
-	return DotResult.success(self)
+			return GSResult.fail(GSError.CODE_INVALID, "bad touch override for %s" % id, bad)
+	return GSResult.success(self)
 
 
 ## Ok with this layout, or CODE_INVALID for an alias id, a radius under [constant MIN_RADIUS] or two buttons closer than [constant MIN_GAP].
-func validate() -> DotResult:
+func validate() -> GSResult:
 	for i in _rows.size():
 		var a := _rows[i]
 		if ALIASES.has(a["id"]):
-			return DotResult.fail(DotError.CODE_INVALID, "touch id is an alias", "%s is %s" % [a["id"], ALIASES[a["id"]]])
+			return GSResult.fail(GSError.CODE_INVALID, "touch id is an alias", "%s is %s" % [a["id"], ALIASES[a["id"]]])
 		if float(a["radius"]) < MIN_RADIUS:
-			return DotResult.fail(DotError.CODE_INVALID, "touch button too small", "%s radius %s" % [a["id"], a["radius"]])
+			return GSResult.fail(GSError.CODE_INVALID, "touch button too small", "%s radius %s" % [a["id"], a["radius"]])
 		for j in range(i + 1, _rows.size()):
 			var b := _rows[j]
 			var gap: float = (a["offset"] as Vector2).distance_to(b["offset"]) - float(a["radius"]) - float(b["radius"])
 			if gap < MIN_GAP:
-				return DotResult.fail(DotError.CODE_INVALID, "touch buttons overlap", "%s and %s, gap %.1f" % [a["id"], b["id"], gap])
-	return DotResult.success(self)
+				return GSResult.fail(GSError.CODE_INVALID, "touch buttons overlap", "%s and %s, gap %.1f" % [a["id"], b["id"], gap])
+	return GSResult.success(self)
 
 
-## The rows GameSpice UI's DotTouchButtons.set_buttons takes (id, label, offset, radius); fresh copies.
+## The rows GameSpice UI's GSTouchButtons.set_buttons takes (id, label, offset, radius); fresh copies.
 func buttons() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for r in _rows:

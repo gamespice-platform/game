@@ -1,6 +1,6 @@
 extends Node
 
-## DotGameScreenFit: the touch canvas plan, buttons sized in millimetres and capped to the screen, the root window fitted and restored, and DotGameClient's switch.
+## GSGameScreenFit: the touch canvas plan, buttons sized in millimetres and capped to the screen, the root window fitted and restored, and GSGameClient's switch.
 
 const EXPECTED_CHECKS := 67
 const SECTIONS := ["plan", "buttons", "window", "safe", "client"]
@@ -19,14 +19,14 @@ var _failures := PackedStringArray()
 var _done: Array[String] = []
 
 
-## Stands in for GameSpice UI's DotTouchButtons, which this addon never names.
+## Stands in for GameSpice UI's GSTouchButtons, which this addon never names.
 class Buttons extends Control:
 	var button_scale := 1.0
 	var margin := 28.0
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 
@@ -51,39 +51,39 @@ func _run() -> void:
 
 
 func _plan() -> void:
-	var p := DotGameScreenFit.plan_for(Vector2(844, 390), BASE)
+	var p := GSGameScreenFit.plan_for(Vector2(844, 390), BASE)
 	_check(p["aspect"] == Window.CONTENT_SCALE_ASPECT_EXPAND, "phone: aspect expand")
 	_check(p["size"] == Vector2i(1558, 720), "phone: canvas 1558x720, got %s" % p["size"])
 	_check(is_equal_approx(float(p["stretch"]), 390.0 / 720.0), "phone: stretch is short side over 720")
 	_check(absf(float(p["size"].x) / p["size"].y - 844.0 / 390.0) < 0.01, "phone: canvas keeps the window's aspect, no pillarbox")
-	var tall := DotGameScreenFit.plan_for(Vector2(390, 844), BASE)
+	var tall := GSGameScreenFit.plan_for(Vector2(390, 844), BASE)
 	_check(tall["size"] == Vector2i(720, 1558), "portrait: short side is the width")
-	var dense := DotGameScreenFit.plan_for(Vector2(2532, 1170), BASE)
+	var dense := GSGameScreenFit.plan_for(Vector2(2532, 1170), BASE)
 	_check(dense["size"] == Vector2i(1558, 720) and is_equal_approx(float(dense["stretch"]), 1170.0 / 720.0), "dense phone: same canvas, 1.625 px per unit")
-	var pixel := DotGameScreenFit.plan_for(Vector2(844, 390), Vector2(640, 360))
+	var pixel := GSGameScreenFit.plan_for(Vector2(844, 390), Vector2(640, 360))
 	_check(pixel["size"].y == 360, "a 640x360 project keeps its 360")
-	_check(DotGameScreenFit.plan_for(Vector2.ZERO, BASE).is_empty(), "no window: no plan")
+	_check(GSGameScreenFit.plan_for(Vector2.ZERO, BASE).is_empty(), "no window: no plan")
 	_done.append("plan")
 
 
 func _buttons() -> void:
 	var stretch := 390.0 / 720.0
-	var target := DotGameScreenFit.target_px_for(96.0)
+	var target := GSGameScreenFit.target_px_for(96.0)
 	_check(is_equal_approx(target, 44.0), "96 dpi: 9 mm is under the 44 px floor")
-	_check(absf(DotGameScreenFit.target_px_for(460.0) - 163.0) < 0.5, "460 dpi: 9 mm is 163 px")
-	var k := DotGameScreenFit.button_scale_for(LAYOUT, stretch, target, Vector2(1558 * 0.45, 720 * 0.92))
+	_check(absf(GSGameScreenFit.target_px_for(460.0) - 163.0) < 0.5, "460 dpi: 9 mm is 163 px")
+	var k := GSGameScreenFit.button_scale_for(LAYOUT, stretch, target, Vector2(1558 * 0.45, 720 * 0.92))
 	_check(24.0 * 2.0 * k * stretch >= 43.99, "phone: smallest button is 44 real px across, got %.1f" % (48.0 * k * stretch))
 	_check(276.0 * k + 28.0 <= 720.0 * 0.92, "phone: the block fits the height")
 	var dense := 1170.0 / 720.0
-	var kd := DotGameScreenFit.button_scale_for(LAYOUT, dense, DotGameScreenFit.target_px_for(460.0), Vector2(1558 * 0.45, 720 * 0.92))
+	var kd := GSGameScreenFit.button_scale_for(LAYOUT, dense, GSGameScreenFit.target_px_for(460.0), Vector2(1558 * 0.45, 720 * 0.92))
 	_check(48.0 * kd * dense >= 162.5, "dense phone: smallest button is 9 mm across")
-	var capped := DotGameScreenFit.button_scale_for(LAYOUT, stretch, 400.0, Vector2(700, 662))
+	var capped := GSGameScreenFit.button_scale_for(LAYOUT, stretch, 400.0, Vector2(700, 662))
 	_check(is_equal_approx(capped, (662.0 - 28.0) / 276.0), "a target too big is capped to the room")
-	_check(DotGameScreenFit.button_scale_for(LAYOUT, 3.0, 44.0, Vector2(2000, 2000)) == 1.0, "never shrinks a layout below its design")
-	_check(DotGameScreenFit.button_scale_for([], stretch, 44.0, Vector2(700, 662)) == 1.0, "no layout: 1")
-	_check(DotGameScreenFit.button_scale_for(LAYOUT, stretch, 400.0, Vector2(120, 120)) == 1.0, "a layout already over the room stays at its design, never shrunk")
+	_check(GSGameScreenFit.button_scale_for(LAYOUT, 3.0, 44.0, Vector2(2000, 2000)) == 1.0, "never shrinks a layout below its design")
+	_check(GSGameScreenFit.button_scale_for([], stretch, 44.0, Vector2(700, 662)) == 1.0, "no layout: 1")
+	_check(GSGameScreenFit.button_scale_for(LAYOUT, stretch, 400.0, Vector2(120, 120)) == 1.0, "a layout already over the room stays at its design, never shrunk")
 	var odd: Array[Dictionary] = [{"offset": Vector2(-20, -20), "radius": 30.0}, {"offset": Vector2(100, 200), "radius": 24.0}]
-	var ko := DotGameScreenFit.button_scale_for(odd, stretch, 400.0, Vector2(700, 400))
+	var ko := GSGameScreenFit.button_scale_for(odd, stretch, 400.0, Vector2(700, 400))
 	_check(is_equal_approx(ko, (400.0 - 28.0) / 224.0), "a negative offset: the reach is the far button's offset + radius")
 	_done.append("buttons")
 
@@ -91,8 +91,8 @@ func _buttons() -> void:
 func _window() -> void:
 	var root := get_tree().root
 	var was := [root.content_scale_mode, root.content_scale_aspect, root.content_scale_size]
-	_check(DotGameScreenFit.install(root, 0) == null and root.content_scale_aspect == was[1], "not wanted: null, the window untouched")
-	var fit := DotGameScreenFit.new()
+	_check(GSGameScreenFit.install(root, 0) == null and root.content_scale_aspect == was[1], "not wanted: null, the window untouched")
+	var fit := GSGameScreenFit.new()
 	fit.dpi_override = 96.0
 	fit.size_override = Vector2(844, 390)
 	fit.attach(root)
@@ -123,8 +123,8 @@ func _window() -> void:
 	fit.refit()
 	_check(b.button_scale != at_dpi, "a changed DPI alone resizes the buttons on refit")
 	fit.attach(root)
-	_check(root.get_meta(DotGameScreenFit.META)["holders"] == 1, "attaching to the same window again does nothing")
-	var second := DotGameScreenFit.new()
+	_check(root.get_meta(GSGameScreenFit.META)["holders"] == 1, "attaching to the same window again does nothing")
+	var second := GSGameScreenFit.new()
 	second.size_override = Vector2(844, 390)
 	second.attach(root)
 	_check(second._saved["aspect"] == was[1] and second._saved["size"] == was[2], "a second fit keeps the original stretch, not the fitted one")
@@ -132,14 +132,14 @@ func _window() -> void:
 	_check(root.content_scale_aspect == Window.CONTENT_SCALE_ASPECT_EXPAND, "the first fit still holds after the second lets go")
 	fit.detach()
 	_check([root.content_scale_mode, root.content_scale_aspect, root.content_scale_size] == was, "detach restores the window")
-	_check(fit._buttons.is_empty() and not root.has_meta(DotGameScreenFit.META), "detach forgets the buttons and the meta")
+	_check(fit._buttons.is_empty() and not root.has_meta(GSGameScreenFit.META), "detach forgets the buttons and the meta")
 	b.free()
 	_done.append("window")
 
 
 func _safe() -> void:
 	var root := get_tree().root
-	var fit := DotGameScreenFit.new()
+	var fit := GSGameScreenFit.new()
 	fit.dpi_override = 96.0
 	fit.size_override = Vector2(844, 390)
 	fit.attach(root)
@@ -180,7 +180,7 @@ func _safe() -> void:
 	_check(b.margin > 28.0 and limit_ok, "landscape cutout: the margin grows for the bottom bar and the block stays clear of the cutout")
 	_check(fit.describe().has("safe_insets"), "describe reports the safe insets")
 	fit.safe_area_override = Rect2i(0, 0, 0, 0)
-	_check(DotGameScreenFit.new().safe_insets()["left"] == 0.0, "an unattached fit has no insets")
+	_check(GSGameScreenFit.new().safe_insets()["left"] == 0.0, "an unattached fit has no insets")
 	_check(fit.poll() and not fit.poll(), "a safe-area change with no resize is picked up by poll, once")
 	var scale_was := b.button_scale
 	fit.dpi_override = 200.0
@@ -202,7 +202,7 @@ func _safe() -> void:
 	var gone := Buttons.new()
 	gone.free()
 	_check(fit.fit_buttons(null, LAYOUT) == 1.0 and fit.fit_buttons(gone, LAYOUT) == 1.0, "fit_buttons with null or a freed node returns 1")
-	var requests := DotGameFitRequests.new()
+	var requests := GSGameFitRequests.new()
 	_check(requests.request(fit, null, LAYOUT) == 1.0 and requests.request(fit, gone, LAYOUT) == 1.0, "a request for null or a freed node returns 1 and is not remembered")
 	fit.safe_area_override = Rect2i()
 	fit.detach()
@@ -233,12 +233,12 @@ func _client() -> void:
 	_check(again.screen_fit.window == null, "leaving the tree detaches the fit")
 	add_child(again)
 	await get_tree().process_frame
-	_check(again.screen_fit.window == root and root.get_meta(DotGameScreenFit.META)["holders"] == 1, "re-entering the tree reattaches once")
+	_check(again.screen_fit.window == root and root.get_meta(GSGameScreenFit.META)["holders"] == 1, "re-entering the tree reattaches once")
 	_check(moved.button_scale == sized and sized > 1.0, "re-entering the tree sizes the remembered buttons again")
 	remove_child(again)
 	add_child(again)
 	await get_tree().process_frame
-	_check(root.has_meta(DotGameScreenFit.META) and root.get_meta(DotGameScreenFit.META)["holders"] == 1 and moved.button_scale == sized, "reparenting in one frame keeps the fit and the stretch")
+	_check(root.has_meta(GSGameScreenFit.META) and root.get_meta(GSGameScreenFit.META)["holders"] == 1 and moved.button_scale == sized, "reparenting in one frame keeps the fit and the stretch")
 	moved.free()
 	again.free()
 	await get_tree().process_frame
@@ -260,13 +260,13 @@ func _client() -> void:
 	var desk := _make_client(true, 0)
 	_check(desk.screen_fit == null and root.content_scale_aspect == was[1], "no touch: no fit")
 	desk.free()
-	DotPlatform.touch_override = -1
+	GSPlatform.touch_override = -1
 	_done.append("client")
 
 
-func _make_client(use_fit: bool, touch: int) -> DotGameClient:
-	DotPlatform.touch_override = touch
-	var c := DotGameClient.new()
+func _make_client(use_fit: bool, touch: int) -> GSGameClient:
+	GSPlatform.touch_override = touch
+	var c := GSGameClient.new()
 	c.use_gate = false
 	c.force_offline = true
 	c.use_screen_fit = use_fit

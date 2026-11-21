@@ -1,4 +1,4 @@
-class_name DotGameConfigSchemas
+class_name GSGameConfigSchemas
 extends RefCounted
 
 ## The profile schemas of a game's grouped `config_<file>` kinds, for dot-profile's profile_check (any registered class with this static is a provider, so a game enables `profiles: true` with no provider of its own).
@@ -29,18 +29,18 @@ static func _scan(dir: String, scripts: Array) -> void:
 			_scan(dir.path_join(d), scripts)
 
 
-## The binder of a script declaring [code]make_binder[/code], as a [DotResult]. Its config is the script's own [code]static func make_config()[/code] when it has one (a game's flashlight script hands a DotFlashlightConfig to a binder on a script that is not itself a config), else [code]s.new()[/code] (a config whose make_binder takes its own instances). A config the binder's first parameter would not accept is refused with the reason: calling it anyway is a script error that stops the caller, which in a [code]--script[/code] tool means it never quits.
-static func binder_of(s: Script) -> DotResult:
+## The binder of a script declaring [code]make_binder[/code], as a [GSResult]. Its config is the script's own [code]static func make_config()[/code] when it has one (a game's flashlight script hands a GSFlashlightConfig to a binder on a script that is not itself a config), else [code]s.new()[/code] (a config whose make_binder takes its own instances). A config the binder's first parameter would not accept is refused with the reason: calling it anyway is a script error that stops the caller, which in a [code]--script[/code] tool means it never quits.
+static func binder_of(s: Script) -> GSResult:
 	var config: Variant = s.call("make_config") if s.has_method("make_config") else s.new()
 	var wanted := _first_arg_class(s, "make_binder")
 	if not _is_a(config, wanted):
-		return DotResult.fail(DotError.CODE_INVALID,
+		return GSResult.fail(GSError.CODE_INVALID,
 			"%s: make_binder takes a %s, but the config it would get is a %s; give the script a static make_config() returning one."
 			% [s.resource_path, wanted, _class_of(config)])
 	var binder: Variant = s.call("make_binder", config)
-	if not (binder is DotGameConfigBinder):
-		return DotResult.fail(DotError.CODE_INVALID, "%s: make_binder returned no DotGameConfigBinder." % s.resource_path)
-	return DotResult.success(binder)
+	if not (binder is GSGameConfigBinder):
+		return GSResult.fail(GSError.CODE_INVALID, "%s: make_binder returned no GSGameConfigBinder." % s.resource_path)
+	return GSResult.success(binder)
 
 
 static func _first_arg_class(s: Script, method: String) -> StringName:
@@ -84,15 +84,15 @@ static func schemas_for(scripts: Array) -> Dictionary:
 		if not made.ok:
 			push_error(made.error.message)
 			continue
-		var binder: DotGameConfigBinder = made.value
+		var binder: GSGameConfigBinder = made.value
 		var own := _own_kinds(binder.config)
-		for set: DotProfileSet in binder.profile_sets():
+		for set: GSProfileSet in binder.profile_sets():
 			if not own.has(set.rel_path):
 				out[set.rel_path] = set.schema
 	return out
 
 
-## The kinds a config's own script provides through a static profile_schemas() (an addon config such as DotFlashlightConfig). profile_check takes those from the addon, and a second provider of a kind is an error there.
+## The kinds a config's own script provides through a static profile_schemas() (an addon config such as GSFlashlightConfig). profile_check takes those from the addon, and a second provider of a kind is an error there.
 static func _own_kinds(config: Object) -> Dictionary:
 	var sc: Script = config.get_script() if config != null else null
 	var kinds: Variant = sc.call("profile_schemas") if sc != null and sc.has_method("profile_schemas") else {}

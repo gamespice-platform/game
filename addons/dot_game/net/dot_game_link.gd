@@ -1,4 +1,4 @@
-class_name DotGameLink
+class_name GSGameLink
 extends RefCounted
 
 ## Puts a game's RPC link node under a parent AND ties its life to the bridge that made it.
@@ -8,7 +8,7 @@ extends RefCounted
 ## The prefix a retired link carries until the queue frees it.
 const RETIRED := "retired_"
 
-## How long a retired link stays in the tree. Matches DotGameManager.RETIRED_SECONDS.
+## How long a retired link stays in the tree. Matches GSGameManager.RETIRED_SECONDS.
 const RETIRED_SECONDS := 10.0
 
 
@@ -25,10 +25,10 @@ static func attach(link: Node, parent: Node, owner: Node, link_name: StringName)
 	# add_child renames on a clash without a word, and a renamed link is the bug this class
 	# exists to stop: every RPC to it is lost. Say so where it happened.
 	if link.name != link_name:
-		push_error("DotGameLink: %s was renamed %s; RPCs to it will be lost" % [link_name, link.name])
+		push_error("GSGameLink: %s was renamed %s; RPCs to it will be lost" % [link_name, link.name])
 	# A link that was never given a bridge would never be freed: say so where it is made.
 	if owner == null:
-		push_error("DotGameLink.attach needs the bridge that owns the link")
+		push_error("GSGameLink.attach needs the bridge that owns the link")
 		return
 	# By id: a bound Object that is freed before the signal fires cannot be converted to the
 	# argument, and the engine logs an error instead of calling.
@@ -71,7 +71,7 @@ static func retire(link: Node) -> void:
 	if link.is_queued_for_deletion():
 		return
 	# Kept RETIRED_SECONDS, not freed at once: in-flight client calls would log "Node not found"
-	# and "Failed to get cached node" on every switch. DotGameManager does the same.
+	# and "Failed to get cached node" on every switch. GSGameManager does the same.
 	# With its bridge gone the link drops what it receives.
 	if not link.is_inside_tree():
 		link.queue_free()

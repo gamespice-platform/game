@@ -5,7 +5,7 @@
 # only runs a game's tools/*.sh):
 #   exec bash "$(dirname "$0")/../addons/dot_game/tools/dot_game_visual_qa_shot.sh" --script tools/visual_qa.gd -- "$@"
 # Own options (before --):
-#   --script PATH    the capture script (a DotGameVisualQaCapture, or any script writing the same frames); required
+#   --script PATH    the capture script (a GSGameVisualQaCapture, or any script writing the same frames); required
 #   --out DIR        default screenshots/visual_qa      --clip-dir DIR   where the mp4s go (default: --out)
 #   --fps N          default 60                         --size WxH    window and first-person view, default 960x540
 #   --sheet-rate N   sheet cells per second of clip, default 15; --cell PX cell width, default 240; --cols N, default 8

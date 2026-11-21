@@ -1,5 +1,5 @@
 extends Node
-## Stands in for DotCloudClient: the same members DotGameStandaloneContent touches, driven by the test.
+## Stands in for GSCloudClient: the same members GSGameStandaloneContent touches, driven by the test.
 
 enum Phase { IDLE, DOWNLOADING, READY, FAILED }
 
@@ -17,7 +17,7 @@ var keys := PackedStringArray()
 
 
 func _ready() -> void:
-	DotRegistry.register(&"dot_cloud_client", self)
+	GSRegistry.register(&"dot_cloud_client", self)
 
 
 func acquired_keys() -> PackedStringArray:

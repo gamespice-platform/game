@@ -1,5 +1,5 @@
 @tool
-class_name DotGameRoster
+class_name GSGameRoster
 extends RefCounted
 
 ## Who is actually in the game, as opposed to who is connected.
@@ -9,7 +9,7 @@ extends RefCounted
 const CHANNEL := "game.roster"
 
 ## The envelope kind a client sends when its loading cover goes up or comes down: [code]{"covered": bool}[/code], reliable.
-## [DotGameClient] sends it; [method DotGameClient.report_cover] is the same send for other clients.
+## [GSGameClient] sends it; [method GSGameClient.report_cover] is the same send for other clients.
 const COVER_KIND := &"game.cover"
 
 ## A seat became loading (joined, or a map change began) or stopped being (its cover lifted,
@@ -17,20 +17,20 @@ const COVER_KIND := &"game.cover"
 signal loading_changed(userid: int, loading: bool)
 
 ## A session joined the game (after [member add_fn]).
-signal seated(session: DotClientSession)
+signal seated(session: GSClientSession)
 
 ## A session left the game (after [member remove_fn]).
-signal unseated(session: DotClientSession)
+signal unseated(session: GSClientSession)
 
 ## The server this roster reads sessions out of.
-var server: DotServer = null
+var server: GSServer = null
 
 ## How a userid becomes a session. Defaults to [member server].
 ##
 ## Injectable so a test can tell "read the right field off the spawn event" from "found nothing either way"; a lobby seating people who never connected uses it too.
 var session_fn: Callable = Callable()
 
-## Puts a player into the game. Returns a [DotResult]; a failure leaves them out.
+## Puts a player into the game. Returns a [GSResult]; a failure leaves them out.
 ##
 ## Normally the bridge's `add_player`: a player not registered as a replicated entity is simulated but never sent anything.
 var add_fn: Callable = Callable()
@@ -101,7 +101,7 @@ func unfollow(subsystem: Object) -> void:
 ## The handler for GameSpice Server's [code]client_spawn[/code] event.
 ##
 ## The event carries `userid` and `name` but NOT `peer_id`; reading it gave 0 and nobody joined, silently. The lookup lives here so it is right once.
-func on_client_spawn(event: DotEvent) -> void:
+func on_client_spawn(event: GSEvent) -> void:
 	var session := session_of(event.get_int("userid"))
 
 	if session == null:
@@ -111,9 +111,9 @@ func on_client_spawn(event: DotEvent) -> void:
 
 
 ## The session for a userid, through [member session_fn] or the server.
-func session_of(userid: int) -> DotClientSession:
+func session_of(userid: int) -> GSClientSession:
 	if session_fn.is_valid():
-		return session_fn.call(userid) as DotClientSession
+		return session_fn.call(userid) as GSClientSession
 
 	if server == null:
 		return null
@@ -122,22 +122,22 @@ func session_of(userid: int) -> DotClientSession:
 
 
 ## Puts a session into the game, if it is not already in.
-func add(session: DotClientSession) -> DotResult:
+func add(session: GSClientSession) -> GSResult:
 	if session == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No session to add.")
+		return GSResult.fail(GSError.CODE_INVALID, "No session to add.")
 
 	if joined.has(session.userid):
-		return DotResult.success(false)
+		return GSResult.success(false)
 
 	if add_fn.is_valid():
 		var added: Variant = add_fn.call(session)
 
 				# A Callable returning nothing is allowed; one returning a FAILURE is obeyed, or the
 				# roster thinks somebody is playing and the game has never heard of them.
-		if added is DotResult and not (added as DotResult).ok:
-			DotLog.warn(CHANNEL, "could not add a player to the game", {
+		if added is GSResult and not (added as GSResult).ok:
+			GSLog.warn(CHANNEL, "could not add a player to the game", {
 				"userid": session.userid,
-				"error": str((added as DotResult).error),
+				"error": str((added as GSResult).error),
 			})
 			return added
 
@@ -159,15 +159,15 @@ func add(session: DotClientSession) -> DotResult:
 
 	seated.emit(session)
 
-	DotLog.info(CHANNEL, "player joined", {
+	GSLog.info(CHANNEL, "player joined", {
 		"userid": session.userid, "name": session.display_name
 	})
 
-	return DotResult.success(true)
+	return GSResult.success(true)
 
 
-## The handler for [signal DotServer.client_disconnected].
-func on_client_disconnected(session: DotClientSession, _reason: String = "") -> void:
+## The handler for [signal GSServer.client_disconnected].
+func on_client_disconnected(session: GSClientSession, _reason: String = "") -> void:
 	# Somebody who left before they were seated said nothing that should outlive them.
 	if session != null:
 		_shown_early.erase(session.userid)
@@ -175,7 +175,7 @@ func on_client_disconnected(session: DotClientSession, _reason: String = "") -> 
 
 
 ## Takes a session out of the game, if it was in it.
-func remove(session: DotClientSession) -> void:
+func remove(session: GSClientSession) -> void:
 	if session == null or not joined.has(session.userid):
 		return
 
@@ -211,7 +211,7 @@ func remove(session: DotClientSession) -> void:
 
 	unseated.emit(session)
 
-	DotLog.info(CHANNEL, "player left", {"userid": session.userid})
+	GSLog.info(CHANNEL, "player left", {"userid": session.userid})
 
 
 func has(userid: int) -> bool:
@@ -291,10 +291,10 @@ func report_cover(peer_id: int, covered: bool) -> void:
 		_loading[userid]["covered"] = true
 	else:
 		_covered_at[userid] = _now()
-		DotLog.debug(CHANNEL, "a cover report while loaded starts nothing", {"userid": userid})
+		GSLog.debug(CHANNEL, "a cover report while loaded starts nothing", {"userid": userid})
 
 
-## Releases seats whose grace or timeout has passed. [DotGameModule] calls it every frame.
+## Releases seats whose grace or timeout has passed. [GSGameModule] calls it every frame.
 func poll_loading() -> void:
 	if _loading.is_empty():
 		return
@@ -303,7 +303,7 @@ func poll_loading() -> void:
 		var entry: Dictionary = _loading[userid]
 		if now >= int(entry["until"]):
 			load_timeouts += 1
-			DotLog.warn(CHANNEL, "a client never said its loading cover lifted; counting it as loaded", {
+			GSLog.warn(CHANNEL, "a client never said its loading cover lifted; counting it as loaded", {
 				"userid": userid, "after_sec": load_timeout_sec,
 				"hint": "a client built before dot-game API 9, or one whose gate never opened",
 			})
@@ -319,18 +319,18 @@ func _start_loading(userid: int, covered: bool) -> void:
 		"covered": covered,
 		"grace_until": now + int(reload_grace_sec * 1000.0),
 	}
-	DotLog.debug(CHANNEL, "seat loading", {"userid": userid, "covered": covered})
+	GSLog.debug(CHANNEL, "seat loading", {"userid": userid, "covered": covered})
 	loading_changed.emit(userid, true)
 
 
 func _finish_loading(userid: int, why: String) -> void:
 	if not _loading.erase(userid):
 		return
-	DotLog.debug(CHANNEL, "seat loaded", {"userid": userid, "why": why})
+	GSLog.debug(CHANNEL, "seat loaded", {"userid": userid, "why": why})
 	loading_changed.emit(userid, false)
 
 
-func _session_by_peer(peer_id: int) -> DotClientSession:
+func _session_by_peer(peer_id: int) -> GSClientSession:
 	if server == null:
 		return null
 	return server.session_of(peer_id)

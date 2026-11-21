@@ -1,4 +1,4 @@
-class_name DotGameContent
+class_name GSGameContent
 extends RefCounted
 
 ## The map packs a SERVER names for the running game, fetched and found on the disk.
@@ -48,12 +48,12 @@ static func mount_of(key: String) -> String:
 
 ## Fetches and mounts one pack by key. Succeeds at once when it is already mounted, and
 ## fails with the reason when there is no content client or the origin refuses it.
-static func ensure_one(key: String) -> DotResult:
-	var cloud: Object = DotRegistry.get_service(CLOUD_SERVICE)
+static func ensure_one(key: String) -> GSResult:
+	var cloud: Object = GSRegistry.get_service(CLOUD_SERVICE)
 
 	if cloud == null or not cloud.has_method("ensure"):
-		return DotResult.fail(
-			DotError.CODE_STATE,
+		return GSResult.fail(
+			GSError.CODE_STATE,
 			"There is no content client to fetch %s with." % key,
 			"a build without dot-cloud plays only the maps in its own tree"
 		)
@@ -61,12 +61,12 @@ static func ensure_one(key: String) -> DotResult:
 	var at := key.rfind("@")
 
 	if at <= 0:
-		return DotResult.fail(DotError.CODE_INVALID, "A map pack is <owner>/<name>@<version>.", key)
+		return GSResult.fail(GSError.CODE_INVALID, "A map pack is <owner>/<name>@<version>.", key)
 
 	var got: Variant = await cloud.call("ensure", StringName(key.substr(0, at)), key.substr(at + 1))
 
-	if not (got is DotResult):
-		return DotResult.fail(DotError.CODE_INTERNAL, "The content client answered with something else.")
+	if not (got is GSResult):
+		return GSResult.fail(GSError.CODE_INTERNAL, "The content client answered with something else.")
 
 	return got
 
@@ -81,10 +81,10 @@ static func map_dirs(server: Object, subdir: String, with_server_dependencies :=
 		var root := mount_of(key)
 
 		if not DirAccess.dir_exists_absolute(root):
-			var got: DotResult = await ensure_one(key)
+			var got: GSResult = await ensure_one(key)
 
 			if not got.ok:
-				DotLog.warn(CHANNEL, "a map pack the server names could not be fetched", {
+				GSLog.warn(CHANNEL, "a map pack the server names could not be fetched", {
 					"pack": key, "why": str(got.error),
 				})
 				continue
@@ -94,7 +94,7 @@ static func map_dirs(server: Object, subdir: String, with_server_dependencies :=
 		if DirAccess.dir_exists_absolute(dir):
 			out.append(dir)
 		else:
-			DotLog.warn(CHANNEL, "a map pack has nothing where this game looks for maps", {
+			GSLog.warn(CHANNEL, "a map pack has nothing where this game looks for maps", {
 				"pack": key, "looked_in": subdir,
 			})
 

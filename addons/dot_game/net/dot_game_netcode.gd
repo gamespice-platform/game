@@ -1,16 +1,16 @@
 @tool
-class_name DotGameNetcode
+class_name GSGameNetcode
 extends Object
 
-## Builds a server's [DotNetManager] and attaches the game's bridge to it.
+## Builds a server's [GSNetManager] and attaches the game's bridge to it.
 ##
-## `auto_tick = false` because the game's tick runs inside the netcode's (a second ticker doubles speed), `config_file = ""` so a stale user file cannot change the game's rates, `local_peer_id = 1` as the authority. [method DotNetMessageRegistry.seal] runs LAST: a type registered after it renumbers every wire id.
+## `auto_tick = false` because the game's tick runs inside the netcode's (a second ticker doubles speed), `config_file = ""` so a stale user file cannot change the game's rates, `local_peer_id = 1` as the authority. [method GSNetMessageRegistry.seal] runs LAST: a type registered after it renumbers every wire id.
 
 const CHANNEL := "game.netcode"
 
 const _Relevance := preload("res://addons/dot_game/net/dot_game_relevance.gd")
 
-## The [DotServer] meta an operator tool sets to a [Dictionary] of [DotNetConfig] property -> number, read by [method DotGameModule._net_ceiling].
+## The [GSServer] meta an operator tool sets to a [Dictionary] of [GSNetConfig] property -> number, read by [method GSGameModule._net_ceiling].
 ## Meta rather than a static: a process may hold two servers, and the ceiling belongs to its operator's.
 const CEILING_META := &"dot_net_ceiling"
 
@@ -33,32 +33,32 @@ const RADIUS_CEILING_KEYS: PackedStringArray = ["interest_radius"]
 
 ## Builds the manager, attaches the bridge, seals the schema and starts.
 ##
-## [param parent] is what both are added under. [param bridge] is duck-typed (this addon cannot know its class): it needs `attach(game, net) -> DotResult` and `open_link(server)`. Returns a [Dictionary] with [code]net[/code] and [code]bridge[/code].
+## [param parent] is what both are added under. [param bridge] is duck-typed (this addon cannot know its class): it needs `attach(game, net) -> GSResult` and `open_link(server)`. Returns a [Dictionary] with [code]net[/code] and [code]bridge[/code].
 static func build(
 	parent: Node,
-	server: DotServer,
+	server: GSServer,
 	game: Object,
-	config: DotNetConfig,
+	config: GSNetConfig,
 	bridge: Node
-) -> DotResult:
+) -> GSResult:
 	if parent == null:
-		return DotResult.fail(DotError.CODE_INVALID, "No parent to build under.")
+		return GSResult.fail(GSError.CODE_INVALID, "No parent to build under.")
 
 	if config == null:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"A game has to say what its netcode is.",
 			"tick rate, snapshot rate and world extent are the game's numbers, not "
 			+ "this addon's -- there is no default that is right for two games"
 		)
 
 	if bridge == null:
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"A game has to supply the bridge between itself and the netcode."
 		)
 
-	var net := DotNetManager.new()
+	var net := GSNetManager.new()
 	net.name = "Net"
 	net.is_server = true
 	net.local_peer_id = 1
@@ -79,30 +79,30 @@ static func build(
 	if not bridge.has_method("attach"):
 		_drop(parent, bridge)
 		_drop(parent, net)
-		return DotResult.fail(
-			DotError.CODE_UNSUPPORTED,
+		return GSResult.fail(
+			GSError.CODE_UNSUPPORTED,
 			"The bridge does not speak the bridge interface.",
 			"no attach(game, net) on %s" % bridge.get_class()
 		)
 
 	var attached: Variant = bridge.call("attach", game, net)
 
-	if not (attached is DotResult):
+	if not (attached is GSResult):
 		_drop(parent, bridge)
 		_drop(parent, net)
-		return DotResult.fail(
-			DotError.CODE_INTERNAL,
-			"The bridge's attach() returned something that is not a DotResult.",
+		return GSResult.fail(
+			GSError.CODE_INTERNAL,
+			"The bridge's attach() returned something that is not a GSResult.",
 			str(attached)
 		)
 
-	if not (attached as DotResult).ok:
+	if not (attached as GSResult).ok:
 		_drop(parent, bridge)
 		_drop(parent, net)
-		return (attached as DotResult).wrap("the bridge would not attach")
+		return (attached as GSResult).wrap("the bridge would not attach")
 
-		# Under the DotServer node: its name is half the RPC route, and the client parents its
-		# copy under a matching DotClientLink. Elsewhere, messages land nowhere with no error.
+		# Under the GSServer node: its name is half the RPC route, and the client parents its
+		# copy under a matching GSClientLink. Elsewhere, messages land nowhere with no error.
 	if server != null and bridge.has_method("open_link"):
 		bridge.call("open_link", server)
 
@@ -110,19 +110,19 @@ static func build(
 		# GameSpice Net only compares the tables and owns no socket; without this the client would sit
 		# in the game with nothing decoded.
 	if server != null:
-		net.peer_schema_refused.connect(func(peer_id: int, error: DotError) -> void:
+		net.peer_schema_refused.connect(func(peer_id: int, error: GSError) -> void:
 			refuse_peer(server, peer_id, error))
 
 	# Avatar actions ride on every game's manager; the type is not required, so a client that
 	# never registered it still plays.
-	var avatar := DotGameAvatarActionRelay.serve(net, game)
+	var avatar := GSGameAvatarActionRelay.serve(net, game)
 	if not avatar.ok:
-		DotLog.warn(CHANNEL, "avatar actions not served", {"why": avatar.error.message})
+		GSLog.warn(CHANNEL, "avatar actions not served", {"why": avatar.error.message})
 
-	# The remote workbench frame; inert until a DotGameWorkbench calls serve_remote and sv_workbench_remote is 1.
-	var bench := DotGameWorkbenchRemote.serve(net)
+	# The remote workbench frame; inert until a GSGameWorkbench calls serve_remote and sv_workbench_remote is 1.
+	var bench := GSGameWorkbenchRemote.serve(net)
 	if not bench.ok:
-		DotLog.warn(CHANNEL, "remote workbench not served", {"why": bench.error.message})
+		GSLog.warn(CHANNEL, "remote workbench not served", {"why": bench.error.message})
 
 	# After the bridge, never before: see the class note.
 	net.messages.seal()
@@ -136,24 +136,24 @@ static func build(
 		_drop(parent, net)
 		return running.wrap("the netcode would not start")
 
-	DotLog.info(CHANNEL, "netcode ready", {
+	GSLog.info(CHANNEL, "netcode ready", {
 		"tick_rate": config.tick_rate,
 		"snapshot_rate": config.snapshot_rate,
 		"schema": net.messages.schema_hash().substr(0, 12),
 	})
 
-	return DotResult.success({"net": net, "bridge": bridge})
+	return GSResult.success({"net": net, "bridge": bridge})
 
 
-## See [method DotGameModule.use_map_visibility].
+## See [method GSGameModule.use_map_visibility].
 static func attach_visibility(net: Object, world: Object, bounds: AABB = AABB()) -> bool:
 	return _Relevance.attach_visibility(net, world, bounds)
 
 
-## Copies the server's snapshot worker count ([method DotServerConfig.net_snapshot_workers]) into [member DotNetConfig.snapshot_workers], unless the game set one itself.
+## Copies the server's snapshot worker count ([method GSServerConfig.net_snapshot_workers]) into [member GSNetConfig.snapshot_workers], unless the game set one itself.
 ##
 ## An explicit game value wins (0 is "not set"). Returns whether [param config] follows the server, so the caller re-calls it each tick only for a config that does. [param server_config] is duck-typed.
-static func follow_server_threads(config: DotNetConfig, server_config: Object) -> bool:
+static func follow_server_threads(config: GSNetConfig, server_config: Object) -> bool:
 	if config == null:
 		return false
 	_follow_server_native(config, server_config)
@@ -166,9 +166,9 @@ static func follow_server_threads(config: DotNetConfig, server_config: Object) -
 	return true
 
 
-## ORs the server's [code]net_native[/code] and [code]net_native_interest[/code] cvars into [member DotNetConfig.native] and [member DotNetConfig.native_interest]: the game's own
+## ORs the server's [code]net_native[/code] and [code]net_native_interest[/code] cvars into [member GSNetConfig.native] and [member GSNetConfig.native_interest]: the game's own
 ## true (its config, GS_NET_NATIVE, --net-native) stays on whatever the operator says.
-static func _follow_server_native(config: DotNetConfig, server_config: Object) -> void:
+static func _follow_server_native(config: GSNetConfig, server_config: Object) -> void:
 	if server_config == null or not ("net_native" in server_config):
 		return
 	if not config.has_meta(NATIVE_OWN_META):
@@ -181,7 +181,7 @@ static func _follow_server_native(config: DotNetConfig, server_config: Object) -
 			or bool(server_config.get("net_native_interest"))
 
 
-## What [member DotNetConfig.native] was before this addon first followed the server.
+## What [member GSNetConfig.native] was before this addon first followed the server.
 const NATIVE_OWN_META := &"dot_game_native_own"
 const NATIVE_INTEREST_OWN_META := &"dot_game_native_interest_own"
 
@@ -190,7 +190,7 @@ const _MapThreads := preload("res://addons/dot_game/runtime/dot_game_map_threads
 
 
 ## Registers `map_load_threads` on [param console] when it is missing, then copies its value into GameSpice Map's default worker count; call it before the first world loads and every tick after. A no-op without a console or GameSpice Map.
-static func follow_map_threads(console: DotConsole) -> void:
+static func follow_map_threads(console: GSConsole) -> void:
 	if console == null:
 		return
 	if console.find_cvar(_MapThreads.CVAR) == null:
@@ -198,15 +198,15 @@ static func follow_map_threads(console: DotConsole) -> void:
 	_MapThreads.follow(console)
 
 
-## Marks a [DotNetConfig] whose snapshot_workers this addon wrote, so a later call knows the
+## Marks a [GSNetConfig] whose snapshot_workers this addon wrote, so a later call knows the
 ## value is its own and not the game's.
 const THREADS_FOLLOW_META := &"dot_game_follows_server_threads"
 
 
 ## Applies an operator's [param ceiling] to the game's [param config], in place; returns one line per change, for the caller to log.
 ##
-## Effective value is min(game, operator) and 0 on either side means no limit from that side. The snapshot rate is forced to a divisor of the tick rate, which [method DotNetConfig.validate] requires.
-static func cap(config: DotNetConfig, ceiling: Dictionary) -> PackedStringArray:
+## Effective value is min(game, operator) and 0 on either side means no limit from that side. The snapshot rate is forced to a divisor of the tick rate, which [method GSNetConfig.validate] requires.
+static func cap(config: GSNetConfig, ceiling: Dictionary) -> PackedStringArray:
 	var changes := PackedStringArray()
 
 	if config == null:
@@ -264,8 +264,8 @@ static func cap(config: DotNetConfig, ceiling: Dictionary) -> PackedStringArray:
 const AUTO_RATE_TIERS: Array[Vector2i] = [Vector2i(32, 0), Vector2i(64, 20), Vector2i(128, 16), Vector2i(4096, 10)]
 
 
-## Lowers [member DotNetConfig.snapshot_rate] for a server of [param slots] (see [constant AUTO_RATE_TIERS]) to a divisor of the tick rate, never raises it. It also staggers the peers over the ticks between snapshots, so the cost is not one spike. Cvar `net_snapshot_auto` 0 turns it off; an operator's own `snapshot_rate` ceiling is applied before this and still wins. Returns the change as a log line, or "".
-static func adapt_snapshot_rate(config: DotNetConfig, slots: int) -> String:
+## Lowers [member GSNetConfig.snapshot_rate] for a server of [param slots] (see [constant AUTO_RATE_TIERS]) to a divisor of the tick rate, never raises it. It also staggers the peers over the ticks between snapshots, so the cost is not one spike. Cvar `net_snapshot_auto` 0 turns it off; an operator's own `snapshot_rate` ceiling is applied before this and still wins. Returns the change as a log line, or "".
+static func adapt_snapshot_rate(config: GSNetConfig, slots: int) -> String:
 	if config == null:
 		return ""
 	var limit := 0
@@ -290,14 +290,14 @@ static func adapt_snapshot_rate(config: DotNetConfig, slots: int) -> String:
 
 ## Disconnects a peer whose message schema this server cannot play with.
 ##
-## Public for a game that builds its own [DotNetManager].
-static func refuse_peer(server: DotServer, peer_id: int, error: DotError) -> void:
+## Public for a game that builds its own [GSNetManager].
+static func refuse_peer(server: GSServer, peer_id: int, error: GSError) -> void:
 	if server == null:
 		return
 	var session := server.session_of(peer_id)
 	if session == null:
 		return
-	DotLog.info(CHANNEL, "client refused: its game messages cannot work with this server's", {
+	GSLog.info(CHANNEL, "client refused: its game messages cannot work with this server's", {
 		"user": session.label(), "why": error.message, "detail": error.detail,
 	})
 	server.kick(session, error.message, error)

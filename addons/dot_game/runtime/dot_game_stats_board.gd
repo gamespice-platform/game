@@ -1,28 +1,28 @@
-class_name DotGameStatsBoard
+class_name GSGameStatsBoard
 extends RefCounted
 
-## Puts the stats a game's GameSpice Stats tracker keeps on the Tab board snapshot: per player, this game's figure (`st_<id>`) and the lifetime total (`lt_<id>`), already formatted, and the list of stats as `stat_columns`. GameSpice Menu's `DotMenuStats` and `DotMenuStatsPanel` draw them. Duck-typed: GameSpice Stats is never named.
+## Puts the stats a game's GameSpice Stats tracker keeps on the Tab board snapshot: per player, this game's figure (`st_<id>`) and the lifetime total (`lt_<id>`), already formatted, and the list of stats as `stat_columns`. GameSpice Menu's `GSMenuStats` and `GSMenuStatsPanel` draw them. Duck-typed: GameSpice Stats is never named.
 ## Lifetime is the tracker store's total when the seat joined plus this game's figure, merged by the schema's rules. Without a store only the game's figure is sent.
 
 const CHANNEL := "game.stats_board"
 
 ## Where the figures come from: its key scheme, and the tracker it opened sessions on.
-var feed: DotGameStatsFeed = null
+var feed: GSGameStatsFeed = null
 
-## userid -> DotStatsValues (the store's lifetime total when the seat joined).
+## userid -> GSStatsValues (the store's lifetime total when the seat joined).
 var _baseline: Dictionary = {}
 
 
-static func attach(on: DotGameStatsFeed, roster: DotGameRoster) -> DotGameStatsBoard:
-	var made := DotGameStatsBoard.new()
+static func attach(on: GSGameStatsFeed, roster: GSGameRoster) -> GSGameStatsBoard:
+	var made := GSGameStatsBoard.new()
 	made.feed = on
 	roster.seated.connect(made._on_seated)
-	roster.unseated.connect(func(session: DotClientSession) -> void: made._baseline.erase(session.userid))
+	roster.unseated.connect(func(session: GSClientSession) -> void: made._baseline.erase(session.userid))
 	return made
 
 
 ## The snapshot keys for one seat; empty when there is no tracker or session.
-func fields(session: DotClientSession) -> Dictionary:
+func fields(session: GSClientSession) -> Dictionary:
 	var t := feed.active_tracker() if feed != null else null
 	var schema: Variant = t.get(&"schema") if t != null else null
 	if schema == null:
@@ -67,7 +67,7 @@ func _listed(schema: Object) -> Array:
 	return out
 
 
-func _on_seated(session: DotClientSession) -> void:
+func _on_seated(session: GSClientSession) -> void:
 	var t := feed.active_tracker() if feed != null else null
 	var store: Variant = t.get(&"store") if t != null else null
 	if store == null or not (store as Object).has_method(&"values_for"):
@@ -75,7 +75,7 @@ func _on_seated(session: DotClientSession) -> void:
 	var key := feed.key_for(session)
 	var userid := session.userid
 	var got: Variant = await (store as Object).call(&"values_for", key)
-	if got is DotResult and not (got as DotResult).ok:
-		DotLog.warn(CHANNEL, "could not read a player's lifetime stats; the board shows no baseline", {"userid": userid, "code": (got as DotResult).code()})
-	if got is DotResult and (got as DotResult).ok and (got as DotResult).value is Object and not _baseline.has(userid):
-		_baseline[userid] = (got as DotResult).value
+	if got is GSResult and not (got as GSResult).ok:
+		GSLog.warn(CHANNEL, "could not read a player's lifetime stats; the board shows no baseline", {"userid": userid, "code": (got as GSResult).code()})
+	if got is GSResult and (got as GSResult).ok and (got as GSResult).value is Object and not _baseline.has(userid):
+		_baseline[userid] = (got as GSResult).value

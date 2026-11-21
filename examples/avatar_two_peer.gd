@@ -12,8 +12,8 @@ var _role := ""
 var _port := 0
 var _backbone := ""
 var _peer: Object = null
-var _net: DotNetManager = null
-var _client: DotGameAvatarActionClient = null
+var _net: GSNetManager = null
+var _client: GSGameAvatarActionClient = null
 var _input: FakeInput = null
 var _plays: Array = []
 var _added: Array = []
@@ -36,15 +36,15 @@ class FakeFigure:
 	var clips := {}
 
 	func play_action(id: StringName, loop: bool, _elapsed: float) -> bool:
-		var known := DotGameAvatarActionRelay.STARTER_IDS.has(String(id)) or clips.has(id)
+		var known := GSGameAvatarActionRelay.STARTER_IDS.has(String(id)) or clips.has(id)
 		if known:
 			owner_node.call(&"_note_play", peer, String(id), loop)
 		return known
 
-	func add_action_scene(id: StringName, _scene: Node, clip: String, _loop: bool) -> DotResult:
+	func add_action_scene(id: StringName, _scene: Node, clip: String, _loop: bool) -> GSResult:
 		clips[id] = true
 		owner_node.call(&"_note_added", peer, String(id), clip)
-		return DotResult.success(true)
+		return GSResult.success(true)
 
 
 func _ready() -> void:
@@ -59,7 +59,7 @@ func _ready() -> void:
 		print("two-peer: usage --role=server|a|b --port=N [--backbone=URL]")
 		get_tree().quit(2)
 		return
-	_net = DotNetManager.new()
+	_net = GSNetManager.new()
 	_net.name = "Net"
 	_net.config_file = ""
 	_net.is_server = _role == "server"
@@ -67,7 +67,7 @@ func _ready() -> void:
 	var _set := _net.setup()
 	# The server's serve() registers both types; a client registers them itself, as a game's bridge does.
 	if not _net.is_server:
-		var reg := DotGameAvatarActionMessage.register(_net)
+		var reg := GSGameAvatarActionMessage.register(_net)
 		if not reg.ok:
 			print("two-peer: register failed: ", reg.error.message)
 			get_tree().quit(1)
@@ -86,8 +86,8 @@ func _serve() -> void:
 		print("two-peer server: listen failed: ", error_string(err))
 		get_tree().quit(1)
 		return
-	var served := DotGameAvatarActionRelay.serve(_net)
-	var relay: DotGameAvatarActionRelay = served.value
+	var served := GSGameAvatarActionRelay.serve(_net)
+	var relay: GSGameAvatarActionRelay = served.value
 	relay.loadouts.base_url = _backbone
 	relay.loadouts.token = TOKEN
 	# There is no identity layer here, so the key is the join order; the read itself is the real HTTP one.
@@ -115,10 +115,10 @@ func _join() -> void:
 		return
 	_input = FakeInput.new()
 	add_child(_input)
-	_client = DotGameAvatarActionClient.new()
+	_client = GSGameAvatarActionClient.new()
 	add_child(_client)
-	_client.content_fn = func(_entry: Dictionary) -> DotResult:
-		return DotResult.success(Node3D.new())
+	_client.content_fn = func(_entry: Dictionary) -> GSResult:
+		return GSResult.success(Node3D.new())
 	if _role == "a":
 		_attach_client()
 	_peer.connect(&"peer_connected", func(id: int) -> void:
@@ -219,7 +219,7 @@ func _process(_delta: float) -> void:
 
 
 func _send(peer_id: int, payload: PackedByteArray, delivery: int) -> void:
-	_peer.set(&"transfer_mode", MultiplayerPeer.TRANSFER_MODE_RELIABLE if delivery == DotNetMessage.Delivery.RELIABLE
+	_peer.set(&"transfer_mode", MultiplayerPeer.TRANSFER_MODE_RELIABLE if delivery == GSNetMessage.Delivery.RELIABLE
 		else MultiplayerPeer.TRANSFER_MODE_UNRELIABLE)
 	_peer.call(&"set_target_peer", peer_id)
 	var _e: int = _peer.call(&"put_packet", payload)

@@ -1,4 +1,4 @@
-class_name DotGameNetchaosServer
+class_name GSGameNetchaosServer
 extends Node
 
 ## The dedicated server of `tools/netchaos.sh`: one `TRUTH` line a second, and `truth.json` (final positions,
@@ -12,9 +12,9 @@ var _stop_path := ""
 var _truth_out_path := ""
 var map_id := ""
 var solid := ""
-## Set by [method _boot_world]: the loaded game module, which exposes `net` (a DotNetManager).
+## Set by [method _boot_world]: the loaded game module, which exposes `net` (a GSNetManager).
 var module: Object = null
-var server: DotServer = null
+var server: GSServer = null
 
 var _next_truth := 1.0
 var _clock := 0.0
@@ -67,7 +67,7 @@ func _ready() -> void:
 			"--map": map_id = args[i + 1]
 			"--solid": solid = args[i + 1]
 	name = "Netchaos"  # RPC paths must match the client's root name
-	DotLog.set_level(DotLog.Level.WARN)
+	GSLog.set_level(GSLog.Level.WARN)
 	_keepalive = _prepare("netchaos_server")
 	_boot.call_deferred()
 
@@ -85,10 +85,10 @@ func _boot() -> void:
 	print("netchaos server: ready on udp/%d" % port)
 
 
-## A booted dual-stack [DotServer] on all interfaces with no console, rcon, query or hibernation.
+## A booted dual-stack [GSServer] on all interfaces with no console, rcon, query or hibernation.
 ## [param startup_config] is a path to a cfg file (a game that needs `sv_tickrate`), or empty.
-func boot_server(startup_config := "") -> DotResult:
-	var config := DotServerConfig.new()
+func boot_server(startup_config := "") -> GSResult:
+	var config := GSServerConfig.new()
 	config.hostname = "netchaos"
 	config.port = port
 	config.bind_address = "*"
@@ -104,13 +104,13 @@ func boot_server(startup_config := "") -> DotResult:
 	config.enet_share_udp_port = false
 	config.stdin_console_enabled = false
 	config.log_level = "warn"
-	server = DotServer.new()
+	server = GSServer.new()
 	server.name = "Server"
 	server.config = config
 	server.config_file = ""
 	server.auto_boot = false
 	add_child(server)
-	var booted: DotResult = await server.boot()
+	var booted: GSResult = await server.boot()
 	if not booted.ok:
 		printerr("netchaos server: ", booted.error)
 	return booted

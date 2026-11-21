@@ -1,6 +1,6 @@
 extends Node
 
-## A stand-in for DotVoiceManager's gag and mute state.
+## A stand-in for GSVoiceManager's gag and mute state.
 
 var gagged: Dictionary = {}
 var local_mutes: Dictionary = {}

@@ -1,5 +1,5 @@
-class_name DotGameWorkbenchMessage
-extends DotNetMessage
+class_name GSGameWorkbenchMessage
+extends GSNetMessage
 
 ## One frame of the remote workbench: a client's ask, request, or the server's access notice and reply.
 
@@ -18,7 +18,7 @@ var seq: int = 0
 var allowed: bool = false
 ## ACCESS: the workbench flags the player holds, comma separated.
 var flags: String = ""
-## REQUEST: the JSON request; REPLY: the JSON reply (see [method DotWorkbenchApi.to_reply]).
+## REQUEST: the JSON request; REPLY: the JSON reply (see [method GSWorkbenchApi.to_reply]).
 var text: String = ""
 
 
@@ -26,7 +26,7 @@ func _type_name() -> StringName:
 	return NAME
 
 
-func _write(w: DotNetWriter) -> void:
+func _write(w: GSNetWriter) -> void:
 	w.write_uint(kind, 8)
 	w.write_varint(seq)
 	w.write_bool(allowed)
@@ -34,7 +34,7 @@ func _write(w: DotNetWriter) -> void:
 	w.write_string(text, MAX_TEXT)
 
 
-func _read(r: DotNetReader) -> void:
+func _read(r: GSNetReader) -> void:
 	kind = r.read_uint(8)
 	seq = r.read_varint()
 	allowed = r.read_bool()
@@ -42,15 +42,15 @@ func _read(r: DotNetReader) -> void:
 	text = r.read_string(MAX_TEXT)
 
 
-func _validate() -> DotResult:
+func _validate() -> GSResult:
 	if kind > KIND_ACCESS:
-		return DotResult.fail(DotError.CODE_INVALID, "workbench frame kind out of range")
-	return DotResult.success(true)
+		return GSResult.fail(GSError.CODE_INVALID, "workbench frame kind out of range")
+	return GSResult.success(true)
 
 
 ## Registers the type on [param net]'s manager, both ends, before the schema seals. Not required, so an old peer still connects.
-static func register(net: DotNetManager) -> DotResult:
+static func register(net: GSNetManager) -> GSResult:
 	if net.messages.type_names().has(String(NAME)):
-		return DotResult.success(true)
-	return net.messages.register(NAME, DotGameWorkbenchMessage, DotNetMessage.Delivery.RELIABLE,
-		DotNetMessage.Direction.BOTH, false)
+		return GSResult.success(true)
+	return net.messages.register(NAME, GSGameWorkbenchMessage, GSNetMessage.Delivery.RELIABLE,
+		GSNetMessage.Direction.BOTH, false)

@@ -1,24 +1,24 @@
 extends RefCounted
 
-## [DotGameMapEdit]'s key=value parsing: every value typed, range-checked and finite before it reaches a def. No class_name: the edit preloads it.
+## [GSGameMapEdit]'s key=value parsing: every value typed, range-checked and finite before it reaches a def. No class_name: the edit preloads it.
 
 
-static func parse_pairs(args: PackedStringArray) -> DotResult:
+static func parse_pairs(args: PackedStringArray) -> GSResult:
 	var out := {}
 
 	for a in args:
 		var at := a.find("=")
 
 		if at <= 0:
-			return DotResult.fail(DotError.CODE_INVALID, "Write settings as key=value, not '%s'." % a.left(DotGameMapEdit.MAX_TEXT))
+			return GSResult.fail(GSError.CODE_INVALID, "Write settings as key=value, not '%s'." % a.left(GSGameMapEdit.MAX_TEXT))
 
 		out[a.left(at).to_lower()] = a.substr(at + 1)
 
-	return DotResult.success(out)
+	return GSResult.success(out)
 
 
 ## Parses key=value words into typed values. [param allow_id] lets `id=` through (a new point only).
-static func parse_settings(args: PackedStringArray, allow_id: bool) -> DotResult:
+static func parse_settings(args: PackedStringArray, allow_id: bool) -> GSResult:
 	var pairs := parse_pairs(args)
 
 	if not pairs.ok:
@@ -31,13 +31,13 @@ static func parse_settings(args: PackedStringArray, allow_id: bool) -> DotResult
 
 		if key == "id" and allow_id:
 			if not token_ok(raw):
-				return DotResult.fail(DotError.CODE_INVALID, "A point id is up to %d lowercase letters, digits, _ or -." % DotGameMapEdit.MAX_TEXT)
+				return GSResult.fail(GSError.CODE_INVALID, "A point id is up to %d lowercase letters, digits, _ or -." % GSGameMapEdit.MAX_TEXT)
 
 			out["id"] = raw
 			continue
 
-		if not DotGameMapEdit.KEYS.has(key):
-			return DotResult.fail(DotError.CODE_INVALID, "'%s' is not a spawn setting (%s)." % [key.left(DotGameMapEdit.MAX_TEXT), ", ".join(DotGameMapEdit.KEYS.keys())])
+		if not GSGameMapEdit.KEYS.has(key):
+			return GSResult.fail(GSError.CODE_INVALID, "'%s' is not a spawn setting (%s)." % [key.left(GSGameMapEdit.MAX_TEXT), ", ".join(GSGameMapEdit.KEYS.keys())])
 
 		var parsed := parse_value(key, raw)
 
@@ -46,19 +46,19 @@ static func parse_settings(args: PackedStringArray, allow_id: bool) -> DotResult
 
 		out[key] = parsed.value
 
-	return DotResult.success(out)
+	return GSResult.success(out)
 
 
-static func parse_value(key: String, raw: String) -> DotResult:
-	var spec: Array = DotGameMapEdit.KEYS[key]
+static func parse_value(key: String, raw: String) -> GSResult:
+	var spec: Array = GSGameMapEdit.KEYS[key]
 	var type := str(spec[0])
-	var bad := DotResult.fail(DotError.CODE_INVALID, "%s=%s is not a valid %s." % [key, raw.left(DotGameMapEdit.MAX_TEXT), key])
+	var bad := GSResult.fail(GSError.CODE_INVALID, "%s=%s is not a valid %s." % [key, raw.left(GSGameMapEdit.MAX_TEXT), key])
 
 	match type:
 		"b":
 			if raw in ["1", "true", "on", "yes"]:
-				return DotResult.success(true)
-			return DotResult.success(false) if raw in ["0", "false", "off", "no"] else bad
+				return GSResult.success(true)
+			return GSResult.success(false) if raw in ["0", "false", "off", "no"] else bad
 		"f":
 			if not raw.is_valid_float() or not is_finite(raw.to_float()):
 				return bad
@@ -69,7 +69,7 @@ static func parse_value(key: String, raw: String) -> DotResult:
 			var parts := raw.split(",")
 
 			if parts.size() != 3:
-				return DotResult.fail(DotError.CODE_INVALID, "%s needs x,y,z." % key)
+				return GSResult.fail(GSError.CODE_INVALID, "%s needs x,y,z." % key)
 
 			var v := Vector3.ZERO
 
@@ -81,35 +81,35 @@ static func parse_value(key: String, raw: String) -> DotResult:
 					return one
 				v[i] = float(one.value)
 
-			return DotResult.success(v)
+			return GSResult.success(v)
 		"s":
-			return DotResult.success(StringName(raw)) if raw == "" or token_ok(raw) else bad
+			return GSResult.success(StringName(raw)) if raw == "" or token_ok(raw) else bad
 		"l":
 			var items: Array[StringName] = []
 
 			for item in raw.split(",", false):
-				if not token_ok(item) or items.size() >= DotGameMapEdit.MAX_TOKENS:
+				if not token_ok(item) or items.size() >= GSGameMapEdit.MAX_TOKENS:
 					return bad
 				items.append(StringName(item))
 
-			return DotResult.success(items)
+			return GSResult.success(items)
 		"e:kind":
-			return DotResult.success(StringName(raw)) if raw in DotGameMapEdit.KINDS else bad
+			return GSResult.success(StringName(raw)) if raw in GSGameMapEdit.KINDS else bad
 		"e:sight":
-			return DotResult.success(StringName(raw)) if raw in DotGameMapEdit.SIGHTS else bad
+			return GSResult.success(StringName(raw)) if raw in GSGameMapEdit.SIGHTS else bad
 
 	return bad
 
 
-static func ranged(key: String, value: float, spec: Array) -> DotResult:
+static func ranged(key: String, value: float, spec: Array) -> GSResult:
 	if value < float(spec[1]) or value > float(spec[2]):
-		return DotResult.fail(DotError.CODE_INVALID, "%s must be between %s and %s." % [key, str(spec[1]), str(spec[2])])
+		return GSResult.fail(GSError.CODE_INVALID, "%s must be between %s and %s." % [key, str(spec[1]), str(spec[2])])
 
-	return DotResult.success(int(value) if str(spec[0]) == "i" else value)
+	return GSResult.success(int(value) if str(spec[0]) == "i" else value)
 
 
 static func token_ok(text: String) -> bool:
-	if text.is_empty() or text.length() > DotGameMapEdit.MAX_TEXT:
+	if text.is_empty() or text.length() > GSGameMapEdit.MAX_TEXT:
 		return false
 
 	for i in text.length():

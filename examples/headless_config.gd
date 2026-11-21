@@ -1,6 +1,6 @@
 extends Node
 
-## DotGameConfigBinder: schema, layered load with provenance, cvar round trip, strict failure, diff, workbench edits.
+## GSGameConfigBinder: schema, layered load with provenance, cvar round trip, strict failure, diff, workbench edits.
 
 const TestConfig := preload("fixtures/test_config.gd")
 const ROOT := "res://examples/fixtures/config/"
@@ -12,12 +12,12 @@ var _failures := PackedStringArray()
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 
-func _make(roots_dir: String, strict := true, json := "") -> DotGameConfigBinder:
-	var b := DotGameConfigBinder.create(TestConfig.new(), "tg", "tg", json)
+func _make(roots_dir: String, strict := true, json := "") -> GSGameConfigBinder:
+	var b := GSGameConfigBinder.create(TestConfig.new(), "tg", "tg", json)
 	b.roots = PackedStringArray([ROOT + roots_dir])
 	b.strict = strict
 	return b
@@ -52,7 +52,7 @@ func _check(ok: bool, what: String) -> void:
 		_failures.append(what)
 
 
-func _entry(b: DotGameConfigBinder, key: String) -> Dictionary:
+func _entry(b: GSGameConfigBinder, key: String) -> Dictionary:
 	for e: Dictionary in b.schema():
 		if e["key"] == key:
 			return e
@@ -107,16 +107,16 @@ func _layers() -> void:
 
 
 func _cvars() -> void:
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
 	var b := _make("cfg")
 	b.replicate_groups = PackedStringArray(["Movement"])
 	b.load_layers()
-	var made := b.bind_cvars(console.cvar, DotConVar.FLAG_ARCHIVE)
+	var made := b.bind_cvars(console.cvar, GSConVar.FLAG_ARCHIVE)
 	_check(made.size() == 6, "one cvar per field")
 	_check(console.get_float("tg_speed") == 4.5 and console.get_string("tg_label") == "from game tier", "cvar starts at the effective value")
 	_check(console.get_string("tg_tags") == "a,b" and console.get_string("tg_friendly_fire") == "0", "list and bool text")
-	_check(b.cvar_for("speed").has_flag(DotConVar.FLAG_REPLICATED) and not b.cvar_for("tie").has_flag(DotConVar.FLAG_REPLICATED), "replicated by group")
+	_check(b.cvar_for("speed").has_flag(GSConVar.FLAG_REPLICATED) and not b.cvar_for("tie").has_flag(GSConVar.FLAG_REPLICATED), "replicated by group")
 	_check(console.find_cvar("tg_speed").description.begins_with("Metres per second"), "cvar carries the doc comment")
 	console.set_cvar("tg_speed", "9")
 	_check(b.config.speed == 9.0 and b.source_of("speed") == "cvar", "cvar -> field")
@@ -172,11 +172,11 @@ func _diff() -> void:
 	_check(d.keys().size() == 4 and d["speed"] == 4.5 and d["count"] == 12 and d["tags"] == ["a", "b"], "diff holds only changed fields: %s" % str(d.keys()))
 	_check(not d.has("tie") and not d.has("friendly_fire"), "unchanged fields are not in the diff")
 	var text := b.diff_yaml()
-	var parsed := DotYaml.parse(text)
+	var parsed := GSYaml.parse(text)
 	_check(parsed.ok and parsed.value["speed"] == 4.5 and parsed.value["tags"] == ["a", "b"] and parsed.value["label"] == "from game tier", "diff yml parses back")
 	var wrote := b.write_diff("user://cfgtest/out/game.yml")
 	_check(wrote.ok and FileAccess.file_exists("user://cfgtest/out/game.yml"), "diff written to a path")
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
 	b.bind_commands(console.command, "")
 	_check(console.has_name("tg_config_diff") and console.has_name("tg_config_dump"), "diff and dump commands register")
@@ -185,63 +185,63 @@ func _diff() -> void:
 	# The exported file, used as a game-tier default, reproduces the values.
 	DirAccess.make_dir_recursive_absolute("user://cfgtest/round/game/tg/config")
 	DirAccess.copy_absolute("user://cfgtest/out/game.yml", "user://cfgtest/round/game/tg/config/game.yml")
-	var r := DotGameConfigBinder.create(TestConfig.new(), "tg", "tg")
+	var r := GSGameConfigBinder.create(TestConfig.new(), "tg", "tg")
 	r.roots = PackedStringArray(["user://cfgtest/round"])
 	r.load_layers()
 	_check(r.config.speed == 4.5 and r.config.count == 12 and r.config.label == "from game tier" and r.diff() == d, "exported diff round-trips as a default")
 
 
 func _workbench() -> void:
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
 	var b := _make("cfg")
 	b.load_layers()
 	b.bind_cvars(console.cvar)
-	var rt := DotProfileRuntime.new()
+	var rt := GSProfileRuntime.new()
 	rt.permit = func(_actor: Variant, _flag: String) -> bool: return true
 	b.attach(rt)
 	_check(b.profile_set().list_ids() == PackedStringArray(["game"]), "the config profile is listed with no file for its id")
-	var res := rt.handle_request("tester", DotProfileRuntime.make_request("set", "config", "game", "speed", 8.0))
+	var res := rt.handle_request("tester", GSProfileRuntime.make_request("set", "config", "game", "speed", 8.0))
 	_check(res.ok and b.config.speed == 8.0 and console.get_float("tg_speed") == 8.0, "workbench set -> field and cvar")
 	_check(b.source_of("speed") == "workbench", "source is the workbench")
-	var bad := rt.handle_request("tester", DotProfileRuntime.make_request("set", "config", "game", "speed", 99.0))
+	var bad := rt.handle_request("tester", GSProfileRuntime.make_request("set", "config", "game", "speed", 99.0))
 	_check(not bad.ok and b.config.speed == 8.0, "workbench refuses a value out of range")
-	rt.handle_request("tester", DotProfileRuntime.make_request("reset_key", "config", "game", "speed"))
+	rt.handle_request("tester", GSProfileRuntime.make_request("reset_key", "config", "game", "speed"))
 	_check(b.config.speed == 4.5 and console.get_float("tg_speed") == 4.5, "reset returns the lower layer's value")
 	console.queue_free()
 
 
 func _schemas() -> void:
-	var out := DotGameConfigSchemas.schemas_for([preload("fixtures/test_grouped_config.gd"), preload("fixtures/test_config.gd")])
+	var out := GSGameConfigSchemas.schemas_for([preload("fixtures/test_grouped_config.gd"), preload("fixtures/test_config.gd")])
 	_check(out.keys().size() == 2 and out.has("config_move") and out.has("config_rules"), "grouped config kinds come from make_binder; a script without one is skipped")
 	var keys: Array = out.get("config_move", []).map(func(e: Dictionary) -> String: return e["name"])
 	_check(keys == ["speed"], "a kind's schema holds only its file's fields")
 	var other: Array = out.get("config_rules", []).map(func(e: Dictionary) -> String: return e["name"])
 	_check(other == ["friendly_fire"], "other groups get their own file")
-	_check(DotGameConfigSchemas.profile_schemas().has("config_move"), "the res:// scan finds the grouped fixture")
-	var light := DotGameConfigSchemas.binder_of(preload("fixtures/test_light_binder.gd"))
-	_check(light.ok and (light.value as DotGameConfigBinder).config is DotConfig,
+	_check(GSGameConfigSchemas.profile_schemas().has("config_move"), "the res:// scan finds the grouped fixture")
+	var light := GSGameConfigSchemas.binder_of(preload("fixtures/test_light_binder.gd"))
+	_check(light.ok and (light.value as GSGameConfigBinder).config is GSConfig,
 		"a binder script that is not a config gets its config from make_config()")
-	_check(DotGameConfigSchemas.schemas_for([preload("fixtures/test_light_binder.gd")]).has("light"),
+	_check(GSGameConfigSchemas.schemas_for([preload("fixtures/test_light_binder.gd")]).has("light"),
 		"and its kind joins the schemas")
-	_check(not DotGameConfigSchemas.schemas_for([preload("fixtures/test_own_schema_binder.gd")]).has("own"),
+	_check(not GSGameConfigSchemas.schemas_for([preload("fixtures/test_own_schema_binder.gd")]).has("own"),
 		"a kind the config's own script provides is left to it (profile_check refuses a second provider)")
 	var odd := GDScript.new()
-	odd.source_code = "extends RefCounted\nstatic func make_binder(cfg: DotConfig) -> DotGameConfigBinder:\n\treturn DotGameConfigBinder.create(cfg, \"tu\", \"tu\")\n"
+	odd.source_code = "extends RefCounted\nstatic func make_binder(cfg: GSConfig) -> GSGameConfigBinder:\n\treturn GSGameConfigBinder.create(cfg, \"tu\", \"tu\")\n"
 	var _r := odd.reload()
-	var refused := DotGameConfigSchemas.binder_of(odd)
+	var refused := GSGameConfigSchemas.binder_of(odd)
 	_check(not refused.ok and refused.error.message.contains("make_config"),
 		"a make_binder new() cannot feed is refused with the reason, not called (%s)" % ("" if refused.ok else refused.error.message))
 
 
 func _write_templates() -> void:
 	var root := "user://dot_game_tmpl_test"
-	var b := DotGameConfigBinder.create(preload("fixtures/test_grouped_config.gd").new(), "tg", "tg")
+	var b := GSGameConfigBinder.create(preload("fixtures/test_grouped_config.gd").new(), "tg", "tg")
 	b.grouped = true
 	b.group_files = {"Movement": "move"}
 	var files := b.template_files()
 	var path: String = files.keys()[0]
-	DotPaths.write_text(root.path_join(path), "# stale\n")
+	GSPaths.write_text(root.path_join(path), "# stale\n")
 	var res := b.write_templates(root)
 	_check(res.ok, "write_templates succeeds")
 	var back := FileAccess.get_file_as_string(root.path_join(path))
@@ -251,7 +251,7 @@ func _write_templates() -> void:
 
 func _attach_twice() -> void:
 	var b := _make("cfg")
-	var rt := DotProfileRuntime.new()
+	var rt := GSProfileRuntime.new()
 	b.attach(rt)
 	b.attach(rt)
 	_check(rt.profile_changed.get_connections().size() == 1, "attach twice connects profile_changed once")

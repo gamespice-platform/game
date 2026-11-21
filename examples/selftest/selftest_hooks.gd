@@ -3,66 +3,66 @@ extends "selftest_stats.gd"
 ## The services-hook, page-guard, user-tier and server-thread sections of game_selftest.gd.
 
 func _test_server_threads_reach_the_netcode() -> void:
-	_section("sv_threads_net reaches DotNetConfig.snapshot_workers, and the game's own value wins")
+	_section("sv_threads_net reaches GSNetConfig.snapshot_workers, and the game's own value wins")
 
-	var sc := DotServerConfig.new()
-	var c := DotNetConfig.new()
-	_check(not DotGameNetcode.follow_server_threads(c, null), "no server config changes nothing")
-	_check(DotGameNetcode.follow_server_threads(c, sc) and c.snapshot_workers == sc.net_snapshot_workers(),
+	var sc := GSServerConfig.new()
+	var c := GSNetConfig.new()
+	_check(not GSGameNetcode.follow_server_threads(c, null), "no server config changes nothing")
+	_check(GSGameNetcode.follow_server_threads(c, sc) and c.snapshot_workers == sc.net_snapshot_workers(),
 		"the default (switch on, automatic count) asks for the server's resolved count")
 	sc.threads_net = false
-	DotGameNetcode.follow_server_threads(c, sc)
+	GSGameNetcode.follow_server_threads(c, sc)
 	_check(c.snapshot_workers == 0, "with the switch off it stays 0")
 	sc.threads_net = true
 	sc.worker_threads = 3
-	_check(DotGameNetcode.follow_server_threads(c, sc) and c.snapshot_workers == 3,
+	_check(GSGameNetcode.follow_server_threads(c, sc) and c.snapshot_workers == 3,
 		"switched on, the server's worker count is copied")
 	sc.worker_threads = -1
-	DotGameNetcode.follow_server_threads(c, sc)
+	GSGameNetcode.follow_server_threads(c, sc)
 	_check(c.snapshot_workers == sc.net_snapshot_workers(), "a later cvar change is followed")
 	sc.threads_net = false
-	DotGameNetcode.follow_server_threads(c, sc)
+	GSGameNetcode.follow_server_threads(c, sc)
 	_check(c.snapshot_workers == 0, "switched off again, back to 0")
 
-	var own := DotNetConfig.new()
+	var own := GSNetConfig.new()
 	own.snapshot_workers = 2
 	sc.threads_net = true
 	sc.worker_threads = 5
-	_check(not DotGameNetcode.follow_server_threads(own, sc) and own.snapshot_workers == 2,
+	_check(not GSGameNetcode.follow_server_threads(own, sc) and own.snapshot_workers == 2,
 		"a value the game set is kept")
 
-	var nat := DotNetConfig.new()
+	var nat := GSNetConfig.new()
 	# Both default to true in GameSpice Net; the game's own true would mask the cvar.
 	nat.native = false
 	nat.native_interest = false
 	sc.net_native = false
 	sc.net_native_interest = false
-	DotGameNetcode.follow_server_threads(nat, sc)
+	GSGameNetcode.follow_server_threads(nat, sc)
 	_check(not nat.native, "net_native off leaves the native core off")
 	sc.net_native = true
-	DotGameNetcode.follow_server_threads(nat, sc)
-	_check(nat.native, "net_native on reaches DotNetConfig.native")
+	GSGameNetcode.follow_server_threads(nat, sc)
+	_check(nat.native, "net_native on reaches GSNetConfig.native")
 	sc.net_native = false
-	DotGameNetcode.follow_server_threads(nat, sc)
+	GSGameNetcode.follow_server_threads(nat, sc)
 	_check(not nat.native, "net_native off again turns it off")
 	_check(not nat.native_interest, "net_native_interest off leaves native interest off")
 	sc.net_native_interest = true
-	DotGameNetcode.follow_server_threads(nat, sc)
-	_check(nat.native_interest, "net_native_interest on reaches DotNetConfig.native_interest")
+	GSGameNetcode.follow_server_threads(nat, sc)
+	_check(nat.native_interest, "net_native_interest on reaches GSNetConfig.native_interest")
 	sc.net_native_interest = false
-	DotGameNetcode.follow_server_threads(nat, sc)
+	GSGameNetcode.follow_server_threads(nat, sc)
 	_check(not nat.native_interest, "net_native_interest off again turns it off")
-	var nat_own := DotNetConfig.new()
+	var nat_own := GSNetConfig.new()
 	nat_own.native = true
-	DotGameNetcode.follow_server_threads(nat_own, sc)
+	GSGameNetcode.follow_server_threads(nat_own, sc)
 	_check(nat_own.native, "the game's own native stays on with net_native off")
 
 	# Through the module: the config the game returns, as the server's switch has it.
 	_server.config.threads_net = true
 	_server.config.worker_threads = 2
-	var loaded: DotResult = await _load_module()
+	var loaded: GSResult = await _load_module()
 	if _check(loaded.ok, "the module loads", str(loaded.error)):
-		var module := loaded.value as DotGameModule
+		var module := loaded.value as GSGameModule
 		_check(module.net != null and module.net.config.snapshot_workers == 2,
 			"the module wired it into the live netcode")
 		_unload_module()
@@ -80,7 +80,7 @@ func _test_services_hooks() -> void:
 	var offline := TestHookServices.new()
 	offline.name = "OfflineServices"
 	add_child(offline)
-	var ready_offline: DotResult = await offline.setup(null, _game, null)
+	var ready_offline: GSResult = await offline.setup(null, _game, null)
 	_check(
 		ready_offline.ok, "it sets up with no server, for a game played offline",
 		str(ready_offline.error) if not ready_offline.ok else ""
@@ -96,7 +96,7 @@ func _test_services_hooks() -> void:
 	var services := TestHookServices.new()
 	services.name = "HookServices"
 	add_child(services)
-	var _r: DotResult = await services.setup(_server, _game, null)
+	var _r: GSResult = await services.setup(_server, _game, null)
 	var link := TestHookServices.FakeLink.new()
 	var chat := TestHookServices.FakeChat.new()
 	add_child(link)
@@ -143,58 +143,58 @@ func _test_client_user_tier() -> void:
 	_section("the user cfg tier: solo and listen host only")
 	var host := Node.new()
 	add_child(host)
-	var solo := DotGameClient.new()
+	var solo := GSGameClient.new()
 	solo.use_gate = false
 	solo.force_offline = true
 	host.add_child(solo)
-	_check(solo.user_tier_on and DotAddonConfig.user_tier_enabled, "solo turns the tier on")
+	_check(solo.user_tier_on and GSAddonConfig.user_tier_enabled, "solo turns the tier on")
 	_check(solo.describe()["user_tier"], "describe reports it")
 
-	var guest := DotGameClient.new()
+	var guest := GSGameClient.new()
 	guest.use_gate = false
 	guest.link = GuardLink.new()
 	host.add_child(guest)
-	_check(not guest.offline and not guest.user_tier_on and not DotAddonConfig.user_tier_enabled,
+	_check(not guest.offline and not guest.user_tier_on and not GSAddonConfig.user_tier_enabled,
 		"joined to someone else's server turns it off")
 
-	var listen := DotGameClient.new()
+	var listen := GSGameClient.new()
 	listen.use_gate = false
 	listen.link = GuardLink.new()
 	listen.listen_host_fn = func() -> bool: return true
 	host.add_child(listen)
-	_check(listen.user_tier_on and DotAddonConfig.user_tier_enabled, "a listen host turns it on")
+	_check(listen.user_tier_on and GSAddonConfig.user_tier_enabled, "a listen host turns it on")
 
-	var out := DotGameClient.new()
+	var out := GSGameClient.new()
 	out.use_gate = false
 	out.force_offline = true
 	out.user_cfg = false
 	host.add_child(out)
-	_check(not out.user_tier_on and not DotAddonConfig.user_tier_enabled, "user_cfg = false opts out")
+	_check(not out.user_tier_on and not GSAddonConfig.user_tier_enabled, "user_cfg = false opts out")
 
-	_check(not DotGameClient.user_tier_allowed(true, true, true, true), "a dedicated server never has it")
-	_check(DotGameClient.locked_content_wanted(true, false, false, false)
-			and not DotGameClient.locked_content_wanted(true, true, false, false)
-			and not DotGameClient.locked_content_wanted(true, false, true, false)
-			and DotGameClient.locked_content_wanted(true, true, true, true)
-			and not DotGameClient.locked_content_wanted(false, false, false, true), "offline or headless skips the lock unless opted in")
-	_check(not DotGameClient.offline_wanted(false, true, false, false)
-			and DotGameClient.offline_wanted(false, true, true, false)
-			and not DotGameClient.offline_wanted(false, true, true, true)
-			and DotGameClient.offline_wanted(true, true, false, true)
-			and DotGameClient.offline_wanted(false, false, true, true), "--offline drops a shell link, not a local one; forced or no link is offline")
-	_check(DotGameClient.user_tier_allowed(true, false, true, false)
-			and not DotGameClient.user_tier_allowed(true, false, false, false)
-			and not DotGameClient.user_tier_allowed(false, true, false, false), "the rule table")
+	_check(not GSGameClient.user_tier_allowed(true, true, true, true), "a dedicated server never has it")
+	_check(GSGameClient.locked_content_wanted(true, false, false, false)
+			and not GSGameClient.locked_content_wanted(true, true, false, false)
+			and not GSGameClient.locked_content_wanted(true, false, true, false)
+			and GSGameClient.locked_content_wanted(true, true, true, true)
+			and not GSGameClient.locked_content_wanted(false, false, false, true), "offline or headless skips the lock unless opted in")
+	_check(not GSGameClient.offline_wanted(false, true, false, false)
+			and GSGameClient.offline_wanted(false, true, true, false)
+			and not GSGameClient.offline_wanted(false, true, true, true)
+			and GSGameClient.offline_wanted(true, true, false, true)
+			and GSGameClient.offline_wanted(false, false, true, true), "--offline drops a shell link, not a local one; forced or no link is offline")
+	_check(GSGameClient.user_tier_allowed(true, false, true, false)
+			and not GSGameClient.user_tier_allowed(true, false, false, false)
+			and not GSGameClient.user_tier_allowed(false, true, false, false), "the rule table")
 	_check(not out.open_user_cfg(), "and refuses without the tier")
-	var solo2 := DotGameClient.new()
+	var solo2 := GSGameClient.new()
 	solo2.use_gate = false
 	solo2.force_offline = true
 	host.add_child(solo2)
-	_check(DotAddonConfig.user_tier_enabled, "a second solo client has the tier on")
+	_check(GSAddonConfig.user_tier_enabled, "a second solo client has the tier on")
 	host.remove_child(solo2)
-	_check(not DotAddonConfig.user_tier_enabled and not DotProfileSet.user_tier_enabled, "leaving the tree clears the process-wide tier")
+	_check(not GSAddonConfig.user_tier_enabled and not GSProfileSet.user_tier_enabled, "leaving the tree clears the process-wide tier")
 	solo2.free()
-	DotAddonConfig.set_user_tier(false)
+	GSAddonConfig.set_user_tier(false)
 	host.queue_free()
 	_done()
 
@@ -206,7 +206,7 @@ func _test_client_page_guard() -> void:
 
 	var host := Node.new()
 	add_child(host)
-	var plain := DotGameClient.new()
+	var plain := GSGameClient.new()
 	plain.use_gate = false
 	plain.link = GuardLink.new()
 	host.add_child(plain)
@@ -216,7 +216,7 @@ func _test_client_page_guard() -> void:
 
 	var sent: Array = []
 	var link := GuardLink.new()
-	var client := DotGameClient.new()
+	var client := GSGameClient.new()
 	client.use_gate = false
 	client.link = link
 	client.web_guard_fn = func(code: String) -> void: sent.append(code)
@@ -244,7 +244,7 @@ func _test_client_page_guard() -> void:
 	await get_tree().process_frame
 	_check("disarm" == sent[sent.size() - 1], "leaving the tree disarms it")
 
-	var offline := DotGameClient.new()
+	var offline := GSGameClient.new()
 	offline.use_gate = false
 	offline.link = GuardLink.new()
 	offline.link.up = true

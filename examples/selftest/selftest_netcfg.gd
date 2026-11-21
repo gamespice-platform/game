@@ -2,28 +2,28 @@ extends "selftest_hooks.gd"
 
 ## The net-ceiling, snapshot-rate, npc-lod, services and map-content sections of game_selftest.gd.
 
-func _caps(game_values: Dictionary, ceiling: Dictionary, tick := 64) -> DotNetConfig:
-	var c := DotNetConfig.new()
+func _caps(game_values: Dictionary, ceiling: Dictionary, tick := 64) -> GSNetConfig:
+	var c := GSNetConfig.new()
 	c.tick_rate = tick
 	for key in game_values:
 		c.set(key, game_values[key])
-	DotGameNetcode.cap(c, ceiling)
+	GSGameNetcode.cap(c, ceiling)
 	return c
 
 
 func _test_cpu_usec() -> void:
-	_section("DotGameCheckSuite.cpu_usec counts CPU time, not wall time")
-	var a := DotGameCheckSuite.cpu_usec()
+	_section("GSGameCheckSuite.cpu_usec counts CPU time, not wall time")
+	var a := GSGameCheckSuite.cpu_usec()
 	var w0 := Time.get_ticks_usec()
 	var x := 0
 	while Time.get_ticks_usec() - w0 < 30000:
 		x += 1
-	var burned := DotGameCheckSuite.cpu_usec() - a
+	var burned := GSGameCheckSuite.cpu_usec() - a
 	_check(burned >= 15000 and burned < 200000, "a 30 ms spin reads as about 30 ms", "%d us" % burned)
-	var b := DotGameCheckSuite.cpu_usec()
+	var b := GSGameCheckSuite.cpu_usec()
 	OS.delay_msec(60)
-	var slept := DotGameCheckSuite.cpu_usec() - b
-	_check(slept < 30000 or not DotGameCheckSuite.cpu_is_real(), "a 60 ms sleep costs no CPU (wall fallback excused)", "%d us" % slept)
+	var slept := GSGameCheckSuite.cpu_usec() - b
+	_check(slept < 30000 or not GSGameCheckSuite.cpu_is_real(), "a 60 ms sleep costs no CPU (wall fallback excused)", "%d us" % slept)
 	_done()
 
 
@@ -72,28 +72,28 @@ func _test_operator_net_ceiling() -> void:
 	c = _caps({"snapshot_rate": 32}, {"snapshot_rate": 0})
 	_check(c.snapshot_rate == 32, "a snapshot cap of 0 uses the game's rate")
 	c = _caps({"snapshot_rate": 32}, {})
-	_check(c.snapshot_rate == 32 and DotGameNetcode.cap(c, {}).is_empty(), "no ceiling changes nothing, and logs nothing")
+	_check(c.snapshot_rate == 32 and GSGameNetcode.cap(c, {}).is_empty(), "no ceiling changes nothing, and logs nothing")
 	_done()
 
 
 func _test_snapshot_rate_adapts_to_slots() -> void:
 	_section("the snapshot rate follows the server's size: kept to 32 slots, lower past it, never raised")
-	var c := DotNetConfig.new()
+	var c := GSNetConfig.new()
 	c.tick_rate = 64
 	c.snapshot_rate = 30
-	_check(DotGameNetcode.adapt_snapshot_rate(c, 32) == "" and c.snapshot_rate == 30, "32 slots keep the game's rate")
-	_check(DotGameNetcode.adapt_snapshot_rate(c, 64) != "" and c.snapshot_rate == 16, "64 slots: 20 lands on the divisor 16")
+	_check(GSGameNetcode.adapt_snapshot_rate(c, 32) == "" and c.snapshot_rate == 30, "32 slots keep the game's rate")
+	_check(GSGameNetcode.adapt_snapshot_rate(c, 64) != "" and c.snapshot_rate == 16, "64 slots: 20 lands on the divisor 16")
 	_check(c.stagger_snapshots, "and the peers are staggered over the ticks between snapshots")
 	c.snapshot_rate = 30
-	_check(DotGameNetcode.adapt_snapshot_rate(c, 100) != "" and c.snapshot_rate == 16, "100 slots: 16")
-	_check(DotGameNetcode.adapt_snapshot_rate(c, 100) == "", "and a second call changes nothing")
+	_check(GSGameNetcode.adapt_snapshot_rate(c, 100) != "" and c.snapshot_rate == 16, "100 slots: 16")
+	_check(GSGameNetcode.adapt_snapshot_rate(c, 100) == "", "and a second call changes nothing")
 	c.snapshot_rate = 8
-	_check(DotGameNetcode.adapt_snapshot_rate(c, 100) == "" and c.snapshot_rate == 8, "a lower game rate is never raised")
+	_check(GSGameNetcode.adapt_snapshot_rate(c, 100) == "" and c.snapshot_rate == 8, "a lower game rate is never raised")
 	c.tick_rate = 60
 	c.snapshot_rate = 30
-	var _l := DotGameNetcode.adapt_snapshot_rate(c, 200)
+	var _l := GSGameNetcode.adapt_snapshot_rate(c, 200)
 	_check(c.snapshot_rate == 10, "200 slots on tick 60: 10")
-	_check(DotGameNetcode.adapt_snapshot_rate(null, 100) == "", "no config is a no-op")
+	_check(GSGameNetcode.adapt_snapshot_rate(null, 100) == "", "no config is a no-op")
 	_done()
 
 
@@ -109,24 +109,24 @@ class FakeNpcSpawner:
 
 
 func _test_npc_lod_cvars() -> void:
-	_section("DotGameNpcLod: the cvars exist, default off, and reach the spawner")
+	_section("GSGameNpcLod: the cvars exist, default off, and reach the spawner")
 
-	var console := DotConsole.new()
+	var console := GSConsole.new()
 	add_child(console)
-	DotGameNpcLod.ensure_cvars(console)
-	DotGameNpcLod.ensure_cvars(console)
+	GSGameNpcLod.ensure_cvars(console)
+	GSGameNpcLod.ensure_cvars(console)
 	var all := true
-	for name: String in DotGameNpcLod.CVARS:
+	for name: String in GSGameNpcLod.CVARS:
 		all = all and console.find_cvar(name) != null
 	_check(all, "every cvar is registered, twice over without harm")
 	_check(console.get_int("npc_lod") == 0 and console.get_int("npc_sense_quiet") == 1, "and each defaults to off")
 
 	var spawner := FakeNpcSpawner.new()
 	add_child(spawner)
-	var sc := DotServerConfig.new()
+	var sc := GSServerConfig.new()
 	sc.threads_npc = true
 	sc.worker_threads = 3
-	var lod := DotGameNpcLod.attach(self, console, spawner, sc)
+	var lod := GSGameNpcLod.attach(self, console, spawner, sc)
 	_check(lod != null and spawner.sense_workers == sc.npc_workers(), "attach hands the sense workers sv_threads_npc gives (%d)" % spawner.sense_workers)
 	_check(spawner.limits.sense_quiet_mult == 1 and lod.scheduler == null, "with the cvars at rest nothing changes and no scheduler is built")
 
@@ -136,7 +136,7 @@ func _test_npc_lod_cvars() -> void:
 
 	console.set_cvar("npc_lod", "1")
 	lod.follow(0.016)
-	var have_ai := ResourceLoader.exists(DotGameNpcLod.SCHEDULER_SCRIPT)
+	var have_ai := ResourceLoader.exists(GSGameNpcLod.SCHEDULER_SCRIPT)
 	_check((lod.scheduler != null) == have_ai, "npc_lod builds the scheduler when dot-npc-ai is present (%s)" % str(have_ai))
 	_check(not have_ai or lod.scheduler.config.enabled, "and enables it")
 	lod.release()
@@ -148,37 +148,37 @@ func _test_npc_lod_cvars() -> void:
 func _test_operator_ceiling_reaches_the_netcode() -> void:
 	_section("the module applies the server's ceiling before the netcode starts")
 
-	_server.set_meta(DotGameNetcode.CEILING_META, {"snapshot_rate": 12, "max_entities_per_snapshot": 8})
-	var loaded: DotResult = await _load_module()
-	_server.remove_meta(DotGameNetcode.CEILING_META)
+	_server.set_meta(GSGameNetcode.CEILING_META, {"snapshot_rate": 12, "max_entities_per_snapshot": 8})
+	var loaded: GSResult = await _load_module()
+	_server.remove_meta(GSGameNetcode.CEILING_META)
 
 	if not _check(loaded.ok, "the module loads", str(loaded.error)):
 		_done()
 		return
 
-	var module := loaded.value as DotGameModule
+	var module := loaded.value as GSGameModule
 	_check(module.net != null and module.net.config.snapshot_rate == 12, "the snapshot rate is the operator's (12 divides tick 60)")
 	_check(module.net != null and module.net.config.max_entities_per_snapshot == 8, "and the entity cap")
 	_unload_module()
 	_done()
 
 
-## [DotGameServices] in a project that has none of the three addons it drives.
+## [GSGameServices] in a project that has none of the three addons it drives.
 ##
 ## Skipping must be quiet and complete: setup succeeds, admission passes, the fan-out is a no-op, and a line is refused in a way a caller can act on. Chat routing proper is asserted in a game that has the addons.
 func _test_services_without_the_addons() -> void:
 	_section("the services layer, in a build with none of its addons")
 
-	var services := DotGameServices.new()
+	var services := GSGameServices.new()
 	services.name = "Services"
 	add_child(services)
 
-	var ready_now: DotResult = await services.setup(_server, _game, null)
+	var ready_now: GSResult = await services.setup(_server, _game, null)
 
 	_check(ready_now.ok, "it sets up", str(ready_now.error) if not ready_now.ok else "")
 	_check(services.chat == null, "and builds no chat, because there is none to build")
 	_check(services.voice == null or ResourceLoader.exists("res://addons/dot_voice/runtime/dot_voice_manager.gd"), "no voice unless dot-voice is linked")
-	_check(services.moderation == null or ResourceLoader.exists(DotGameServices.MODERATION_SCRIPT), "and no moderation unless dot-moderation is linked")
+	_check(services.moderation == null or ResourceLoader.exists(GSGameServices.MODERATION_SCRIPT), "and no moderation unless dot-moderation is linked")
 
 	_check(
 		services.check_admission(_fake_session(9, 9, "Ada")).ok,
@@ -194,7 +194,7 @@ func _test_services_without_the_addons() -> void:
 
 	var said := services.say(9, &"all", "hello")
 	_check(
-		not said.ok and said.error.code == DotError.CODE_UNSUPPORTED,
+		not said.ok and said.error.code == GSError.CODE_UNSUPPORTED,
 		"and a line is refused as unsupported rather than silently dropped",
 		str(said.error.code)
 	)
@@ -230,29 +230,29 @@ class _FakeManager extends RefCounted:
 ## What GameSpice Cloud's auto-update is told to watch, and that a build without GameSpice Cloud gets none.
 func _test_auto_update_wiring() -> void:
 	_section("server auto-update wiring")
-	var delivered := DotGameDescriptor.new()
+	var delivered := GSGameDescriptor.new()
 	delivered.game_id = "fc"
 	delivered.content_id = "me/fc"
 	delivered.version = "0.1.0"
 	delivered.scene = "scenes/main.tscn"
 	delivered.dependencies = PackedStringArray(["me/lib@1.0.0"])
 	delivered.maps = PackedStringArray(["me/dm_one@2"])
-	var built_in := DotGameDescriptor.new()
+	var built_in := GSGameDescriptor.new()
 	built_in.game_id = "local"
 	built_in.scene = "res://examples/fixtures/none.tscn"
 	var manager := _FakeManager.new()
 	manager.games = [delivered, built_in]
 	var fake := _FakeServer.new()
 	fake.games = manager
-	var watched := DotGameModule.watched_packs(fake)
+	var watched := GSGameModule.watched_packs(fake)
 	_check(watched == [
 		{"id": "me/fc", "version": "0.1.0"},
 		{"id": "me/lib", "version": "1.0.0"},
 		{"id": "me/dm_one", "version": "2"},
 	], "a delivered game's own pack, dependencies and maps; a built-in game adds nothing", str(watched))
-	_check(DotGameModule.watched_packs(null).is_empty(), "no server watches nothing")
+	_check(GSGameModule.watched_packs(null).is_empty(), "no server watches nothing")
 	_check(
-		DotGameModule.start_auto_update(_server) == null or ResourceLoader.exists(DotGameModule.AUTO_UPDATE_SCRIPT),
+		GSGameModule.start_auto_update(_server) == null or ResourceLoader.exists(GSGameModule.AUTO_UPDATE_SCRIPT),
 		"a build without dot-cloud starts no updater"
 	)
 	_done()
@@ -266,7 +266,7 @@ func _test_profiler_placement() -> void:
 	add_child(host)
 	var placed: Node = prof.add(host)
 	if ResourceLoader.exists(prof.SCRIPT):
-		_check(placed != null and DotRegistry.get_service(&"dot_profiler") == placed, "placed and registered as dot_profiler")
+		_check(placed != null and GSRegistry.get_service(&"dot_profiler") == placed, "placed and registered as dot_profiler")
 		_check(prof.add(host) == null, "placing twice adds nothing")
 		var cfg: Variant = placed.get(&"config")
 		_check(cfg is Object and str((cfg as Object).get(&"perf_game_id")) != "", "the placed profiler knows the game id for its perf reports")
@@ -286,22 +286,22 @@ func _test_profiler_placement() -> void:
 
 ## The registry outlives a client: a late console registration for a freed client must find nothing, not a freed capture.
 func _late_console_after_free() -> void:
-	var c := DotGameClient.new()
+	var c := GSGameClient.new()
 	var id := c.get_instance_id()
 	c.free()
-	DotGameClientExtras._bind_if_alive(id)
+	GSGameClientExtras._bind_if_alive(id)
 	_check(instance_from_id(id) == null, "a profiler hook for a freed client resolves to nothing and raises no error")
-	var live := DotGameClient.new()
+	var live := GSGameClient.new()
 	add_child(live)
-	_check(not DotGameClientExtras.bind_profiler_console(live), "a live client with no profiler binds nothing")
+	_check(not GSGameClientExtras.bind_profiler_console(live), "a live client with no profiler binds nothing")
 	live.queue_free()
 
 
-## DotGameContent, against a stand-in manager: the keys a server names, where each mounts,
+## GSGameContent, against a stand-in manager: the keys a server names, where each mounts,
 ## and the directories a game is handed. No content client here, so a pack that is not on
 ## the disk is a warning and is left out, which is the path a build without GameSpice Cloud takes.
 func _test_map_content() -> void:
-	_section("the map packs a server names (DotGameContent)")
+	_section("the map packs a server names (GSGameContent)")
 
 	var games := _FakeGames.new()
 	games.maps = PackedStringArray(["me/course_a@1.0.0", "me/shared@2"])
@@ -309,21 +309,21 @@ func _test_map_content() -> void:
 	var fake := _FakeServer.new()
 	fake.games = games
 
-	_check(DotGameContent.map_keys(fake) == PackedStringArray(["me/course_a@1.0.0", "me/shared@2", "me/old_maps@0.1.0"]),
-		"the maps first, then the server-only packs, each once", str(DotGameContent.map_keys(fake)))
-	_check(DotGameContent.map_keys(fake, false) == games.maps, "and without the server-only packs when asked")
-	_check(DotGameContent.map_keys(null).is_empty() and DotGameContent.map_keys(_FakeServer.new()).is_empty(),
+	_check(GSGameContent.map_keys(fake) == PackedStringArray(["me/course_a@1.0.0", "me/shared@2", "me/old_maps@0.1.0"]),
+		"the maps first, then the server-only packs, each once", str(GSGameContent.map_keys(fake)))
+	_check(GSGameContent.map_keys(fake, false) == games.maps, "and without the server-only packs when asked")
+	_check(GSGameContent.map_keys(null).is_empty() and GSGameContent.map_keys(_FakeServer.new()).is_empty(),
 		"no server, or one without a manager, names nothing")
-	_check(DotGameContent.mount_of("me/course_a@1.0.0") == "res://dot_cloud/me/course_a/1.0.0",
+	_check(GSGameContent.mount_of("me/course_a@1.0.0") == "res://dot_cloud/me/course_a/1.0.0",
 		"a key mounts where dot-cloud mounts it")
 
 	# One pack "already mounted" on the disk; the others are not and there is no client.
 	var root := "res://dot_cloud/me/course_a/1.0.0/courses"
 	DirAccess.make_dir_recursive_absolute(root)
-	var dirs: PackedStringArray = await DotGameContent.map_dirs(fake, "courses")
+	var dirs: PackedStringArray = await GSGameContent.map_dirs(fake, "courses")
 	_check(dirs == PackedStringArray([root]), "a mounted pack's subdirectory is handed over, the rest left out", str(dirs))
-	var missing: DotResult = await DotGameContent.ensure_one("me/shared@2")
-	_check(not missing.ok and missing.error.code == DotError.CODE_STATE,
+	var missing: GSResult = await GSGameContent.ensure_one("me/shared@2")
+	_check(not missing.ok and missing.error.code == GSError.CODE_STATE,
 		"and with no content client a fetch fails with the reason, not a crash")
 	for d in ["res://dot_cloud/me/course_a/1.0.0/courses", "res://dot_cloud/me/course_a/1.0.0",
 			"res://dot_cloud/me/course_a", "res://dot_cloud/me", "res://dot_cloud"]:

@@ -1,6 +1,6 @@
 extends Node
 
-## DotGameRequest and DotGamePaths: the wire round trip, kind validation, and rebasing onto a mount.
+## GSGameRequest and GSGamePaths: the wire round trip, kind validation, and rebasing onto a mount.
 
 const CHECKS := 12
 
@@ -10,7 +10,7 @@ var _failures := PackedStringArray()
 
 
 class Ask:
-	extends DotGameRequest
+	extends GSGameRequest
 
 	func _type_name() -> StringName:
 		return &"test.request"
@@ -20,7 +20,7 @@ class Ask:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 
@@ -40,19 +40,19 @@ func _run() -> void:
 	_check(not Ask.new(4)._validate().ok, "a kind at the count is refused")
 	_check(not Ask.new(-1)._validate().ok, "a negative kind is refused")
 	_check(Ask.new().kind == 0 and Ask.new().body.is_empty(), "a bare new() works for the registry")
-	_check(DotGameRequest.fits(32) and not DotGameRequest.fits(33), "fits is the kind bits")
-	var w := DotNetWriter.new()
+	_check(GSGameRequest.fits(32) and not GSGameRequest.fits(33), "fits is the kind bits")
+	var w := GSNetWriter.new()
 	a._write(w)
 	var b := Ask.new()
-	b._read(DotNetReader.new(w.to_bytes()))
+	b._read(GSNetReader.new(w.to_bytes()))
 	_check(b.kind == 2 and b.body == PackedByteArray([1, 2, 3]), "kind and body round-trip")
 	_check(b.reader().read_uint(8) == 1, "reader reads the body")
 
 	var mount := "res://dot_cloud/me/g/1.0.0"
-	_check(DotGamePaths.rebase_onto("res://maps/x.json", mount) == mount + "/maps/x.json", "a res path moves onto the mount")
-	_check(DotGamePaths.rebase_onto(mount + "/maps/x.json", mount) == mount + "/maps/x.json", "rebasing is idempotent")
-	_check(DotGamePaths.rebase_onto("user://s.cfg", mount) == "user://s.cfg", "a user path is untouched")
-	_check(DotGamePaths.rebase_onto("res://a", "res://") == "res://a", "built in it returns its argument")
+	_check(GSGamePaths.rebase_onto("res://maps/x.json", mount) == mount + "/maps/x.json", "a res path moves onto the mount")
+	_check(GSGamePaths.rebase_onto(mount + "/maps/x.json", mount) == mount + "/maps/x.json", "rebasing is idempotent")
+	_check(GSGamePaths.rebase_onto("user://s.cfg", mount) == "user://s.cfg", "a user path is untouched")
+	_check(GSGamePaths.rebase_onto("res://a", "res://") == "res://a", "built in it returns its argument")
 
 	if _passed + _failed != CHECKS:
 		_failed += 1

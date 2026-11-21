@@ -1,4 +1,4 @@
-class_name DotGameStandaloneContent
+class_name GSGameStandaloneContent
 extends RefCounted
 ## A content client for a game run from the project (single player, listen host), where the web shell that normally owns one is absent.
 
@@ -9,7 +9,7 @@ const CONTENT_CONFIG := "res://client/content.json"
 const FALLBACK_CONFIG := "res://addons/dot_game/data/content.json"
 const DEFAULT_URL := "https://content.gamespice.net/content"
 const REASON := &"content"
-## What GameSpice Map's `DotMapStore` sets on the gate: bytes the chosen map's slices still need.
+## What GameSpice Map's `GSMapStore` sets on the gate: bytes the chosen map's slices still need.
 const META_DOWNLOAD_BYTES := &"download_bytes"
 ## Signed manifests kept for the next offline start, laid out as `{id}/{version}/manifest.json` so GameSpice Cloud reads them as a local source.
 const MANIFEST_DIR := "user://dot_standalone_manifests"
@@ -18,7 +18,7 @@ const DEFAULT_WAIT_SEC := 300.0
 
 ## Test seam: replaces [constant CONTENT_CONFIG]'s urls when non-empty.
 static var urls_override: PackedStringArray = PackedStringArray()
-## Test seam: a script used for DotCloudClient and DotCloudConfig when set (GameSpice Cloud is not linked into every project).
+## Test seam: a script used for GSCloudClient and GSCloudConfig when set (GameSpice Cloud is not linked into every project).
 static var client_script_override: GDScript = null
 static var config_script_override: GDScript = null
 
@@ -56,13 +56,13 @@ static func settings() -> Dictionary:
 
 
 ## Makes and registers a content client under [param parent] when none is registered. Returns it, or null when one exists, GameSpice Cloud is absent or this was switched off.
-static func install(parent: Node, gate: DotLoadGate = null) -> Node:
-	if disabled_by_cmdline() or DotRegistry.get_service(CLOUD_SERVICE) != null:
+static func install(parent: Node, gate: GSLoadGate = null) -> Node:
+	if disabled_by_cmdline() or GSRegistry.get_service(CLOUD_SERVICE) != null:
 		return null
-	var script := client_script_override if client_script_override != null else _script_of("DotCloudClient")
-	var config_script := config_script_override if config_script_override != null else _script_of("DotCloudConfig")
+	var script := client_script_override if client_script_override != null else _script_of("GSCloudClient")
+	var config_script := config_script_override if config_script_override != null else _script_of("GSCloudConfig")
 	if script == null or config_script == null:
-		DotLog.debug(CHANNEL, "no dot-cloud in this project; art slices cannot be fetched")
+		GSLog.debug(CHANNEL, "no dot-cloud in this project; art slices cannot be fetched")
 		return null
 	var s := settings()
 	var cloud: Node = script.new()
@@ -77,14 +77,14 @@ static func install(parent: Node, gate: DotLoadGate = null) -> Node:
 	cloud.set("manifest_url_fallbacks", PackedStringArray(["{base}/{id}/manifest.json"]))
 	if DirAccess.dir_exists_absolute(MANIFEST_DIR):
 		cloud.set("local_search_dirs", PackedStringArray([MANIFEST_DIR]))
-		DotLog.debug(CHANNEL, "kept manifests are searched first, so a cached slice mounts offline", {"dir": MANIFEST_DIR})
+		GSLog.debug(CHANNEL, "kept manifests are searched first, so a cached slice mounts offline", {"dir": MANIFEST_DIR})
 	if s["config_file"] == "":
-		DotLog.warn(CHANNEL, "no client/content.json: no trusted key, so no slice can be mounted", {"looked_for": CONTENT_CONFIG})
+		GSLog.warn(CHANNEL, "no client/content.json: no trusted key, so no slice can be mounted", {"looked_for": CONTENT_CONFIG})
 	var saved := {}
 	cloud.connect(&"phase_changed", _on_phase.bind(gate, cloud, saved))
 	cloud.connect(&"progress_changed", _on_progress.bind(gate, {"done": 0, "last": 0}))
 	parent.add_child(cloud)
-	DotLog.info(CHANNEL, "standalone play fetches art slices itself", {"from": ", ".join(s["urls"]), "cache": "user://dot_cloud"})
+	GSLog.info(CHANNEL, "standalone play fetches art slices itself", {"from": ", ".join(s["urls"]), "cache": "user://dot_cloud"})
 	return cloud
 
 
@@ -99,7 +99,7 @@ static func _phases(cloud: Object) -> Dictionary:
 	return (cloud.get_script() as GDScript).get_script_constant_map().get("Phase", {}) if cloud != null else {}
 
 
-static func _on_progress(p: Dictionary, gate: DotLoadGate, state: Dictionary) -> void:
+static func _on_progress(p: Dictionary, gate: GSLoadGate, state: Dictionary) -> void:
 	if gate == null or not is_instance_valid(gate) or gate.is_open() or not gate.is_holding(REASON):
 		return
 	var f := float(p.get("fraction", 0.0))
@@ -116,7 +116,7 @@ static func _on_progress(p: Dictionary, gate: DotLoadGate, state: Dictionary) ->
 
 
 ## Holds the gate (for up to [method max_wait_sec]) while the client works, keeps manifests when it is done, and says so when it cannot reach the origin.
-static func _on_phase(phase: int, text: String, gate: DotLoadGate, cloud: Node, saved: Dictionary) -> void:
+static func _on_phase(phase: int, text: String, gate: GSLoadGate, cloud: Node, saved: Dictionary) -> void:
 	var phases := _phases(cloud)
 	var failed := phases.has("FAILED") and phase == int(phases["FAILED"])
 	var ready := phases.has("READY") and phase == int(phases["READY"])
@@ -133,14 +133,14 @@ static func _on_phase(phase: int, text: String, gate: DotLoadGate, cloud: Node, 
 	if ready:
 		keep_manifests(cloud, saved)
 	if resting:
-		DotWeb.sync_filesystem()
+		GSWeb.sync_filesystem()
 	if failed:
-		DotLog.warn(CHANNEL, "art slices could not be fetched; the world is drawn with stand-ins", {"why": text})
+		GSLog.warn(CHANNEL, "art slices could not be fetched; the world is drawn with stand-ins", {"why": text})
 
 
 ## Saves the signed manifest of every acquired slice (fetched again, a few KB each) so the next start works offline. Verified again on read, so the copy cannot widen trust.
 static func keep_manifests(cloud: Node, saved: Dictionary) -> void:
-	var http := DotHttp.new()
+	var http := GSHttp.new()
 	cloud.add_child(http)
 	for key: String in cloud.call("acquired_keys"):
 		if saved.has(key) or key.find("@") <= 0:
@@ -154,10 +154,10 @@ static func keep_manifests(cloud: Node, saved: Dictionary) -> void:
 		for url: String in cloud.call("manifest_urls_for", StringName(id), version):
 			if not (url.begins_with("http://") or url.begins_with("https://")):
 				continue
-			var got: DotResult = await http.get_bytes(url)
+			var got: GSResult = await http.get_bytes(url)
 			if got.ok:
-				var wrote := DotPaths.write_bytes(path, got.value)
+				var wrote := GSPaths.write_bytes(path, got.value)
 				if not wrote.ok:
-					DotLog.warn(CHANNEL, "a slice manifest could not be kept", {"path": path})
+					GSLog.warn(CHANNEL, "a slice manifest could not be kept", {"path": path})
 				break
 	http.queue_free()

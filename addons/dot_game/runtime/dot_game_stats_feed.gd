@@ -1,4 +1,4 @@
-class_name DotGameStatsFeed
+class_name GSGameStatsFeed
 extends RefCounted
 
 ## Opens and closes a GameSpice Stats session for each seat, when a tracker exists. Duck-typed: GameSpice Stats is never named.
@@ -24,7 +24,7 @@ var scope_key_file: String = "user://stats_scope.key"
 ## Whether seating opens a tracker session. A game that drives its own tracker sets false and only asks [method key_for].
 var open_sessions: bool = true
 
-## func(session) -> bool. Default: [member DotClientSession.local], which is what a bot is (no transport peer).
+## func(session) -> bool. Default: [member GSClientSession.local], which is what a bot is (no transport peer).
 var bot_fn: Callable = Callable()
 
 ## func() -> String, the current map id for the session row.
@@ -43,7 +43,7 @@ var _issued_re: RegEx = RegEx.create_from_string(ISSUED_KEY_RE)
 ## The key [param session]'s stats are filed under: stable across restarts, per server, never an account id.
 ## In order: [member player_key_fn], GameSpice Platform's profile key, the backbone's issued key, a keyed
 ## derivation of the uid (guests too); a bot or a session with no identity gets "u" + userid.
-func key_for(session: DotClientSession) -> StringName:
+func key_for(session: GSClientSession) -> StringName:
 	if player_key_fn.is_valid():
 		return StringName(str(player_key_fn.call(session)))
 	if _keys.has(session.userid):
@@ -62,7 +62,7 @@ func key_for(session: DotClientSession) -> StringName:
 ## Moves a seat from its fallback key to the profile or issued key once one has arrived (a late
 ## admission). A key never changes on its own mid-session; the game calls this, and an open stats
 ## session is ended under the old key and begun under the new. True when the key changed.
-func upgrade(session: DotClientSession) -> bool:
+func upgrade(session: GSClientSession) -> bool:
 	if player_key_fn.is_valid() or session.local or not _keys.has(session.userid):
 		return false
 	var given := _given_key(session)
@@ -83,7 +83,7 @@ func forget(userid: int) -> void:
 	_keys.erase(userid)
 
 
-func _resolve(session: DotClientSession) -> StringName:
+func _resolve(session: GSClientSession) -> StringName:
 	var seat := StringName("u%d" % session.userid)
 	if session.local or session.uid() == "":
 		return seat
@@ -93,12 +93,12 @@ func _resolve(session: DotClientSession) -> StringName:
 	var scope := _scope_or_null()
 	if scope == null:
 		return seat
-	var derived: DotResult = scope.call(&"derive", session.uid())
+	var derived: GSResult = scope.call(&"derive", session.uid())
 	return StringName(str(derived.value)) if derived.ok else seat
 
 
 ## The key a profile or the backbone gave [param session], or empty: the only keys worth upgrading to.
-func _given_key(session: DotClientSession) -> StringName:
+func _given_key(session: GSClientSession) -> StringName:
 	var platform: Variant = session.data.get("platform")
 	if platform is Object and (platform as Object).has_method(&"key"):
 		var profile_key := str((platform as Object).call(&"key"))
@@ -116,31 +116,31 @@ func _scope_or_null() -> Object:
 		return _scope
 	var script: GDScript = load(SCOPE_SCRIPT)
 	if FileAccess.file_exists(scope_key_file):
-		var read := DotPaths.read_text(scope_key_file)
-		var made: DotResult = script.call(&"from_secret_key", SCOPE_NAME, String(read.value).strip_edges()) if read.ok else read
+		var read := GSPaths.read_text(scope_key_file)
+		var made: GSResult = script.call(&"from_secret_key", SCOPE_NAME, String(read.value).strip_edges()) if read.ok else read
 		if not made.ok:
 			# Never replaced: a new key would rename every player on this server.
-			DotLog.error(CHANNEL, "stats scope key unreadable; keys fall back to seats", {"file": scope_key_file, "why": made.error.message})
+			GSLog.error(CHANNEL, "stats scope key unreadable; keys fall back to seats", {"file": scope_key_file, "why": made.error.message})
 			return null
 		_scope = made.value
 		return _scope
 	var fresh: Object = script.call(&"generated", SCOPE_NAME)
-	var written := DotPaths.write_text(scope_key_file, str(fresh.call(&"export_secret_key")))
+	var written := GSPaths.write_text(scope_key_file, str(fresh.call(&"export_secret_key")))
 	if not written.ok:
-		DotLog.error(CHANNEL, "could not keep a stats scope key; keys fall back to seats", {"file": scope_key_file, "why": written.error.message})
+		GSLog.error(CHANNEL, "could not keep a stats scope key; keys fall back to seats", {"file": scope_key_file, "why": written.error.message})
 		return null
-	DotLog.info(CHANNEL, "generated a stats scope key; back it up, losing it renames every player", {"file": scope_key_file})
+	GSLog.info(CHANNEL, "generated a stats scope key; back it up, losing it renames every player", {"file": scope_key_file})
 	_scope = fresh
 	return _scope
 
 
 ## Listens to a roster's seated and unseated signals.
-func follow(roster: DotGameRoster) -> void:
+func follow(roster: GSGameRoster) -> void:
 	roster.seated.connect(_on_seated)
 	roster.unseated.connect(_on_unseated)
 
 
-func unfollow(roster: DotGameRoster) -> void:
+func unfollow(roster: GSGameRoster) -> void:
 	if roster.seated.is_connected(_on_seated):
 		roster.seated.disconnect(_on_seated)
 	if roster.unseated.is_connected(_on_unseated):
@@ -167,13 +167,13 @@ func active_tracker() -> Object:
 
 
 func _tracker() -> Object:
-	var t: Object = tracker if tracker != null else DotRegistry.get_service(SERVICE)
+	var t: Object = tracker if tracker != null else GSRegistry.get_service(SERVICE)
 	if t == null or not is_instance_valid(t) or not t.has_method("begin") or not t.has_method("end"):
 		return null
 	return t
 
 
-func _on_seated(session: DotClientSession) -> void:
+func _on_seated(session: GSClientSession) -> void:
 	var t := _tracker() if open_sessions else null
 	if t == null or _open.has(session.userid):
 		return
@@ -185,10 +185,10 @@ func _on_seated(session: DotClientSession) -> void:
 	# No tmc_user: a seat is never linked to an account here, bot or not.
 	t.call("begin", key, session.display_name, meta)
 	_open[session.userid] = key
-	DotLog.debug(CHANNEL, "stats session opened", {"userid": session.userid, "bot": bot})
+	GSLog.debug(CHANNEL, "stats session opened", {"userid": session.userid, "bot": bot})
 
 
-func _on_unseated(session: DotClientSession) -> void:
+func _on_unseated(session: GSClientSession) -> void:
 	forget(session.userid)
 	if not _open.has(session.userid):
 		return

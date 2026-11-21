@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Renders DotGameStorePanel with owned items to screenshots/store_panel.png.
+## Renders GSGameStorePanel with owned items to screenshots/store_panel.png.
 ##   xvfb-run -a godot --path . --resolution 800x450 --script tools/store_panel_shot.gd
 
 func _initialize() -> void:
@@ -8,7 +8,7 @@ func _initialize() -> void:
 	bg.color = Color(0.1, 0.11, 0.14)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(bg)
-	var panel := DotGameStorePanel.new()
+	var panel := GSGameStorePanel.new()
 	panel.store_url = "https://games.tmcdev.net/dashboard/store"
 	panel.position = Vector2(40, 40)
 	root.add_child(panel)

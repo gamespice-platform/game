@@ -4,7 +4,7 @@ extends SceneTree
 ## Scenario fields: `client`, `client_props`, `ready_property` (default "player"), `warmup`, `move_actions`.
 ## Steps: `move` [x, y], `buttons` (held actions), `event` "call:<method>" on the client.
 
-var _clip: DotScenario = null
+var _clip: GSScenario = null
 var _client: Node = null
 var _moves: Array = ["dot_fps_forward", "dot_fps_back", "dot_fps_left", "dot_fps_right"]
 var _ready_property := "player"
@@ -22,7 +22,7 @@ var _started := false
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
-	var clips := DotScenario.load_file("res://tools/filmstrip_scenarios.json")
+	var clips := GSScenario.load_file("res://tools/filmstrip_scenarios.json")
 	if args.is_empty() or not clips.has(args[0]):
 		printerr("filmstrip: clip %s not in %s" % [str(args), str(clips.keys())])
 		quit(2)

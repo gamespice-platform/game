@@ -1,19 +1,19 @@
-# DotGameConfigBinder: a game's `*Config` as an operator surface
+# GSGameConfigBinder: a game's `*Config` as an operator surface
 
-A game's `DotConfig` subclass holds 40 to 177 tunables that only env, argv and a JSON file reached. The binder makes every exported field (bool, int, float, String, PackedStringArray) reachable like a cvar and like a profile, with no per-field code.
+A game's `GSConfig` subclass holds 40 to 177 tunables that only env, argv and a JSON file reached. The binder makes every exported field (bool, int, float, String, PackedStringArray) reachable like a cvar and like a profile, with no per-field code.
 
 ## Use
 
 ```gdscript
 # server scene, where the config is built today
 var config := HsConfig.new()
-var binder := DotGameConfigBinder.create(config, "hide-n-seek", "hs", "user://cfg/hideseek.json")
+var binder := GSGameConfigBinder.create(config, "hide-n-seek", "hs", "user://cfg/hideseek.json")
 var res := binder.load_layers()
 if not res.ok:
-    DotGameConfigBinder.fail_boot(get_tree(), res)   # ERROR line + non-zero exit
+    GSGameConfigBinder.fail_boot(get_tree(), res)   # ERROR line + non-zero exit
     return
 # the module, once it has a console
-binder.bind_cvars(add_cvar, DotConVar.FLAG_ARCHIVE, console.has_name)   # hs_<field>
+binder.bind_cvars(add_cvar, GSConVar.FLAG_ARCHIVE, console.has_name)   # hs_<field>
 binder.bind_commands(add_command)                     # hs_config_diff [save], hs_config_dump
 binder.attach(profile_runtime)                        # workbench: kind `config`, id `game`
 ```
@@ -22,19 +22,19 @@ Set `replicate_keys` / `replicate_groups` before `bind_cvars` for fields a clien
 
 ## Layers (weakest first) and where each value came from
 
-code defaults, `json_path`, `cfg/game/<game>/config/game.yml`, `cfg/server/game/<game>/config/game.yml` (and the other roots `DotProfileSet` reads), `PROFILE_CONFIG_GAME_<KEY>` / `--profile.config/game.<key>=`, the config's own `<PREFIX>_*` env and `--prefix-*` argv, then at runtime cvars (`cvar`) and the workbench (`workbench`). `load_layers()` logs one INFO per layer with the keys it set, and `report_lines()` / `<prefix>_config_dump` list every field with its value and layer; `source_of(key)` returns the layer. A yml file is a flat mapping of field names, e.g. `hide_seconds: 30.0`.
+code defaults, `json_path`, `cfg/game/<game>/config/game.yml`, `cfg/server/game/<game>/config/game.yml` (and the other roots `GSProfileSet` reads), `PROFILE_CONFIG_GAME_<KEY>` / `--profile.config/game.<key>=`, the config's own `<PREFIX>_*` env and `--prefix-*` argv, then at runtime cvars (`cvar`) and the workbench (`workbench`). `load_layers()` logs one INFO per layer with the keys it set, and `report_lines()` / `<prefix>_config_dump` list every field with its value and layer; `source_of(key)` returns the layer. A yml file is a flat mapping of field names, e.g. `hide_seconds: 30.0`.
 
 ## Strict mode
 
-`strict` defaults to on for a dedicated or headless server outside the editor (`--config-strict` / `--no-config-strict` override). Strict makes `load_layers()` fail, with every problem logged at ERROR, on an unknown key in the JSON, yml or env/argv, unreadable JSON, a bad profile file (out of range, wrong type, bad yml), or a failed `validate()`. Not strict, the same problems are logged and the boot continues on what loaded. `check_map(requested, known)` does the same for `--map`: strict fails on an unknown map, otherwise it warns and returns `""` (use the default). A bad env/argv *value* (not key) is still only a WARN from `DotConfig`.
+`strict` defaults to on for a dedicated or headless server outside the editor (`--config-strict` / `--no-config-strict` override). Strict makes `load_layers()` fail, with every problem logged at ERROR, on an unknown key in the JSON, yml or env/argv, unreadable JSON, a bad profile file (out of range, wrong type, bad yml), or a failed `validate()`. Not strict, the same problems are logged and the boot continues on what loaded. `check_map(requested, known)` does the same for `--map`: strict fails on an unknown map, otherwise it warns and returns `""` (use the default). A bad env/argv *value* (not key) is still only a WARN from `GSConfig`.
 
 ## The profile surface
 
-`profile_set()` is a `DotProfileSet` of kind `config` whose schema is `schema()`: per field `key`, `type`, `default`, `group` (`@export_group`), `description` (first paragraph of the `##` comment), `min`/`max`/`step` (`@export_range`) and `enum` + `options` (`@export_enum`). `attach(runtime)` (safe to call twice on one runtime) adds it to a `DotProfileRuntime`, so `DotWorkbenchApi` lists it, validates edits with those bounds, saves to `cfg/server/game/<game>/config/game.yml`, and the field and cvar follow every edit. Descriptions come from the script source; a build that ships no source reads `res://cfg/game/<game>/config/schema.json`, written by `write_schema(path)`.
+`profile_set()` is a `GSProfileSet` of kind `config` whose schema is `schema()`: per field `key`, `type`, `default`, `group` (`@export_group`), `description` (first paragraph of the `##` comment), `min`/`max`/`step` (`@export_range`) and `enum` + `options` (`@export_enum`). `attach(runtime)` (safe to call twice on one runtime) adds it to a `GSProfileRuntime`, so `GSWorkbenchApi` lists it, validates edits with those bounds, saves to `cfg/server/game/<game>/config/game.yml`, and the field and cvar follow every edit. Descriptions come from the script source; a build that ships no source reads `res://cfg/game/<game>/config/schema.json`, written by `write_schema(path)`.
 
 ## One file per group
 
-`grouped = true` (with `group_files`, an `@export_group` name -> file name map so several groups share a file) splits the profile into one set per file: kind `config_<file>`, id `game`, read from `cfg/game/<game>/config_<file>/game.yml` (operator overrides in `cfg/server/game/...`). Each file may hold only its own keys; a key in the wrong file is refused when strict. `profile_sets()` lists them for `DotGameWorkbench.add_set`, `attach` adds them all, `diff_files()` gives one diff per file, and `write_templates(root)` writes them and reads each back; `template_files()` gives an all-commented template per file (every key at its default, with group, bounds and first doc line) to ship as the game's cfg/ files. Not grouped, everything is the one `config/game.yml`. `DotGameConfigSchemas` is the schema provider for dot-profile's `profile_check` (dot-ci `profiles: true`): it finds every script under `res://` (outside addons, maps, assets) declaring `static func make_binder(config, json_path)` and returns each set's schema, so a game needs no provider of its own for its `config_<file>` folders; keep `make_binder` static with that signature. A script that is not itself a config (a game's `xx_flashlight.gd`, whose `make_binder` takes a DotFlashlightConfig) declares `static func make_config()` and `DotGameConfigSchemas.binder_of` builds its binder from that; one whose first parameter `new()` would not satisfy is refused with the reason. game-murder-mystery is the model (`MmConfig.make_binder`); `addons/dot_game/qa/dot_game_cfg_templates.gd` (run with `--script`, as `GPU_OFFLOAD=0 heavy -- ...`: an offloaded run writes the box's copy, not yours) rewrites a game's shipped cfg files from every such config.
+`grouped = true` (with `group_files`, an `@export_group` name -> file name map so several groups share a file) splits the profile into one set per file: kind `config_<file>`, id `game`, read from `cfg/game/<game>/config_<file>/game.yml` (operator overrides in `cfg/server/game/...`). Each file may hold only its own keys; a key in the wrong file is refused when strict. `profile_sets()` lists them for `GSGameWorkbench.add_set`, `attach` adds them all, `diff_files()` gives one diff per file, and `write_templates(root)` writes them and reads each back; `template_files()` gives an all-commented template per file (every key at its default, with group, bounds and first doc line) to ship as the game's cfg/ files. Not grouped, everything is the one `config/game.yml`. `GSGameConfigSchemas` is the schema provider for dot-profile's `profile_check` (dot-ci `profiles: true`): it finds every script under `res://` (outside addons, maps, assets) declaring `static func make_binder(config, json_path)` and returns each set's schema, so a game needs no provider of its own for its `config_<file>` folders; keep `make_binder` static with that signature. A script that is not itself a config (a game's `xx_flashlight.gd`, whose `make_binder` takes a GSFlashlightConfig) declares `static func make_config()` and `GSGameConfigSchemas.binder_of` builds its binder from that; one whose first parameter `new()` would not satisfy is refused with the reason. game-murder-mystery is the model (`MmConfig.make_binder`); `addons/dot_game/qa/dot_game_cfg_templates.gd` (run with `--script`, as `GPU_OFFLOAD=0 heavy -- ...`: an offloaded run writes the box's copy, not yours) rewrites a game's shipped cfg files from every such config.
 
 ## Giving edits back as defaults
 

@@ -1,4 +1,4 @@
-extends DotGameCheckSuite
+extends GSGameCheckSuite
 
 ## The player's user:// cfg tier end to end: a process that is a dedicated server ignores a user override, solo and a listen host apply it.
 
@@ -19,7 +19,7 @@ class SyncBridge extends Object:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 
@@ -32,27 +32,27 @@ func _run() -> void:
 	add_child(host)
 
 	var solo := _client(host, true, false, false)
-	_check(solo.user_tier_on and DotAddonConfig.user_tier_enabled, "solo: tier on")
+	_check(solo.user_tier_on and GSAddonConfig.user_tier_enabled, "solo: tier on")
 	var bridge := SyncBridge.new()
-	DotWeb._bridge_looked_up = true
-	DotWeb._bridge = bridge
-	var saved := DotAddonConfig.save_user(ADDON, FILE, {"mode": "mine"}, schema)
-	DotWeb._bridge = null
+	GSWeb._bridge_looked_up = true
+	GSWeb._bridge = bridge
+	var saved := GSAddonConfig.save_user(ADDON, FILE, {"mode": "mine"}, schema)
+	GSWeb._bridge = null
 	_check(saved.ok, "solo: the override is written")
 	_check(bridge.syncs >= 1, "the write flushes the browser filesystem")
 	_check(_mode(defaults) == "mine", "solo: the effective value is the override")
 	bridge.free()
 	host.remove_child(solo)
 	solo.free()
-	_check(not DotAddonConfig.user_tier_enabled, "leaving the tree clears the tier")
+	_check(not GSAddonConfig.user_tier_enabled, "leaving the tree clears the tier")
 
 	var dedicated := _client(host, true, true, true)
-	_check(not dedicated.user_tier_on and not DotAddonConfig.user_tier_enabled, "dedicated: tier off even offline and hosting")
+	_check(not dedicated.user_tier_on and not GSAddonConfig.user_tier_enabled, "dedicated: tier off even offline and hosting")
 	_check(_mode(defaults) == "default", "dedicated: the effective value ignores the override")
-	_check(DotAddonConfig.file_layers(ADDON, FILE).size() <= 1, "dedicated: no user layer is listed")
-	var refused := DotAddonConfig.save_user(ADDON, FILE, {"mode": "again"}, schema)
-	_check(not refused.ok and refused.error.code == DotError.CODE_STATE, "dedicated: a write is refused")
-	_check(DotAddonConfig.user_paths(ADDON, FILE) == {"mode": "mine"}, "dedicated: the file on disk is untouched")
+	_check(GSAddonConfig.file_layers(ADDON, FILE).size() <= 1, "dedicated: no user layer is listed")
+	var refused := GSAddonConfig.save_user(ADDON, FILE, {"mode": "again"}, schema)
+	_check(not refused.ok and refused.error.code == GSError.CODE_STATE, "dedicated: a write is refused")
+	_check(GSAddonConfig.user_paths(ADDON, FILE) == {"mode": "mine"}, "dedicated: the file on disk is untouched")
 	host.remove_child(dedicated)
 	dedicated.free()
 
@@ -68,19 +68,19 @@ func _run() -> void:
 
 	var solo2 := _client(host, true, false, false)
 	_check(solo2.user_tier_on and _mode(defaults) == "mine", "solo again: applied")
-	var reset := DotAddonConfig.reset_user(ADDON, FILE)
+	var reset := GSAddonConfig.reset_user(ADDON, FILE)
 	_check(reset.ok and _mode(defaults) == "default", "reset returns the default")
 	host.remove_child(solo2)
 	solo2.free()
 
 	_clean()
-	_check(DotAddonConfig.user_paths(ADDON, FILE).is_empty(), "probe cleaned up")
-	_check(not DotAddonConfig.user_tier_enabled, "tier left off")
+	_check(GSAddonConfig.user_paths(ADDON, FILE).is_empty(), "probe cleaned up")
+	_check(not GSAddonConfig.user_tier_enabled, "tier left off")
 	_report(CHECKS)
 
 
-func _client(host: Node, solo: bool, listen_host: bool, dedicated: bool) -> DotGameClient:
-	var c := DotGameClient.new()
+func _client(host: Node, solo: bool, listen_host: bool, dedicated: bool) -> GSGameClient:
+	var c := GSGameClient.new()
 	c.use_gate = false
 	c.force_offline = solo or dedicated
 	c.listen_host_fn = func() -> bool: return listen_host
@@ -97,11 +97,11 @@ class Link extends RefCounted:
 
 
 func _mode(defaults: Dictionary) -> String:
-	var res := DotAddonConfig.load_dir(ADDON, defaults)
+	var res := GSAddonConfig.load_dir(ADDON, defaults)
 	return str(res.value.get("mode", "")) if res.ok else "?"
 
 
 func _clean() -> void:
-	DotAddonConfig.set_user_tier(true)
-	var _r := DotAddonConfig.reset_user(ADDON, FILE)
-	DotAddonConfig.set_user_tier(false)
+	GSAddonConfig.set_user_tier(true)
+	var _r := GSAddonConfig.reset_user(ADDON, FILE)
+	GSAddonConfig.set_user_tier(false)

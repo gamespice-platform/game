@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# A game's benchmark (tools/perf_bench.tscn, a DotGamePerfBench) on a GPU box, windowed with real rendering (gpu.sh run: Xvfb +
+# A game's benchmark (tools/perf_bench.tscn, a GSGamePerfBench) on a GPU box, windowed with real rendering (gpu.sh run: Xvfb +
 # Vulkan on the NVIDIA card), and its per-system table against a reference profile. A game's tools/perf_bench.sh is
 #   exec bash "$(dirname "$0")/../addons/dot_game/tools/dot_game_perf_bench.sh" "$@"
 # (set PERF_BENCH_REF first for the game's own reference profile). Run as gamedev, from a checkout:

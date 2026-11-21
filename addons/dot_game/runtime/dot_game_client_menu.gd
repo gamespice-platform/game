@@ -1,7 +1,7 @@
-class_name DotGameClientMenu
+class_name GSGameClientMenu
 extends RefCounted
 
-## The board and map-vote wiring of [DotGameClient]'s adopted menu; the client keeps the state.
+## The board and map-vote wiring of [GSGameClient]'s adopted menu; the client keeps the state.
 
 
 static func wire_board(c: Node) -> void:

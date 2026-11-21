@@ -1,6 +1,6 @@
 extends Node
 
-## DotCoverServer: a subclass's hooks reach the config, the server runs, _boot runs after it.
+## GSCoverServer: a subclass's hooks reach the config, the server runs, _boot runs after it.
 
 const CHECKS := 7
 
@@ -10,7 +10,7 @@ var _failures := PackedStringArray()
 
 
 class Cover:
-	extends DotCoverServer
+	extends GSCoverServer
 
 	var booted := false
 	var state_at_boot := -1
@@ -35,7 +35,7 @@ class Cover:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.FATAL)
+	GSLog.set_level(GSLog.Level.FATAL)
 	_run.call_deferred()
 
 
@@ -57,11 +57,11 @@ func _run() -> void:
 			break
 	_check(c.booted, "_boot ran")
 	_check(c.server != null and c.server.name == &"Server", "the server is named Server")
-	_check(c.state_at_boot == DotServer.State.RUNNING, "_boot runs once the server is RUNNING")
+	_check(c.state_at_boot == GSServer.State.RUNNING, "_boot runs once the server is RUNNING")
 	_check(c.port == 27991 and c.server.config.port == 27991, "the default port is the hook's")
-	# DotServer applies its cvars over the config once running, so the hooks are checked by being asked.
+	# GSServer applies its cvars over the config once running, so the hooks are checked by being asked.
 	_check(c.asked.has("max") and c.asked.has("host"), "the max_players and hostname hooks were asked")
-	_check(c.server.state == DotServer.State.RUNNING, "the server is running")
+	_check(c.server.state == GSServer.State.RUNNING, "the server is running")
 	_check(c.server.config.admins_path.begins_with(c.dir_at_boot), "state files live in the scratch dir")
 	c.queue_free()
 

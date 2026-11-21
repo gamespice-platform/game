@@ -1,4 +1,4 @@
-class_name DotGameShardArgs
+class_name GSGameShardArgs
 extends RefCounted
 
 ## What a sharded suite reads from its command line, once: `game.sh test NAME.SHARD` runs the suite with `-- --shard SHARD` and `test NAME.merge` with `-- --merge LOG...` (the `suite_shards` feature of GameSpice Game Template's game.sh).

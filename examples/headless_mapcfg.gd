@@ -11,7 +11,7 @@ var _failed := 0
 var _failures := PackedStringArray()
 
 
-class SurfModule extends DotGameModule:
+class SurfModule extends GSGameModule:
 	func _module_name() -> String:
 		return "test-game"
 
@@ -26,27 +26,27 @@ class SurfModule extends DotGameModule:
 
 
 func _ready() -> void:
-	DotLog.set_level(DotLog.Level.ERROR)
+	GSLog.set_level(GSLog.Level.ERROR)
 	_run.call_deferred()
 
 
 func _run() -> void:
 	print("dot-game: per-map settings")
-	if not ResourceLoader.exists(DotGameMapConfig.SCRIPT_PATH):
+	if not ResourceLoader.exists(GSGameMapConfig.SCRIPT_PATH):
 		print("SKIPPED: dot-map is not linked into this project (addons/dot_map)")
 		get_tree().quit(0)
 		return
 
-	DotAddonConfig.config_root = ProjectSettings.globalize_path(FIXTURE_CFG)
-	var console := DotConsole.new()
+	GSAddonConfig.config_root = ProjectSettings.globalize_path(FIXTURE_CFG)
+	var console := GSConsole.new()
 	add_child(console)
-	console.cvar("test_air", "90", "", DotConVar.FLAG_ARCHIVE)
-	console.cvar("test_other", "5", "", DotConVar.FLAG_ARCHIVE)
-	console.cvar("test_bad_type", "3", "", DotConVar.FLAG_ARCHIVE)
-	console.cvar("test_default", "1", "", DotConVar.FLAG_ARCHIVE)
+	console.cvar("test_air", "90", "", GSConVar.FLAG_ARCHIVE)
+	console.cvar("test_other", "5", "", GSConVar.FLAG_ARCHIVE)
+	console.cvar("test_bad_type", "3", "", GSConVar.FLAG_ARCHIVE)
+	console.cvar("test_default", "1", "", GSConVar.FLAG_ARCHIVE)
 	var air := console.find_cvar("test_air")
 
-	print("server: DotGameModule.report_map")
+	print("server: GSGameModule.report_map")
 	var module := SurfModule.new()
 	module.console = console
 	add_child(module)
@@ -68,8 +68,8 @@ func _run() -> void:
 	module._teardown()
 	_check(air.get_float() == 90.0 and module.map_config == null, "teardown restores and drops the config")
 
-	print("client: DotGameClient.map_changed")
-	var client := DotGameClient.new()
+	print("client: GSGameClient.map_changed")
+	var client := GSGameClient.new()
 	client.map_config_keys = {"test_air": {"type": "float"}}
 	client.map_config_game = "test-game"
 	client.map_config_get_fn = func(k: String) -> Variant: return console.get_string(k)
@@ -83,11 +83,11 @@ func _run() -> void:
 	_check(air.get_float() == 90.0, "restore_map_config (the disconnect path) puts the settings back without leaving the tree")
 
 	print("helper: for_console")
-	var cfg := DotGameMapConfig.for_console("test-game", console, {"test_air": {"type": "float"}})
+	var cfg := GSGameMapConfig.for_console("test-game", console, {"test_air": {"type": "float"}})
 	var got := cfg.apply("surf_b")
 	_check(got.size() == 1 and air.get_float() == 150.0, "for_console applies (%s)" % [got])
 	_check(cfg.restore() == 1 and air.get_float() == 90.0, "restore puts it back")
-	_check(DotGameMapConfig.new().apply("surf_b").is_empty(), "an undeclared game applies nothing")
+	_check(GSGameMapConfig.new().apply("surf_b").is_empty(), "an undeclared game applies nothing")
 
 	print("")
 	print("%d passed, %d failed" % [_passed, _failed])
