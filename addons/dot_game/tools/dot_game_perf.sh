@@ -79,9 +79,10 @@ case "$platform/$role" in
 		[[ -n $scene ]] || { echo "perf: $game has no PERF_SERVER_SCENE" >&2; exit 3; }
 		sargs=()
 		# shellcheck disable=SC2059
-		[[ -n ${PERF_SERVER_BOTS_ARG:-} ]] && sargs+=("$(printf -- "$PERF_SERVER_BOTS_ARG" "$bots")")
+		# A format may hold several words ('--bots %d'): split them, so the scene sees two arguments.
+		if [[ -n ${PERF_SERVER_BOTS_ARG:-} ]]; then read -ra w <<< "$(printf -- "$PERF_SERVER_BOTS_ARG" "$bots")"; sargs+=("${w[@]}"); fi
 		# shellcheck disable=SC2059
-		[[ -n $map && -n ${PERF_SERVER_MAP_ARG:-} ]] && sargs+=("$(printf -- "$PERF_SERVER_MAP_ARG" "$map")")
+		if [[ -n $map && -n ${PERF_SERVER_MAP_ARG:-} ]]; then read -ra w <<< "$(printf -- "$PERF_SERVER_MAP_ARG" "$map")"; sargs+=("${w[@]}"); fi
 		(cd "$here" && heavy -- timeout "$tmo" godot --headless --path . res://addons/dot_profiler/tools/dot_profiler_run.tscn -- \
 			--profile-scene "$scene" --profile-warmup "$warm" --profile-seconds "$duration" --profile-budget "${PERF_BUDGET_MS:-16.7}" \
 			--profile-game "$game" --profile-map "$map" --profile-bots "$bots" --profile-role server "${sargs[@]}" "$@") > "$log" 2>&1 || true
