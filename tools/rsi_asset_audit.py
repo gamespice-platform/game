@@ -280,11 +280,13 @@ def textures(gltf, binc, glb_dir, glb_base=""):
         if embedded:
             bv = gltf["bufferViews"][img["bufferView"]]
             raw = binc[bv.get("byteOffset", 0): bv.get("byteOffset", 0) + bv["byteLength"]]
-            for ext in (".jpg", ".png", ".webp"):   # Godot extracts embedded images as <glb>_<index>.<ext> and imports those
-                cand = os.path.join(glb_dir, "%s_%d%s" % (glb_base, i, ext))
-                if glb_base and os.path.exists(cand):
-                    ipath = cand
-                    break
+            # Godot extracts embedded images as <glb>_<image name>.<ext> (<glb>_<index> when unnamed) and imports those.
+            stems = ["%s_%s" % (glb_base, img["name"])] if img.get("name") else []
+            for stem in stems + ["%s_%d" % (glb_base, i)]:
+                for ext in (".jpg", ".png", ".webp"):
+                    cand = os.path.join(glb_dir, stem + ext)
+                    if glb_base and not ipath and os.path.exists(cand):
+                        ipath = cand
         elif "uri" in img and not img["uri"].startswith("data:"):
             ipath = os.path.join(glb_dir, img["uri"])
             if os.path.exists(ipath):
