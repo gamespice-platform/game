@@ -78,7 +78,7 @@ Tick rate, snapshot rate and world extent have no default: no value is right for
 
 ## More documentation
 
-[docs/design.md](docs/design.md) explains the shape of the code. [docs/api-levels.md](docs/api-levels.md) lists what each API level added. [docs/history.md](docs/history.md) lists bugs worth recognising if they return.
+[docs/design.md](docs/design.md) explains the shape of the code. [docs/api-levels.md](docs/api-levels.md) lists what each API level added. [docs/history.md](docs/history.md) lists bugs worth recognising if they return. [docs/rsi-asset-audit.md](docs/rsi-asset-audit.md) explains the weapon asset audit (models, textures per video-quality tier, reload clips) that Nightly runs on every weapon pack.
 
 ## Testing
 

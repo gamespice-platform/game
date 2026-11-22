@@ -42,6 +42,15 @@ THRESHOLDS = {
     "mag_epsilon": 0.01,       # metres the magazine must travel in a reload clip
     "uncompressed_bytes": 1 << 20,
 }
+# Texture targets per video texture-quality tier (dot-menu `texture_quality` 0..3 = low..ultra). The shipped texture must
+# meet the tier the run judges (--tier); lower tiers are served from it by downscale/mip skip, never by a second asset.
+# Override with --tiers-json FILE ({"high": {"min_tex": 2048, ...}}); 0 for min_lossy_quality means any lossy import passes.
+TIERS = {
+    "low": {"min_tex": 512, "min_tex_small": 256, "min_lossy_quality": 0.6},
+    "medium": {"min_tex": 1024, "min_tex_small": 512, "min_lossy_quality": 0.75},
+    "high": {"min_tex": 2048, "min_tex_small": 1024, "min_lossy_quality": 0.85},
+    "ultra": {"min_tex": 4096, "min_tex_small": 2048, "min_lossy_quality": 1.01},  # 1.01: lossless only
+}
 SEVERITY_COST = {"error": 20, "warn": 7, "info": 2}
 REQUIRED_CLIPS = {"fire": "error", "reload": "error", "draw": "error",
                   "reload_empty": "warn", "inspect": "warn", "holster": "warn"}
@@ -230,15 +239,18 @@ def luminance_std(raw):
 
 
 def import_mode(path):
-    """Godot texture import compression: lossless|lossy|vram|basis|uncompressed."""
+    """Godot texture import compression (lossless|lossy|vram|basis|uncompressed) and the lossy quality (0..1, None)."""
     imp = path + ".import"
     if not os.path.exists(imp):
-        return ""
-    m = re.search(r"^compress/mode=(\d)", open(imp, encoding="utf-8", errors="replace").read(), re.M)
-    return {"0": "lossless", "1": "lossy", "2": "vram", "3": "vram_uncompressed", "4": "basis"}.get(m.group(1), "") if m else ""
+        return "", None
+    text = open(imp, encoding="utf-8", errors="replace").read()
+    m = re.search(r"^compress/mode=(\d)", text, re.M)
+    mode = {"0": "lossless", "1": "lossy", "2": "vram", "3": "vram_uncompressed", "4": "basis"}.get(m.group(1), "") if m else ""
+    q = re.search(r"^compress/lossy_quality=([0-9.]+)", text, re.M)
+    return mode, (float(q.group(1)) if q and mode == "lossy" else None)
 
 
-def textures(gltf, binc, glb_dir):
+def textures(gltf, binc, glb_dir, glb_base=""):
     images = gltf.get("images", [])
     texs = gltf.get("textures", [])
     maps = {}
@@ -268,6 +280,11 @@ def textures(gltf, binc, glb_dir):
         if embedded:
             bv = gltf["bufferViews"][img["bufferView"]]
             raw = binc[bv.get("byteOffset", 0): bv.get("byteOffset", 0) + bv["byteLength"]]
+            for ext in (".jpg", ".png", ".webp"):   # Godot extracts embedded images as <glb>_<index>.<ext> and imports those
+                cand = os.path.join(glb_dir, "%s_%d%s" % (glb_base, i, ext))
+                if glb_base and os.path.exists(cand):
+                    ipath = cand
+                    break
         elif "uri" in img and not img["uri"].startswith("data:"):
             ipath = os.path.join(glb_dir, img["uri"])
             if os.path.exists(ipath):
@@ -278,7 +295,9 @@ def textures(gltf, binc, glb_dir):
                "maps": sorted(maps.get(i, [])), "embedded": embedded,
                "pot": w > 0 and h > 0 and (w & (w - 1)) == 0 and (h & (h - 1)) == 0}
         if ipath:
-            rec["import"] = import_mode(ipath)
+            rec["import"], q = import_mode(ipath)
+            if q is not None:
+                rec["lossy_quality"] = q
         if "albedo" in rec["maps"] and raw:
             rec["luma_std"] = luminance_std(raw)
         out.append(rec)
@@ -475,7 +494,7 @@ def audit_weapon(repo, pack, cfg, wid, glb, extra, procedural, out_dir, export, 
     if prims and len(prims) * 2 >= max(1, len(inst)):
         flag("PRIMITIVE_MESH", "warn", "%d of %d meshes are box/cylinder sized" % (len(prims), len(inst)))
 
-    rec["textures"] = textures(gltf, binc, os.path.dirname(glb))
+    rec["textures"] = textures(gltf, binc, os.path.dirname(glb), os.path.splitext(os.path.basename(glb))[0])
     tx = rec["textures"]
     if not tx:
         flag("NO_TEXTURES", "error", "flat-colour materials only")
@@ -489,6 +508,10 @@ def audit_weapon(repo, pack, cfg, wid, glb, extra, procedural, out_dir, export, 
             flag("NPOT_TEX", "warn", ", ".join("%s %dx%d" % (t["name"], t["w"], t["h"]) for t in tx if not t["pot"] and t["w"]))
         if any(max(t["w"], t["h"]) > THRESHOLDS["max_tex"] for t in tx):
             flag("OVERSIZED_TEX", "warn", "texture over %dpx" % THRESHOLDS["max_tex"])
+        lossy = [t for t in tx if t.get("lossy_quality") is not None and t["lossy_quality"] < THRESHOLDS["min_lossy_quality"]]
+        if lossy:
+            flag("LOSSY_TEX", "warn", "lossy import below q%.2f for tier %s: %s" % (THRESHOLDS["min_lossy_quality"], THRESHOLDS["tier"],
+                 ", ".join("%s q%.2f" % (t["name"], t["lossy_quality"]) for t in lossy[:4])))
         if any(t.get("import") == "lossless" and t["bytes"] > THRESHOLDS["uncompressed_bytes"] for t in tx):
             flag("UNCOMPRESSED_TEX", "info", "lossless import over 1 MiB")
         if not any("normal" in t["maps"] for t in tx):
@@ -556,7 +579,15 @@ def main():
     ap.add_argument("--out", default="/home/gamedev/perf-bench/rsi-assets")
     ap.add_argument("--pack", action="append", help="repo dir under --root (default: all); NAME=PATH for a worktree")
     ap.add_argument("--no-glb", action="store_true", help="skip viewer GLB export")
+    ap.add_argument("--tier", default="high", help="video texture-quality tier to judge textures against: " + "|".join(TIERS))
+    ap.add_argument("--tiers-json", help="JSON file overriding TIERS rows")
     a = ap.parse_args()
+    if a.tiers_json:
+        for k, row in json.load(open(a.tiers_json)).items():
+            TIERS.setdefault(k, {}).update(row)
+    if a.tier not in TIERS:
+        sys.exit("unknown --tier %s (have %s)" % (a.tier, ", ".join(TIERS)))
+    THRESHOLDS.update(TIERS[a.tier], tier=a.tier)
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     os.makedirs(os.path.join(a.out, "glb"), exist_ok=True)
     picks = a.pack or list(PACKS)
@@ -597,12 +628,12 @@ def main():
            "summary": {"weapons": len(weapons), "pass": sum(w["pass"] for w in weapons),
                        "fail": sum(not w["pass"] for w in weapons), "by_pack": by_pack},
            "weapons": weapons}
-    dst = os.path.join(a.out, "audit.json")
+    dst = os.path.join(a.out, "audit.json" if a.tier == "high" else "audit-%s.json" % a.tier)
     with open(dst + ".tmp", "w") as f:
         json.dump(doc, f, indent=1)
     os.replace(dst + ".tmp", dst)
     s = doc["summary"]
-    print("rsi-asset-audit: %d weapons, %d pass, %d fail -> %s" % (s["weapons"], s["pass"], s["fail"], dst))
+    print("rsi-asset-audit [tier %s]: %d weapons, %d pass, %d fail -> %s" % (a.tier, s["weapons"], s["pass"], s["fail"], dst))
     for name, b in sorted(by_pack.items()):
         print("  %-22s %3d weapons %3d pass avg score %d" % (name, b["weapons"], b["pass"], b["avg_score"]))
 
