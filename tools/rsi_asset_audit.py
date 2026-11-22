@@ -391,8 +391,10 @@ def fc_rows(repo, addon):
         style = re.search(r'"reload": \{"style": "(\w+)"', rest)
         mag = re.search(r'"mag_node": "(\w+)"', rest)
         part = re.search(r'"part": "(\w+)"', rest)
+        cyc = re.search(r'"cycle": \{"kind": "(\w+)"', rest)
         rows[m.group(1)] = {"model": m.group(2), "style": style.group(1) if style else "",
-                            "mag_node": mag.group(1) if mag else "", "part": part.group(1) if part else ""}
+                            "mag_node": mag.group(1) if mag else "", "part": part.group(1) if part else "",
+                            "cycle": cyc.group(1) if cyc else ""}
     core = os.path.join(repo, addon, "view", "aw_view_model_core.gd")
     boxes = set()
     if os.path.exists(core):
@@ -546,6 +548,8 @@ def audit_weapon(repo, pack, cfg, wid, glb, extra, procedural, out_dir, export, 
         if style and style not in MAG_STYLES and has_mag:
             flag("MAG_STATIC_RELOAD", "error",
                  "model has a box magazine but reload style '%s' never removes it" % style)
+        if style == "bolt" and not extra.get("cycle"):
+            flag("NO_SHOT_CYCLE", "warn", "bolt-action gun has no per-shot cycle row (handle never works after a shot)")
         prop = ROUND_STYLES.get(style)
         if prop:
             pp = os.path.join(os.path.dirname(glb), prop + ".glb")

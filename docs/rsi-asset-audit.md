@@ -19,4 +19,6 @@ Texture tiers: textures are judged against one video texture-quality tier, the s
 for t in low medium high ultra; do sudo -u gamedev python3 tools/rsi_asset_audit.py --no-glb --tier $t; done
 ```
 
+Flag `NO_SHOT_CYCLE` (warn): an fc pack row with reload style `bolt` and no `cycle` entry, so the handle never works after a shot.
+
 Limits: clip support for procedural packs is detected per pack from the code, not per weapon. Sounds and arms reaching the grips need a Godot run and are not measured yet (`sounds` is empty, `ARMS_MISSING` never raised).
