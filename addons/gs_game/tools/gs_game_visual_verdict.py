@@ -100,7 +100,7 @@ def transcript(sid: str):
 
 def transcript_facts(text: str):
     """The cwd, the absolute paths Read and the sha256 of each Write of verdict.json in a transcript."""
-    cwd, reads, writes = None, set(), []
+    cwd, reads, writes, failed = None, set(), [], set()
     for line in text.splitlines():
         try:
             e = json.loads(line)
@@ -109,16 +109,18 @@ def transcript_facts(text: str):
         if not isinstance(e, dict):
             continue
         cwd = cwd or e.get("cwd")
-        msg = e.get("message") if e.get("type") == "assistant" else None
+        msg = e.get("message") if e.get("type") in ("assistant", "user") else None
         for c in (msg or {}).get("content") or [] if isinstance(msg, dict) else []:
-            if not isinstance(c, dict) or c.get("type") != "tool_use" or not isinstance(c.get("input"), dict):
+            if isinstance(c, dict) and c.get("type") == "tool_result" and c.get("is_error"):
+                failed.add(c.get("tool_use_id"))  # a refused Write left the file as it was
+            if e.get("type") != "assistant" or not isinstance(c, dict) or c.get("type") != "tool_use" or not isinstance(c.get("input"), dict):
                 continue
             path = str(c["input"].get("file_path", ""))
             if c.get("name") == "Read":
                 reads.add(os.path.realpath(path))
             elif c.get("name") == "Write" and os.path.basename(path) == "verdict.json":
-                writes.append((os.path.realpath(path), hashlib.sha256(str(c["input"].get("content", "")).encode()).hexdigest()))
-    return cwd, reads, writes
+                writes.append((c.get("id"), os.path.realpath(path), hashlib.sha256(str(c["input"].get("content", "")).encode()).hexdigest()))
+    return cwd, reads, [(p, h) for i, p, h in writes if i not in failed]
 
 
 def check_pack(pack: str) -> list:

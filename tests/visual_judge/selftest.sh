@@ -68,6 +68,7 @@ expect 1 "a pack recorded on llvmpipe is refused" "never llvmpipe" -- python3 "$
 # 3. judges that do not do the work.
 expect 5 "a judge that skips an image is invalid" "never Read" -- env STUB_MODE=skipread bash "$judge" --clips "$c" --out "$t/o3" --only pistol
 expect 5 "a transcript whose Write differs is invalid" "not the file the judge wrote|did not write this verdict" -- env STUB_MODE=badwrite bash "$judge" --clips "$c" --out "$t/o3" --only pistol
+expect 0 "a refused second Write leaves the first as the judge's file" "" -- env STUB_MODE=errwrite bash "$judge" --clips "$c" --out "$t/o4" --only pistol
 expect 5 "a judge with no transcript is invalid" "no transcript" -- env STUB_MODE=notranscript bash "$judge" --clips "$c" --out "$t/o3" --only pistol
 expect 5 "odd verdict types are invalid, not a crash" "defects is not a list" -- env STUB_MODE=badtypes bash "$judge" --clips "$c" --out "$t/o3" --only pistol
 expect 5 "a hung judge is killed at the timeout" "killed" -- env STUB_MODE=hang VISUAL_JUDGE_TIMEOUT=2 bash "$judge" --clips "$c" --out "$t/o3" --only pistol

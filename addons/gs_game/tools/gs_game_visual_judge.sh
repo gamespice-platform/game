@@ -260,7 +260,8 @@ evidence() {
 import hashlib, json, os, sys
 d, model = sys.argv[1], sys.argv[2]
 item, clip, mp4, pas, variant, rnd, source, renderer, out, need = sys.argv[3:13]
-sid, reads, wrote = None, [], None
+sid, reads, writes, failed = None, [], [], set()
+target = os.path.realpath(os.path.join(d, "verdict.json"))
 for line in open(os.path.join(d, "judge.jsonl"), errors="replace"):
     try: e = json.loads(line)
     except ValueError: continue
@@ -268,11 +269,18 @@ for line in open(os.path.join(d, "judge.jsonl"), errors="replace"):
     sid = sid or e.get("session_id")
     msg = e.get("message") if isinstance(e.get("message"), dict) else {}
     for c in msg.get("content") if isinstance(msg.get("content"), list) else []:
-        if not isinstance(c, dict) or c.get("type") != "tool_use": continue
+        if not isinstance(c, dict): continue
+        if c.get("type") == "tool_result" and c.get("is_error"): failed.add(c.get("tool_use_id"))
+        if c.get("type") != "tool_use": continue
         inp = c.get("input") if isinstance(c.get("input"), dict) else {}
         if c.get("name") == "Read": reads.append(os.path.basename(str(inp.get("file_path", ""))))
         if c.get("name") == "Write" and os.path.basename(str(inp.get("file_path", ""))) == "verdict.json":
-            wrote = hashlib.sha256(str(inp.get("content", "")).encode()).hexdigest()
+            writes.append((c.get("id"), os.path.realpath(str(inp.get("file_path"))),
+                           hashlib.sha256(str(inp.get("content", "")).encode()).hexdigest()))
+# A Write the tool refused (is_error) left the file as it was, and a verdict.json written elsewhere is not this one: the
+# file on disk must be the last Write that landed on this path.
+landed = [w for w in writes if w[0] not in failed and w[1] == target]
+wrote = landed[-1][2] if landed else None
 hashes = dict(reversed(l.split(None, 1)) for l in open(os.path.join(d, "images.sha256")).read().splitlines() if l.strip())
 hashes = {k.strip().lstrip("*"): v for k, v in hashes.items()}
 bad = []
@@ -280,7 +288,10 @@ if not sid: bad.append("no judge session id in judge.jsonl")
 unread = sorted(f for f in hashes if f not in reads)
 if unread: bad.append("the judge never Read %s" % ", ".join(unread))
 have = hashlib.sha256(open(os.path.join(d, "verdict.json"), "rb").read()).hexdigest()
-if wrote != have: bad.append("verdict.json is not the file the judge wrote")
+if wrote != have:
+    why = "%d Write(s) of a verdict.json, %d refused, %d to this path" % (len(writes), sum(1 for w in writes if w[0] in failed), sum(1 for w in writes if w[1] == target))
+    if not any(w[2] == have for w in writes): why += ", none matches the file"
+    bad.append("verdict.json is not the file the judge wrote (%s)" % why)
 json.dump({"judge_session": sid, "judge_model": model, "reads": reads, "images": hashes, "verdict_sha256": have,
            "item": item, "clip": clip, "mp4": mp4, "mp4_sha256": hashlib.sha256(open(mp4, "rb").read()).hexdigest(),
            "pass": int(pas), "variant": int(variant), "round": int(rnd), "source": source, "renderer": renderer,
@@ -304,6 +315,8 @@ run_judge() {
     fi
     echo "gs_game_visual_judge.sh: judge $attempt for $subj wrote an invalid verdict ($why)" >&2
     echo "INVALID: $why" >> "$dir/judge.log"
+    # The retry rewrites judge.jsonl and judge.log: keep this attempt's, it is the only evidence of what went wrong.
+    cp -f "$dir/judge.jsonl" "$dir/judge.attempt$attempt.jsonl" 2> /dev/null; cp -f "$dir/judge.log" "$dir/judge.attempt$attempt.log" 2> /dev/null
   done
   return 1
 }

@@ -4,7 +4,7 @@
 Runs in the pack dir like the real judge: Reads every image, Writes verdict.json, prints stream-json on stdout and
 writes the session's transcript under $VISUAL_JUDGE_TRANSCRIPTS/<project>/<session>.jsonl, the way Claude does.
 STUB_MODE: clean (default), defect (one minor defect when the pack path contains $STUB_DEFECT, else clean),
-skipread (never Reads the first image), badwrite (the transcript records other content than the file),
+errwrite (a second Write that the tool refused), skipread (never Reads the first image), badwrite (the transcript records other content than the file),
 badtypes (defects is a string), hang (sleeps forever), notranscript (writes no transcript).
 """
 import hashlib
@@ -30,12 +30,16 @@ if mode == "badtypes":
     verdict["defects"] = "none"
 content = json.dumps(verdict, indent=2)
 entries = [{"type": "tool_use", "name": "Read", "input": {"file_path": os.path.join(cwd, f)}} for f in imgs[(1 if mode == "skipread" else 0):]]
-entries.append({"type": "tool_use", "name": "Write", "input": {"file_path": os.path.join(cwd, "verdict.json"),
+entries.append({"type": "tool_use", "id": "w1", "name": "Write", "input": {"file_path": os.path.join(cwd, "verdict.json"),
                                                                "content": content + (" " if mode == "badwrite" else "")}})
+if mode == "errwrite":  # a second Write the tool refused: the file stays what the first one wrote
+    entries.append({"type": "tool_use", "id": "w2", "name": "Write", "input": {"file_path": os.path.join(cwd, "verdict.json"), "content": content + "{}"}})
 with open(os.path.join(cwd, "verdict.json"), "w") as f:
     f.write(content)
 lines = [{"type": "system", "subtype": "init", "session_id": sid, "cwd": cwd}]
 lines += [{"type": "assistant", "session_id": sid, "message": {"content": [e]}} for e in entries]
+if mode == "errwrite":
+    lines.append({"type": "user", "session_id": sid, "message": {"content": [{"type": "tool_result", "tool_use_id": "w2", "is_error": True, "content": "File has not been read yet"}]}})
 lines.append({"type": "result", "session_id": sid, "result": "done"})
 for l in lines:
     print(json.dumps(l))
@@ -46,4 +50,6 @@ if root and mode != "notranscript":
     with open(os.path.join(proj, sid + ".jsonl"), "w") as f:
         for e in entries:
             f.write(json.dumps({"type": "assistant", "cwd": cwd, "sessionId": sid, "message": {"content": [e]}}) + "\n")
+        if mode == "errwrite":
+            f.write(json.dumps({"type": "user", "cwd": cwd, "sessionId": sid, "message": {"content": [{"type": "tool_result", "tool_use_id": "w2", "is_error": True, "content": "refused"}]}}) + "\n")
 sys.exit(0)
