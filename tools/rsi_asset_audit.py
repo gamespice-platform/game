@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
-"""RSI asset audit: measure every weapon model in every GameSpice weapon pack.
+"""RSI asset audit: measure every model of every configured source (packs and games).
 
-Reads GLBs directly (no Godot needed): triangle and vertex counts, materials,
-bounding box, primitive-looking meshes, textures (size, power of two, maps used,
-Godot import compression, near-flat albedo), animation clips and how far the
-magazine node travels in them. For fc-weapons it also reads the art table, whose
-reloads are procedural, to catch a reload style that never moves a magazine the
-model visibly has, and reload props that are primitive meshes.
+Nothing about which sources exist or what a kind is allowed is built in. Both come from a
+rsi-config/1 JSON file (`nightly assets config`, or the file Nightly writes for `nightly assets refresh`):
 
-Writes audit.json in the rsi-assets/1 schema (docs/rsi-asset-audit.md) and a
-self-contained copy of each weapon GLB (external textures embedded) for the
-Nightly Assets viewer.
+  {"schema": "rsi-config/1", "tiers": ["low", "medium", "high"],
+   "sources": [{"name", "type", "root", "models": [glob], "exclude": [dir], "defaultKind", "kindRules": [{"match", "kind"}], ...}],
+   "kinds": [{"key", "match", "budget": {min_tris, max_tris, min_tex: {low, medium, high}, require_skin, required_clips, ...}}]}
 
-  tools/rsi_asset_audit.py [--root ~gamedev/godot] [--out /home/gamedev/perf-bench/rsi-assets]
-                           [--pack fc-weapons ...] [--no-glb]
+Reads GLBs directly (no Godot): triangles, vertices, materials, bounding box, skins and bones, LOD levels, textures (size,
+power of two, maps, import compression, flat albedo), animation clips. Each model is judged against the budget of its kind at
+one texture-quality tier. Writes audit.json (schema rsi-assets/2, docs/rsi-asset-audit.md) with an `assets` array, plus a
+self-contained viewer copy of each GLB. A source config may name an adapter (`"adapter": "fc-art"`, tools/rsi_adapters/)
+for checks that need game code; none is required.
+
+  tools/rsi_asset_audit.py --config rsi-config.json [--out DIR] [--source NAME ...] [--tier high] [--no-glb]
 """
 import argparse
 import datetime
+import fnmatch
+import importlib
 import io
 import json
 import math
@@ -26,55 +29,13 @@ import struct
 import subprocess
 import sys
 
-THRESHOLDS = {
-    "min_tris": 3000,          # below: LOW_TRIS (a first-person gun fills a third of the screen)
-    "very_low_tris": 1000,     # below: VERY_LOW_TRIS
-    "min_tris_melee": 800,     # knives, axes, bats: simpler shapes
-    "min_tris_throwable": 800, # grenades
-    "min_tex": 2048,           # largest albedo edge below: LOW_TEX (guns; a view model is ~1000px wide)
-    "min_tex_small": 1024,     # melee and throwables
-    "faceted_vpt": 1.6,        # verts per tri at or above: FACETED (flat-shaded, every tri its own verts)
-    "max_tex": 4096,           # any edge above: OVERSIZED_TEX
-    "min_materials": 2,
-    "flat_albedo_std": 16.0,   # albedo luminance std-dev below: FLAT_TEX (painted-flat or blotchy bake)
-    "primitive_tris": 64,      # a mesh this small reads as a box/cylinder
-    "primitive_ammo_tris": 200,  # reload prop (round/clip) below this: PRIMITIVE_AMMO
-    "mag_epsilon": 0.01,       # metres the magazine must travel in a reload clip
-    "uncompressed_bytes": 1 << 20,
-}
-# Texture targets per video texture-quality tier (dot-menu `texture_quality` 0..3 = low..ultra). The shipped texture must
-# meet the tier the run judges (--tier); lower tiers are served from it by downscale/mip skip, never by a second asset.
-# Override with --tiers-json FILE ({"high": {"min_tex": 2048, ...}}); 0 for min_lossy_quality means any lossy import passes.
-TIERS = {
-    "low": {"min_tex": 512, "min_tex_small": 256, "min_lossy_quality": 0.6},
-    "medium": {"min_tex": 1024, "min_tex_small": 512, "min_lossy_quality": 0.75},
-    "high": {"min_tex": 2048, "min_tex_small": 1024, "min_lossy_quality": 0.85},
-    "ultra": {"min_tex": 4096, "min_tex_small": 2048, "min_lossy_quality": 1.01},  # 1.01: lossless only
-}
-SEVERITY_COST = {"error": 20, "warn": 7, "info": 2}
-REQUIRED_CLIPS = {"fire": "error", "reload": "error", "draw": "error",
-                  "reload_empty": "warn", "inspect": "warn", "holster": "warn"}
-# id tokens (split on _ and -) that mark the weapon class; "battle_rifle" is not a bat
-MELEE_RE = re.compile(r"(^|[_\-])(knife|axe|bat|crowbar|machete|sledge|longsword|sword|mace|dagger|spear|"
-                      r"shield|hammer|pickaxe|shovel|bow)($|[_\-A-Z])")
-THROW_RE = re.compile(r"(^|[_\-])(frag|sticky|flash|smoke|incendiary|grenade)($|[_\-A-Z])")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Every pack: where its weapon models live and which games ship it.
-PACKS = {
-    "fc-weapons": {"games": "fatal-contact,zombie-zone,playlot",
-                   "addon": "addons/fc_weapons", "art": "fc"},
-    "zee-dot-weapons": {"games": "zombie-zone,playlot", "addon": "addons/zee_weapons",
-                        "dirs": ["assets/low-poly-guns", "assets/blaster-kit", "assets/melee"],
-                        "include": r"^(blaster-[a-r]|[a-z_]+(?<!_mag))\.glb$",
-                        "exclude": r"(magazine|_mag$|^ext_mag|foregrip|laser|red_dot|scope|suppressor)"},
-    "zed-dot-weapons": {"games": "zombie-zone", "addon": "addons/zed_weapons",
-                        "dirs": ["assets/hq", "assets/weapon-pack"],
-                        "exclude": r"(magazine|^ammo_|_mag$|foregrip|laser|red_dot|scope|suppressor)"},
-    "zz-modern-weapons": {"games": "zombie-zone,playlot", "addon": "addons/zz_modern_weapons",
-                          "dirs": ["addons/zz_modern_weapons/assets"], "exclude": r"(_mag$|magazine)"},
-    "zz-medieval-weapons": {"games": "zombie-zone,playlot", "addon": "addons/zz_medieval_weapons",
-                            "dirs": ["assets"], "exclude": r"^(arrow|bolt)$"},
-}
+# Measurement constants (how a model is read), not budgets; budgets come from the config.
+THRESHOLDS = {"faceted_vpt": 1.6, "flat_albedo_std": 16.0, "primitive_tris": 64, "mag_epsilon": 0.01,
+              "uncompressed_bytes": 1 << 20}
+SEVERITY_COST = {"error": 20, "warn": 7, "info": 2}
+DEFAULT_MODELS = ["**/*.glb", "**/*.gltf"]
 
 GL_TRIANGLES = 4
 
@@ -186,7 +147,7 @@ def mesh_stats(gltf, binc):
     for ni in scene.get("nodes", []):
         walk(ni, ident)
     bbox = [round(wmx[k] - wmn[k], 4) if wmx[k] > wmn[k] else 0.0 for k in range(3)]
-    return inst, bbox
+    return inst, bbox, (wmn, wmx)
 
 
 def image_info(raw):
@@ -375,6 +336,7 @@ def embed_textures(glb_path, dst):
 
 
 # ---------------------------------------------------------------- pack tables
+
 def git(repo, *args):
     try:
         return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, timeout=30).stdout.strip()
@@ -382,188 +344,201 @@ def git(repo, *args):
         return ""
 
 
-def fc_rows(repo, addon):
-    """fc-weapons art table: weapon id -> model, reload style, mag node; MAG_BOXES; reload props."""
-    art = open(os.path.join(repo, addon, "aw_weapon_art.gd"), encoding="utf-8").read()
-    rows = {}
-    for m in re.finditer(r'^\t&"(\w+)": \{"model": "(\w+)"(.*)$', art, re.M):
-        rest = m.group(3)
-        style = re.search(r'"reload": \{"style": "(\w+)"', rest)
-        mag = re.search(r'"mag_node": "(\w+)"', rest)
-        part = re.search(r'"part": "(\w+)"', rest)
-        rows[m.group(1)] = {"model": m.group(2), "style": style.group(1) if style else "",
-                            "mag_node": mag.group(1) if mag else "", "part": part.group(1) if part else ""}
-    core = os.path.join(repo, addon, "view", "aw_view_model_core.gd")
-    boxes = set()
-    if os.path.exists(core):
-        src = open(core, encoding="utf-8").read()
-        mb = re.search(r"MAG_BOXES[^{]*\{(.*?)^\}", src, re.S | re.M)
-        if mb:
-            boxes = {k[:-4] for k in re.findall(r'"([\w\-]+\.glb)"', mb.group(1))}
-    return rows, boxes
-
-
-# reload styles that hand-feed rounds (props) rather than swap a magazine
-ROUND_STYLES = {"bolt": "round_sniper", "tube": "round_shell", "revolver": "round_pistol", "launcher": ""}
-MAG_STYLES = {"magazine", "pistol", "cell", "belt"}
-
-
-def weapon_list(repo, name, cfg):
-    """[(weapon_id, glb_path, extra)]"""
-    out = []
-    if cfg.get("art") == "fc":
-        rows, boxes = fc_rows(repo, cfg["addon"])
-        mdir = os.path.join(repo, cfg["addon"], "assets", "models")
-        for wid, row in rows.items():
-            row["mag_box"] = row["model"] in boxes
-            out.append((wid, os.path.join(mdir, row["model"] + ".glb"), row))
-        return out
-    seen = set()
-    for d in cfg["dirs"]:
-        full = os.path.join(repo, d)
-        if not os.path.isdir(full):
+# ---------------------------------------------------------------- config
+def glob_re(g):
+    """Same glob syntax as Nightly (lib/assets-sources.mjs): ** any depth, * within one directory, ? one character."""
+    s, i = "", 0
+    while i < len(g):
+        c = g[i]
+        if c == "*" and g[i + 1:i + 2] == "*":
+            if g[i + 2:i + 3] == "/":
+                s += "(?:.*/)?"
+                i += 3
+            else:
+                s += ".*"
+                i += 2
             continue
-        for f in sorted(os.listdir(full)):
-            if not f.endswith(".glb"):
-                continue
-            stem = f[:-4]
-            if cfg.get("include") and not re.match(cfg["include"], f):
-                continue
-            if cfg.get("exclude") and re.search(cfg["exclude"], stem):
-                continue
-            if stem in seen:      # first dir wins (hq before kit)
-                continue
-            seen.add(stem)
-            mag = None
-            for cand in (stem + "_mag.glb", stem + "_magazine.glb"):
-                if os.path.exists(os.path.join(full, cand)):
-                    mag = cand
-            out.append((stem, os.path.join(full, f), {"mag_file": mag}))
+        s += "[^/]*" if c == "*" else "[^/]" if c == "?" else re.escape(c)
+        i += 1
+    return re.compile("^" + s + "$", re.I)
+
+
+def load_config(path):
+    cfg = json.load(open(path, encoding="utf-8"))
+    if cfg.get("schema") != "rsi-config/1":
+        sys.exit("%s: not an rsi-config/1 file (run `nightly assets config > rsi-config.json`)" % path)
+    if not cfg.get("sources"):
+        sys.exit("%s: no sources (add one with `nightly assets source add`)" % path)
+    return cfg
+
+
+def classify(rel, source, kinds):
+    for rule in source.get("kindRules") or []:
+        if re.search(rule["match"], rel, re.I):
+            return rule["kind"]
+    for k in sorted(kinds, key=lambda k: (k.get("sort", 0), k["key"])):
+        if k.get("match") and re.search(k["match"], rel, re.I):
+            return k["key"]
+    return source.get("defaultKind") or "other"
+
+
+def walk_models(source):
+    """[(relative path, absolute path)] of the models a source's globs select, excluding any path with an excluded component."""
+    root = source["root"]
+    pats = [glob_re(g) for g in source.get("models") or DEFAULT_MODELS]
+    skip = set(source.get("exclude") or [])
+    out = []
+    for dp, dn, fs in os.walk(root):
+        dn[:] = sorted(d for d in dn if d not in skip)
+        for f in sorted(fs):
+            full = os.path.join(dp, f)
+            rel = os.path.relpath(full, root).replace(os.sep, "/")
+            if any(p.match(rel) for p in pats):
+                out.append((rel, full))
     return out
 
 
-def clip_support(repo, addon):
-    """Which clip names the pack's code animates procedurally (FC has no GLB clips)."""
-    found = set()
-    for dp, _dn, fs in os.walk(os.path.join(repo, addon)):
-        for f in fs:
-            if f.endswith(".gd"):
-                src = open(os.path.join(dp, f), encoding="utf-8", errors="replace").read()
-                for clip in REQUIRED_CLIPS:
-                    if re.search(r'(func _?%s\b|&"%s"|"%s")' % (clip, clip, clip), src):
-                        found.add(clip)
-    return found
+# ---------------------------------------------------------------- facts and checks
+def rig_facts(gltf):
+    skins = gltf.get("skins", [])
+    levels = set()
+    for n in gltf.get("nodes", []):
+        g = re.search(r"(?:^|[_\s.-])lod[_\s.-]?(\d+)$", n.get("name", ""), re.I)
+        if g:
+            levels.add(int(g.group(1)))
+        ids = (n.get("extensions") or {}).get("MSFT_lod", {}).get("ids")
+        if ids:
+            levels.add(len(ids))
+    return {"skins": len(skins), "bones": sum(len(s.get("joints", [])) for s in skins), "lods": len(levels)}
+
+
+def kind_flags(rec, B, tier):
+    """Mirror of kindFlags in Nightly lib/assets-checks.mjs: same codes, severities and budget keys."""
+    F = []
+
+    def add(code, sev, msg):
+        F.append({"code": code, "severity": sev, "msg": msg})
+
+    m = rec["model"]
+    if not m["glb"]:
+        add("NO_MODEL", "error", "no model file")
+        return F
+    t = m["tris"]
+    if B.get("min_tris") is not None and t < B["min_tris"]:
+        add("VERY_LOW_TRIS" if t < B["min_tris"] / 3 else "LOW_TRIS", "error", "%d tris < %d" % (t, B["min_tris"]))
+    if B.get("max_tris") is not None and t > B["max_tris"]:
+        add("HIGH_TRIS", "warn", "%d tris > %d" % (t, B["max_tris"]))
+    if B.get("min_materials") is not None and m["materials"] < B["min_materials"]:
+        add("FEW_MATERIALS", "warn", "%d materials < %d" % (m["materials"], B["min_materials"]))
+    tex_flags(rec, B, tier, add)
+    rig_flags(rec, B, add)
+    longest = max(m["bbox"])
+    if B.get("min_size") is not None and 0 < longest < B["min_size"]:
+        add("SCALE_SMALL", "warn", "largest edge %s m < %s m: wrong scale?" % (longest, B["min_size"]))
+    if B.get("max_size") is not None and longest > B["max_size"]:
+        add("SCALE_LARGE", "warn", "largest edge %s m > %s m: wrong scale?" % (longest, B["max_size"]))
+    bd = m.get("bounds")
+    if B.get("max_pivot_offset") is not None and bd and longest > 0:
+        cx, cz = (bd["min"][0] + bd["max"][0]) / 2, (bd["min"][2] + bd["max"][2]) / 2
+        off, base = math.hypot(cx, cz) / longest, abs(bd["min"][1]) / longest
+        if max(off, base) > B["max_pivot_offset"]:
+            add("PIVOT_OFF", "warn", "pivot is %d%% of the size away from the base centre" % round(max(off, base) * 100))
+    if B.get("require_lods") and m["lods"] < (B.get("min_lods") or 2):
+        add("NO_LODS", "warn", "%d LOD levels < %d" % (m["lods"], B.get("min_lods") or 2))
+    return F
+
+
+def tex_flags(rec, B, tier, add):
+    tx = rec["textures"]
+    need = (B.get("min_tex") or {}).get(tier)
+    if not tx:
+        if need is not None or B.get("require_normal") or B.get("require_orm"):
+            add("NO_TEXTURES", "error", "flat-colour materials only")
+        return
+    big = max(max(t["w"], t["h"]) for t in tx)
+    if need is not None and big < need:
+        add("LOW_TEX", "error", "largest texture %dpx < %dpx (tier %s)" % (big, need, tier))
+    if B.get("max_tex") is not None and big > B["max_tex"]:
+        add("HUGE_TEX", "warn", "largest texture %dpx > %dpx" % (big, B["max_tex"]))
+    if any(t["w"] and not t["pot"] for t in tx):
+        add("NPOT_TEX", "warn", ", ".join("%s %dx%d" % (t["name"], t["w"], t["h"]) for t in tx if t["w"] and not t["pot"]))
+    if B.get("require_normal") and not any("normal" in t["maps"] for t in tx):
+        add("MISSING_NORMAL", "warn", "no normal map")
+    if B.get("require_orm") and not any(set(t["maps"]) & {"orm", "roughness", "metallic", "ao"} for t in tx):
+        add("MISSING_ORM", "warn", "no roughness/metallic map")
+    alb = [t for t in tx if "albedo" in t["maps"]] or tx
+    flat = [t for t in alb if t.get("luma_std") is not None and t["luma_std"] < THRESHOLDS["flat_albedo_std"]]
+    if flat and len(flat) == len(alb):
+        add("FLAT_TEX", "warn", "albedo nearly uniform (luma std %s)" % ", ".join(str(t["luma_std"]) for t in flat))
+
+
+def rig_flags(rec, B, add):
+    m = rec["model"]
+    clips = [a["name"].lower() for a in rec["animations"]]
+    if B.get("require_skin") and not m["skins"] > 0:
+        add("NO_SKIN", "error", "no skin: a rigged model is expected")
+    if m["bones"] > 0:
+        if B.get("min_bones") is not None and m["bones"] < B["min_bones"]:
+            add("FEW_BONES", "warn", "%d bones < %d" % (m["bones"], B["min_bones"]))
+        if B.get("max_bones") is not None and m["bones"] > B["max_bones"]:
+            add("MANY_BONES", "warn", "%d bones > %d" % (m["bones"], B["max_bones"]))
+    missing = [c for c in B.get("required_clips") or [] if not any(c.lower() in n for n in clips)]
+    if missing:
+        if clips:
+            add("MISSING_ANIM_SET", "warn", "missing clips: " + ", ".join(missing))
+        else:
+            add("MISSING_ANIM_SET", "error", "no animation clips (needs %s): T-pose" % ", ".join(missing))
+    elif not clips and m["skins"] > 0:
+        add("NO_ANIM_CLIPS", "info", "the model carries no animation clips")
+    for a in rec["animations"]:
+        if "static" in a["flags"]:
+            add("STATIC_CLIP", "warn", "clip %s never moves" % a["name"])
 
 
 # ---------------------------------------------------------------- audit
-def audit_weapon(repo, pack, cfg, wid, glb, extra, procedural, out_dir, export, now, head):
-    rec = {"pack": pack, "game": cfg["games"], "weapon_id": wid, "source_commit": head,
-           "last_changed": "", "model": {"glb": "", "viewer_glb": "", "tris": 0, "verts": 0, "materials": 0,
-                                          "meshes": 0, "bbox": [0, 0, 0], "primitive_meshes": []},
+def load_adapter(source):
+    name = source.get("adapter")
+    if not name:
+        return None
+    return importlib.import_module("rsi_adapters." + name.replace("-", "_"))
+
+
+def audit_model(source, kinds, rel, glb, adapter, ctx, tier, out_dir, export, now, head):
+    kind = classify(rel, source, kinds)
+    B = next((k["budget"] for k in kinds if k["key"] == kind), {}) or {}
+    wid = os.path.splitext(rel)[0].replace("/", "__")
+    rec = {"pack": source["name"], "game": source.get("games", ""), "weapon_id": wid, "kind": kind, "source_commit": head,
+           "last_changed": "", "model": {"glb": rel, "viewer_glb": "", "tris": 0, "verts": 0, "materials": 0, "meshes": 0,
+                                          "bbox": [0, 0, 0], "primitive_meshes": [], "skins": 0, "bones": 0, "lods": 0},
            "textures": [], "animations": [], "sounds": [], "flags": [], "audited_at": now}
-    flags = rec["flags"]
-
-    def flag(code, sev, msg):
-        flags.append({"code": code, "severity": sev, "msg": msg})
-
-    if not os.path.exists(glb):
-        flag("NO_MODEL", "error", "no model file %s" % os.path.relpath(glb, repo))
-        return finish(rec)
-    rel = os.path.relpath(glb, repo)
-    rec["model"]["glb"] = rel
     stem = os.path.splitext(rel)[0]
-    rec["last_changed"] = git(repo, "log", "-1", "--format=%cs", "--", rel, stem + "_*", stem + ".*")
+    rec["last_changed"] = git(source["root"], "log", "-1", "--format=%cs", "--", rel, stem + "_*", stem + ".*")
     gltf, binc = read_glb(glb)
-    inst, bbox = mesh_stats(gltf, binc)
+    inst, bbox, (wmn, wmx) = mesh_stats(gltf, binc)
     tris = sum(pm["tris"] for _n, pm in inst)
-    rec["model"].update(tris=tris, verts=sum(pm["verts"] for _n, pm in inst),
-                        materials=len(gltf.get("materials", [])), meshes=len(inst), bbox=bbox,
+    rec["model"].update(tris=tris, verts=sum(pm["verts"] for _n, pm in inst), materials=len(gltf.get("materials", [])),
+                        meshes=len(inst), bbox=bbox, **rig_facts(gltf),
                         primitive_meshes=sorted({n for n, pm in inst if 0 < pm["tris"] <= THRESHOLDS["primitive_tris"]}))
-    melee = bool(MELEE_RE.search(wid))
-    throw = bool(THROW_RE.search(wid)) and "launcher" not in wid.lower()
-    rec["kind"] = "melee" if melee else "throwable" if throw else "gun"
-    lo = THRESHOLDS["min_tris_melee"] if melee else THRESHOLDS["min_tris_throwable"] if throw else THRESHOLDS["min_tris"]
-    if tris < (THRESHOLDS["very_low_tris"] if rec["kind"] == "gun" else lo / 2):
-        flag("VERY_LOW_TRIS", "error", "%d tris" % tris)
-    elif tris < lo:
-        flag("LOW_TRIS", "error", "%d tris < %d" % (tris, lo))
+    if wmn[0] != math.inf:
+        rec["model"]["bounds"] = {"min": [round(v, 4) for v in wmn], "max": [round(v, 4) for v in wmx]}
+    rec["textures"] = textures(gltf, binc, os.path.dirname(glb), os.path.splitext(os.path.basename(glb))[0])
+    rec["animations"] = animations(gltf, binc)
+    flags = rec["flags"]
+    flags.extend(kind_flags(rec, B, tier))
     vpt = rec["model"]["verts"] / tris if tris else 0
     if vpt >= THRESHOLDS["faceted_vpt"]:
-        flag("FACETED", "warn", "flat-shaded: %.2f verts per tri" % vpt)
-    if rec["model"]["materials"] < THRESHOLDS["min_materials"]:
-        flag("FEW_MATERIALS", "warn", "%d material(s)" % rec["model"]["materials"])
+        flags.append({"code": "FACETED", "severity": "warn", "msg": "flat-shaded: %.2f verts per tri" % vpt})
     prims = rec["model"]["primitive_meshes"]
     if prims and len(prims) * 2 >= max(1, len(inst)):
-        flag("PRIMITIVE_MESH", "warn", "%d of %d meshes are box/cylinder sized" % (len(prims), len(inst)))
-
-    rec["textures"] = textures(gltf, binc, os.path.dirname(glb), os.path.splitext(os.path.basename(glb))[0])
-    tx = rec["textures"]
-    if not tx:
-        flag("NO_TEXTURES", "error", "flat-colour materials only")
-    else:
-        alb = [t for t in tx if "albedo" in t["maps"]] or tx
-        edge = max(max(t["w"], t["h"]) for t in alb)
-        min_tex = THRESHOLDS["min_tex"] if rec["kind"] == "gun" else THRESHOLDS["min_tex_small"]
-        if edge < min_tex:
-            flag("LOW_TEX", "error", "largest albedo %dpx < %d" % (edge, min_tex))
-        if any(not t["pot"] and t["w"] for t in tx):
-            flag("NPOT_TEX", "warn", ", ".join("%s %dx%d" % (t["name"], t["w"], t["h"]) for t in tx if not t["pot"] and t["w"]))
-        if any(max(t["w"], t["h"]) > THRESHOLDS["max_tex"] for t in tx):
-            flag("OVERSIZED_TEX", "warn", "texture over %dpx" % THRESHOLDS["max_tex"])
-        lossy = [t for t in tx if t.get("lossy_quality") is not None and t["lossy_quality"] < THRESHOLDS["min_lossy_quality"]]
-        if lossy:
-            flag("LOSSY_TEX", "warn", "lossy import below q%.2f for tier %s: %s" % (THRESHOLDS["min_lossy_quality"], THRESHOLDS["tier"],
-                 ", ".join("%s q%.2f" % (t["name"], t["lossy_quality"]) for t in lossy[:4])))
-        if any(t.get("import") == "lossless" and t["bytes"] > THRESHOLDS["uncompressed_bytes"] for t in tx):
-            flag("UNCOMPRESSED_TEX", "info", "lossless import over 1 MiB")
-        if not any("normal" in t["maps"] for t in tx):
-            flag("MISSING_NORMAL", "warn", "no normal map")
-        if not any("orm" in t["maps"] or "ao" in t["maps"] for t in tx):
-            flag("MISSING_ORM", "warn", "no roughness/metal/AO map")
-        flat = [t for t in alb if t.get("luma_std") is not None and t["luma_std"] < THRESHOLDS["flat_albedo_std"]]
-        if flat and len(flat) == len(alb):
-            flag("FLAT_TEX", "warn", "albedo nearly uniform (luma std %s)" % ", ".join(str(t["luma_std"]) for t in flat))
-
-    rec["animations"] = animations(gltf, binc)
-    have = {a["name"].lower() for a in rec["animations"]}
-    for a in rec["animations"]:
-        if "static" in a["flags"]:
-            flag("STATIC_CLIP", "warn", "clip %s never moves" % a["name"])
-        if a["name"].lower().startswith("reload") and "mag_static" in a["flags"]:
-            flag("MAG_STATIC_RELOAD", "error", "%s: magazine moves %.3fm" % (a["name"], a["mag_displacement"]))
-    for clip, sev in REQUIRED_CLIPS.items():
-        if clip in have:
-            continue
-        if clip in procedural:
-            rec["animations"].append({"name": clip, "length": None, "tracks": 0, "flags": ["procedural"],
-                                      "mag_displacement": None})
-        elif rec["kind"] == "gun" or clip in ("draw", "holster", "inspect"):
-            flag("MISSING_CLIP_" + clip.upper(), sev, "no %s clip (GLB or procedural)" % clip)
-
-    if cfg.get("art") == "fc":
-        style = extra.get("style", "")
-        has_mag = extra.get("mag_box") or extra.get("mag_node")
-        if style and style not in MAG_STYLES and has_mag:
-            flag("MAG_STATIC_RELOAD", "error",
-                 "model has a box magazine but reload style '%s' never removes it" % style)
-        prop = ROUND_STYLES.get(style)
-        if prop:
-            pp = os.path.join(os.path.dirname(glb), prop + ".glb")
-            if os.path.exists(pp):
-                pinst, _ = mesh_stats(*read_glb(pp))
-                pt = sum(pm["tris"] for _n, pm in pinst)
-                if pt < THRESHOLDS["primitive_ammo_tris"]:
-                    flag("PRIMITIVE_AMMO", "error", "reload prop %s is %d tris" % (prop, pt))
-        rec["reload_style"] = style
-    elif extra.get("mag_file") is None and rec["kind"] == "gun" and "reload" not in have:
-        flag("NO_MAG_NODE", "warn", "no separate magazine model for the reload")
-
+        flags.append({"code": "PRIMITIVE_MESH", "severity": "warn", "msg": "%d of %d meshes are box/cylinder sized" % (len(prims), len(inst))})
+    if adapter:
+        adapter.check(source, rec, glb, ctx, sys.modules[__name__])
     if export:
-        name = "%s__%s.glb" % (pack, wid)
+        name = "%s__%s.glb" % (source["name"], wid)
         try:
             embed_textures(glb, os.path.join(out_dir, "glb", name))
             rec["model"]["viewer_glb"] = "glb/" + name
-        except Exception as e:  # keep auditing; viewer just lacks this one
+        except Exception as e:  # keep auditing; the viewer just lacks this one
             print("export %s: %s" % (name, e), file=sys.stderr)
     return finish(rec)
 
@@ -577,67 +552,65 @@ def finish(rec):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--root", default="/home/gamedev/godot")
-    ap.add_argument("--out", default="/home/gamedev/perf-bench/rsi-assets")
-    ap.add_argument("--pack", action="append", help="repo dir under --root (default: all); NAME=PATH for a worktree")
+    ap.add_argument("--config", required=True, help="rsi-config/1 JSON (nightly assets config)")
+    ap.add_argument("--out", default=os.environ.get("NIGHTLY_ASSETS_DIR") or "rsi-assets", help="output dir for audit.json and glb/")
+    ap.add_argument("--source", action="append", help="only this source (default: all in the config)")
     ap.add_argument("--no-glb", action="store_true", help="skip viewer GLB export")
-    ap.add_argument("--tier", default="high", help="video texture-quality tier to judge textures against: " + "|".join(TIERS))
-    ap.add_argument("--tiers-json", help="JSON file overriding TIERS rows")
+    ap.add_argument("--tier", default="high", help="video texture-quality tier to judge textures against (a name from the config's tiers)")
     a = ap.parse_args()
-    if a.tiers_json:
-        for k, row in json.load(open(a.tiers_json)).items():
-            TIERS.setdefault(k, {}).update(row)
-    if a.tier not in TIERS:
-        sys.exit("unknown --tier %s (have %s)" % (a.tier, ", ".join(TIERS)))
-    THRESHOLDS.update(TIERS[a.tier], tier=a.tier)
+    cfg = load_config(a.config)
+    tiers = cfg.get("tiers") or ["low", "medium", "high"]
+    if a.tier not in tiers:
+        sys.exit("unknown --tier %s (config has %s)" % (a.tier, ", ".join(tiers)))
+    kinds = cfg.get("kinds") or []
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     os.makedirs(os.path.join(a.out, "glb"), exist_ok=True)
-    picks = a.pack or list(PACKS)
-    weapons = []
-    for p in picks:
-        name, _, path = p.partition("=")
-        cfg = PACKS[name]
-        repo = path or os.path.join(a.root, name)
-        if not os.path.isdir(repo):
-            print("skip %s: no repo at %s" % (name, repo), file=sys.stderr)
+    assets = []
+    for source in cfg["sources"]:
+        if a.source and source["name"] not in a.source:
             continue
-        head = git(repo, "rev-parse", "--short", "HEAD")
-        procedural = clip_support(repo, cfg["addon"])
-        for wid, glb, extra in weapon_list(repo, name, cfg):
+        if not os.path.isdir(source["root"]):
+            print("skip %s: no directory %s" % (source["name"], source["root"]), file=sys.stderr)
+            continue
+        head = git(source["root"], "rev-parse", "--short", "HEAD")
+        adapter = load_adapter(source)
+        ctx = adapter.context(source) if adapter else None
+        for rel, glb in walk_models(source):
             try:
-                weapons.append(audit_weapon(repo, name, cfg, wid, glb, extra, procedural, a.out,
-                                            not a.no_glb, now, head))
+                assets.append(audit_model(source, kinds, rel, glb, adapter, ctx, a.tier, a.out, not a.no_glb, now, head))
             except Exception as e:
-                rec = finish({"pack": name, "game": cfg["games"], "weapon_id": wid, "source_commit": head,
-                              "last_changed": "", "model": {"glb": os.path.relpath(glb, repo)},
-                              "textures": [], "animations": [], "sounds": [], "audited_at": now,
-                              "flags": [{"code": "NO_MODEL", "severity": "error", "msg": "unreadable: %s" % e}]})
-                weapons.append(rec)
-    if not a.no_glb and not a.pack:   # full run: drop viewer GLBs of weapons no longer audited
-        keep = {os.path.basename(w["model"].get("viewer_glb", "")) for w in weapons}
+                assets.append(finish({"pack": source["name"], "game": source.get("games", ""), "weapon_id": os.path.splitext(rel)[0].replace("/", "__"),
+                                      "kind": classify(rel, source, kinds), "source_commit": head, "last_changed": "", "model": {"glb": rel},
+                                      "textures": [], "animations": [], "sounds": [], "audited_at": now,
+                                      "flags": [{"code": "NO_MODEL", "severity": "error", "msg": "unreadable: %s" % e}]}))
+    if not a.no_glb and not a.source:   # full run: drop viewer GLBs of assets no longer audited
+        keep = {os.path.basename(w["model"].get("viewer_glb", "")) for w in assets}
         for f in os.listdir(os.path.join(a.out, "glb")):
             if f.endswith(".glb") and f not in keep:
                 os.remove(os.path.join(a.out, "glb", f))
-    by_pack = {}
-    for w in weapons:
-        b = by_pack.setdefault(w["pack"], {"weapons": 0, "pass": 0, "score_sum": 0})
-        b["weapons"] += 1
+    by = {}
+    for w in assets:
+        b = by.setdefault(w["pack"], {"assets": 0, "pass": 0, "score_sum": 0})
+        b["assets"] += 1
         b["pass"] += int(w["pass"])
         b["score_sum"] += w["score"]
-    for b in by_pack.values():
-        b["avg_score"] = round(b.pop("score_sum") / b["weapons"]) if b["weapons"] else 0
-    doc = {"schema": "rsi-assets/1", "generated_at": now, "thresholds": THRESHOLDS,
-           "summary": {"weapons": len(weapons), "pass": sum(w["pass"] for w in weapons),
-                       "fail": sum(not w["pass"] for w in weapons), "by_pack": by_pack},
-           "weapons": weapons}
+    for b in by.values():
+        b["avg_score"] = round(b.pop("score_sum") / b["assets"]) if b["assets"] else 0
+    by_kind = {}
+    for w in assets:
+        by_kind[w["kind"]] = by_kind.get(w["kind"], 0) + 1
+    doc = {"schema": "rsi-assets/2", "generated_at": now, "thresholds": {"tier": a.tier, "tiers": tiers, **THRESHOLDS},
+           "summary": {"assets": len(assets), "pass": sum(w["pass"] for w in assets), "fail": sum(not w["pass"] for w in assets),
+                       "by_pack": by, "by_kind": by_kind},
+           "assets": assets}
     dst = os.path.join(a.out, "audit.json" if a.tier == "high" else "audit-%s.json" % a.tier)
     with open(dst + ".tmp", "w") as f:
         json.dump(doc, f, indent=1)
     os.replace(dst + ".tmp", dst)
     s = doc["summary"]
-    print("rsi-asset-audit [tier %s]: %d weapons, %d pass, %d fail -> %s" % (a.tier, s["weapons"], s["pass"], s["fail"], dst))
-    for name, b in sorted(by_pack.items()):
-        print("  %-22s %3d weapons %3d pass avg score %d" % (name, b["weapons"], b["pass"], b["avg_score"]))
+    print("rsi-asset-audit [tier %s]: %d assets, %d pass, %d fail -> %s" % (a.tier, s["assets"], s["pass"], s["fail"], dst))
+    for name, b in sorted(by.items()):
+        print("  %-22s %4d assets %4d pass avg score %d" % (name, b["assets"], b["pass"], b["avg_score"]))
 
 
 if __name__ == "__main__":

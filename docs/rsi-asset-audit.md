@@ -1,22 +1,23 @@
-# RSI asset audit
+# Asset audit
 
-`tools/rsi_asset_audit.py` measures every weapon model in every GameSpice weapon pack (fc-weapons, zee-dot-weapons, zed-dot-weapons, zz-modern-weapons, zz-medieval-weapons) and gives each a score. It exists because the visual judge only failed textures that were placeholders, so low-poly models, 1K textures on rifles and reloads that never move the magazine passed review after review (owner complaint 2026-11-22: FC sniper reload, burst rifle).
+`tools/rsi_asset_audit.py` audits every 3D asset (GLB/glTF) of the sources registered in Nightly Assets: weapons, props,
+avatars, pickups, grenades, vehicles, viewmodel arms, buildings, anything else. It has no built-in pack, game or budget
+list; all of that comes from Nightly's database.
 
-```sh
-sudo -u gamedev python3 ~gamedev/godot/dot-game/tools/rsi_asset_audit.py            # all packs
-sudo -u gamedev python3 tools/rsi_asset_audit.py --pack fc-weapons=/home/gamedev/wt/fc-weapons-x --no-glb   # one pack, a worktree
+```
+nightly assets source add <name> --root <dir>       # once per pack or game
+nightly assets config > rsi-config.json             # rsi-config/1: tiers, sources, kinds with budgets
+python3 tools/rsi_asset_audit.py --config rsi-config.json --out rsi-assets [--source NAME] [--tier low|medium|high] [--no-glb]
+nightly assets ingest rsi-assets/audit.json         # schema rsi-assets/2: an `assets` array, each with a `kind`
 ```
 
-It reads GLBs with the Python standard library (Pillow only for the flat-albedo check), so it needs no Godot and runs anywhere in a few seconds. Output goes to `/home/gamedev/perf-bench/rsi-assets/audit.json`, schema `rsi-assets/1` in `SCHEMA.md` next to it, plus a self-contained copy of each weapon GLB (external textures embedded) in `glb/` for the Nightly Assets viewer.
+Each model is classified by the source's kind rules, then the kinds' `match` regexes, then the source's default kind.
+Checks per kind come from that kind's budget: poly range, texture resolution per video tier, normal/ORM maps, rig
+(skin, bone range, required clips), scale, pivot, LODs. Flag codes match `lib/assets-checks.mjs` in Nightly. Measurement
+constants (faceted vertices per triangle, flat-albedo deviation) live in `THRESHOLDS` in the script.
 
-What it measures per weapon: triangles, vertices per triangle (flat shading), materials, bounding box, box-sized meshes, every texture (size, power of two, which maps it feeds, Godot import compression, albedo luminance spread), animation clips with how far the magazine node travels, and for fc-weapons the procedural reload style from `aw_weapon_art.gd` against the model's magazine (`MAG_BOXES`, `mag_node`) and the reload prop's triangle count.
+`--tier` judges texture size against that video setting; non-high tiers write `audit-<tier>.json`.
 
-Scoring: 100 minus 20 per error, 7 per warning, 2 per info; a weapon passes with no errors and a score of at least 70. Thresholds sit at the top of the script and are written into `audit.json`. Gun textures must reach 2048 px (a view model is about 1000 px wide on a 1080p screen), melee and throwables 1024.
-
-Texture tiers: textures are judged against one video texture-quality tier, the same four levels as the `texture_quality` setting in dot-menu (0 low, 1 medium, 2 high, 3 ultra). `--tier high` is the default and writes `audit.json`; any other tier writes `audit-<tier>.json`. Each tier sets the albedo edge a gun and a small weapon must reach (`min_tex`, `min_tex_small`) and the lowest lossy WebP quality it accepts (`LOSSY_TEX`, so ultra accepts lossless only). The rows live in `TIERS` at the top of the script; `--tiers-json FILE` overrides them without editing the script, and nothing is capped. A shipped texture serves its own tier and every tier below it, so check the highest tier you ship for. Embedded GLB images are matched to the files Godot extracts (`<glb>_<index>.<ext>`) to read their import settings.
-
-```sh
-for t in low medium high ultra; do sudo -u gamedev python3 tools/rsi_asset_audit.py --no-glb --tier $t; done
-```
-
-Limits: clip support for procedural packs is detected per pack from the code, not per weapon. Sounds and arms reaching the grips need a Godot run and are not measured yet (`sounds` is empty, `ARMS_MISSING` never raised).
+A source may name an adapter in its config (`{"adapter": "fc-art", "addon": "..."}`) to load extra checks from
+`tools/rsi_adapters/<name>.py` (`context(source)` and `check(source, rec, glb, ctx, audit)`). The bundled `fc_art`
+adapter reads a pack's weapon art table to catch static magazines and primitive reload props.
