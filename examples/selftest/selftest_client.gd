@@ -140,6 +140,13 @@ func _test_client_platform() -> void:
 	cover_host.add_child(covered)
 	_check(covered.gate != null and covered.gate.cover == custom_cover,
 		"a cover assigned to the client is the gate's cover")
+	_check(not (&"content_service" in covered.gate) or (covered.gate.content_service == &"gs_cloud_client"),
+		"the gate follows the content client when gs-core can show it")
+	covered.begin_map_change("Loading map")
+	_check(covered.gate.is_holding(GSGameClient.REASON_MAP) and covered.gate.status_text() == "Loading map",
+		"begin_map_change holds the gate at once, with its text")
+	covered.end_map_change()
+	_check(not covered.gate.is_holding(GSGameClient.REASON_MAP), "end_map_change releases it")
 	custom_cover.free()
 	cover_host.queue_free()
 

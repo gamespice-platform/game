@@ -43,6 +43,23 @@ signal menu_state_changed(any_open: bool)
 
 ## Fetch the world's art slices when played offline from the project (no shell, so no content client). `--standalone_content=0` turns it off.
 @export var use_standalone_content: bool = true
+## The gate reason [method begin_map_change] holds.
+const REASON_MAP := &"map"
+
+
+## Covers the screen for a map change and waits until it is drawn, so the unload and install that follow (synchronous, seconds long) do not delay it: [code]await client.begin_map_change()[/code] before them, [method end_map_change] after. Holds without the wait on a gs-core that has no [code]hold_shown[/code].
+func begin_map_change(text: String = "Loading map") -> void:
+	if gate != null and is_instance_valid(gate) and gate.has_method(&"hold_shown"):
+		await gate.hold_shown(REASON_MAP, text)
+	elif gate != null and is_instance_valid(gate):
+		gate.hold(REASON_MAP, text)
+
+
+func end_map_change() -> void:
+	if gate != null and is_instance_valid(gate):
+		gate.release(REASON_MAP)
+
+
 ## Build the load gate and its cover. Off for a client whose shell covers it some other way.
 @export var use_gate: bool = true
 ## Mount what `content.lock.json` pins ([GSGameLockedContent]) once at start. No lock file means nothing happens; `--locked_content=0` or `GS_PACKS_FROM=none` switch it off.

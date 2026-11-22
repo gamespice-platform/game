@@ -26,6 +26,9 @@ static func make_gate(c: Node) -> GSLoadGate:
 		made.cover_scene = c.cover_scene
 	if c.spawned_fn.is_valid():
 		made.require(c.REASON_SPAWNED, c.spawned_fn, c.spawned_text)
+	# Content downloads and quota errors show a bottom-right bar even when a shell skips its cover (gs-core with GSBusyIndicator).
+	if &"content_service" in made:
+		made.content_service = &"gs_cloud_client"
 	# Under the host: the gate marks its parent for GSLoadGate.of. A host still readying refuses a child, so wait a frame.
 	if c.host.is_node_ready():
 		c.host.add_child(made)
