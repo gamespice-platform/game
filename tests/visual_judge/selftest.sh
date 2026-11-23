@@ -156,5 +156,12 @@ expect 0 "no gpu.sh at all warns" "WARNING: rendering on SOFTWARE.*no executable
 printf '#!/bin/sh\nexit 0\n' > "$q/gpu.sh"; chmod +x "$q/gpu.sh"
 o=$(qa 2>&1); grep -q "SOFTWARE" <<< "$o" && bad "a GPU box that took the shot still warned" "$o" || ok "no warning when a GPU box takes the shot"
 
+# 9. sheets (visual-judge-ak-1): a clip with aim_*_sheet.png must list the sheet in pack.txt, and its verdict must cover it.
+mkclip "$c/ak/aim.mp4" 1
+ffmpeg -v error -y -f lavfi -i "testsrc=size=120x60:rate=1:duration=1" -frames:v 1 "$c/ak/aim_a_sheet.png"
+expect 0 "a clip with a sheet gets a verdict that covers it" "PRODUCTION READY" -- bash "$judge" --clips "$c" --out "$t/sh1"
+grep -q "aim_a_sheet.png" "$t/sh1/pass1/ak/aim/pack.txt" && ok "pack.txt lists the sheet the judge must Read" || bad "pack.txt does not list aim_a_sheet.png"
+python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); assert "aim_a_sheet.png" in j["looked_at"]' "$t/sh1/pass1/ak/aim/verdict.json" && ok "verdict looked_at has the sheet" || bad "verdict misses the sheet"
+
 echo "$((n - fails))/$n passed"
 ((fails == 0))
