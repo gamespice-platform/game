@@ -1,11 +1,7 @@
 extends GSGameVisualQaCapture
 
-## The judge loop's GPU proof (tests/visual_judge, docs/visual-qa.md "The judge loop"): the demo capsule
-## (examples/visual_qa_demo.gd) turning smoothly ("turn"), and "pop", its circle walk with two planted defects a judge
-## must catch: for three frames in the middle the body teleports 1.5 m sideways and its nose box floats 0.6 m off the
-## head. Capture it on a GPU box (gpu.sh runs only tools/*.sh):
-##   bash addons/gs_game/tools/gs_game_visual_qa.sh --shot tools/visual_judge_proof_shot.sh --out screenshots/vj_proof \
-##        --no-report -- --clips turn,pop
+## The judge loop's GPU proof (tests/visual_judge, docs/visual-qa.md "The judge loop"): the demo capsule (examples/visual_qa_demo.gd) turning smoothly ("turn"), and "pop", its circle walk with two planted defects a judge must catch: for three frames in the middle the body teleports 1.5 m sideways and its nose box floats 0.6 m off the head.
+## Capture it on a GPU box (gpu.sh runs only tools/*.sh): [code]bash addons/gs_game/tools/gs_game_visual_qa.sh --shot tools/visual_judge_proof_shot.sh --out screenshots/vj_proof --no-report -- --clips turn,pop[/code]
 
 var _body: Node3D = null
 

@@ -1,9 +1,7 @@
 class_name GSGameVisualQaCapture
 extends SceneTree
 
-## The visual QA test scene (docs/visual-qa.md): for each item (weapon, avatar, NPC) and clip it stages the subject, then
-## saves every frame at --fps from the first-person camera (f_NNN.jpg), behind-right (t_NNN.jpg) and an opponent in front
-## (o_NNN.jpg) into <out>/<item>/_frames/<clip>/, and prints one `VISUALQA {json}` verdict line per clip.
+## The visual QA test scene (docs/visual-qa.md): for each item (weapon, avatar, NPC) and clip it stages the subject, then saves every frame at --fps from the first-person camera (f_NNN.jpg), behind-right (t_NNN.jpg) and an opponent in front (o_NNN.jpg) into <out>/<item>/_frames/<clip>/, and prints one `VISUALQA {json}` verdict line per clip.
 ## A game extends this in tools/<name>.gd and overrides the hooks below; gs_game_visual_qa_shot.sh runs it under xvfb.
 ## Args: --out DIR, --fps N, --only item,item, --clips clip,clip (or --anims), --limits res://x.json. Tool-only: no API level.
 
@@ -22,7 +20,7 @@ var first_person: Camera3D = null
 var errors := 0
 
 
-# --- Hooks a game overrides -------------------------------------------------------------------------------------------
+# Hooks a game overrides
 
 ## The item names (weapon ids, avatar names, NPC kinds).
 func _items() -> PackedStringArray:
@@ -98,7 +96,7 @@ func _checks(_item: String, _clip: String, rows: Array[Dictionary]) -> Array[Dic
 	return rows
 
 
-# --- Helpers --------------------------------------------------------------------------------------------------------
+# Helpers
 
 ## A 40 m grid floor at y 0 (so foot slide and floor clipping show), a sun, and a plain sky.
 func build_stage() -> Node3D:
@@ -168,7 +166,7 @@ static func verdict(rows: Array[Dictionary]) -> Dictionary:
 	return {"pass": fail.is_empty(), "fail": fail, "worst": worst}
 
 
-# --- The run ---------------------------------------------------------------------------------------------------------
+# The run
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()

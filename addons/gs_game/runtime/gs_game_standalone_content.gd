@@ -39,7 +39,7 @@ static func max_wait_sec() -> float:
 	return DEFAULT_WAIT_SEC
 
 
-## The `{urls, config_file}` this client uses: content.json's `content_urls` when it names some, else content.gamespice.net (formerly dotgames.org, still served).
+## The `{urls, config_file}` this client uses: content.json's `content_urls` when it names some, else content.gamespice.net.
 static func settings() -> Dictionary:
 	var file := CONTENT_CONFIG if FileAccess.file_exists(CONTENT_CONFIG) else FALLBACK_CONFIG
 	var urls := PackedStringArray()

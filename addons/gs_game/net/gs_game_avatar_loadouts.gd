@@ -191,10 +191,9 @@ func wearables_of(peer_id: int) -> PackedStringArray:
 	return _wearing.get(peer_id, PackedStringArray())
 
 
-## The backbone's `actions` as wire entries: built-ins by known id, uploads by a well-formed
-## `action/<id>/<version>` and a clip name. A kind the site answered, even empty, stays as it is (the
-## app may have it switched off); a kind the answer leaves out gets its built-ins. Null for anything that is
-## not an object, or a kind over [member max_per_kind].
+## The backbone's `actions` as wire entries: built-ins by known id, uploads by a well-formed `action/<id>/<version>` and a clip name.
+## A kind the site answered, even empty, stays as it is (the app may have it switched off); a kind the answer leaves out gets its built-ins.
+## Null for anything that is not an object, or a kind over [member max_per_kind].
 static func parse(actions: Variant) -> Variant:
 	if not actions is Dictionary:
 		return null
