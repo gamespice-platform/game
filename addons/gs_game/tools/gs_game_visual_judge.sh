@@ -202,9 +202,10 @@ You are a FRESH visual judge for a game studio. You have never seen this work an
 decide whether this clip would ship in a modern FPS (CS:S, CS2, Valorant, Apex). Default: it would NOT.
 
 1. Read the rubric: $rubric
-2. Read pack.txt in the current directory, then Read EVERY image in the current directory at full size: every still,
+2. Read pack.txt in the current directory, then Read EXACTLY the file names listed under "files to read" at its end (never guess or
+   reconstruct a name from the stills table: its labels are not file names). That is every image at full size: every still,
    every burst (consecutive frames: look for pops, teleports, hands leaving the gun between neighbours), every focus
-   close-up, and delta_strip.jpg${3:+ and every *_sheet.png (listed at the end of pack.txt)}. Each image needs its own Read call; the tool checks. Do not skip any; do not read anything outside this directory except the rubric.
+   close-up, and delta_strip.jpg${3:+ and every *_sheet.png}. Each image needs its own Read call; the tool checks. Do not skip any; do not read anything outside this directory except the rubric.
    There are no metrics and no author notes on purpose: judge only what you see.
 3. Write ./verdict.json (and nothing else) in ONE Write call, to the rubric's schema for subject "$1" (item "$2"):
    - "looked_at": the file name of every image you read, in the order you read them.
@@ -431,13 +432,12 @@ while :; do
       fi
       make_pack "$mp4" "$dir" "$variant" || code=4 die "could not build the judge pack for $mp4 (see above): no clip is skipped"
       for s in "$(dirname "$mp4")/${clip}"*sheet*.png "$(dirname "$mp4")/${item}_sheet.png"; do [[ -f $s ]] && cp "$s" "$dir/"; done
-      # pack.txt is written before the sheets are copied: list them there too, or the judge (which reads pack.txt first)
-      # never learns they exist and the coverage check then fails on every *_sheet.png.
-      shopt -s nullglob; sheets=("$dir"/*sheet*.png); shopt -u nullglob
-      if ((${#sheets[@]})); then
-        { echo "sheets (contact sheets of the clip, each needs its own Read at full size and its own entry in frames and looked_at):"
-          for s in "${sheets[@]}"; do echo "  $(basename "$s")"; done; } >> "$dir/pack.txt"
-      fi
+      # pack.txt is written before the sheets are copied. Append the exact file name of EVERY image the verdict must
+      # cover (stills, bursts, focus close-ups, delta strip, sheets): the judge has only Read (no ls) and the still names
+      # differ from the table above (peak2.3 is still_05_peak2_f94.jpg), so it must never have to guess a name.
+      shopt -s nullglob; allimgs=("$dir"/*.jpg "$dir"/*.png); shopt -u nullglob
+      { echo "files to read (EXACT names, one Read call each, at full size; every one needs an entry in frames and looked_at; sheets are contact sheets of the clip):"
+        for s in "${allimgs[@]}"; do echo "  $(basename "$s")"; done; } >> "$dir/pack.txt"
       # Every pack image is hashed after the sheets are in (the judge must Read each one).
       (cd "$dir" && sha256sum -- *.jpg *.png 2> /dev/null > images.sha256)
       if ((judge == 0)); then echo "pack: $dir"; continue; fi

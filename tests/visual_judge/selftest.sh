@@ -163,5 +163,24 @@ expect 0 "a clip with a sheet gets a verdict that covers it" "PRODUCTION READY" 
 grep -q "aim_a_sheet.png" "$t/sh1/pass1/ak/aim/pack.txt" && ok "pack.txt lists the sheet the judge must Read" || bad "pack.txt does not list aim_a_sheet.png"
 python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); assert "aim_a_sheet.png" in j["looked_at"]' "$t/sh1/pass1/ak/aim/verdict.json" && ok "verdict looked_at has the sheet" || bad "verdict misses the sheet"
 
+# 10b. peak stills (gs-judge-peak-still-names): the table says peak2.3, the file is still_05_peak2_f94.jpg. pack.txt must
+# list the exact name of every still, burst and sheet, and the prompt must send the judge to that list.
+mkclip "$c/zombie/crouch.mp4" 4
+expect 0 "a clip with peak stills gets a verdict" "PRODUCTION READY" -- bash "$judge" --clips "$c" --out "$t/pk1"
+pk=$t/pk1/pass1/zombie/crouch/pack.txt
+python3 - "$pk" "$(dirname "$pk")" <<'PY' && ok "pack.txt lists every image file by its exact name (stills incl. peak, bursts, strip)" || bad "pack.txt misses an image name"
+import os, sys
+pack, d = sys.argv[1], sys.argv[2]
+txt = open(pack).read()
+tail = txt.split("files to read", 1)[1]
+listed = [l.strip() for l in tail.splitlines()[1:] if l.strip()]
+imgs = sorted(f for f in os.listdir(d) if f.endswith((".jpg", ".png")))
+assert any(f.startswith("still_") and "_peak" in f for f in imgs), "no peak still in the clip"
+assert any(f.startswith("burst_") for f in imgs), "no burst"
+assert sorted(listed) == imgs, (listed, imgs)
+assert not any("." in f.split("_f")[0] for f in imgs if f.startswith("still_")), "dotted still name"
+PY
+grep -q 'peak[0-9]*\.[0-9]' "$pk" && ok "the table keeps the dotted label while files carry the undotted name" || bad "no dotted label in the table"
+
 echo "$((n - fails))/$n passed"
 ((fails == 0))
