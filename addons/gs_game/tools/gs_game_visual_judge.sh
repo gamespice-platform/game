@@ -206,7 +206,7 @@ decide whether this clip would ship in a modern FPS (CS:S, CS2, Valorant, Apex).
    every burst (consecutive frames: look for pops, teleports, hands leaving the gun between neighbours), every focus
    close-up, and delta_strip.jpg${3:+ and the sheets}. Each image needs its own Read call; the tool checks. Do not skip any; do not read anything outside this directory except the rubric.
    There are no metrics and no author notes on purpose: judge only what you see.
-3. Write ./verdict.json (and nothing else) to the rubric's schema for subject "$1" (item "$2"):
+3. Write ./verdict.json (and nothing else) in ONE Write call, to the rubric's schema for subject "$1" (item "$2"):
    - "looked_at": the file name of every image you read, in the order you read them.
    - "frames": one entry per image you read ("file", "camera", "findings"), with what you saw in EACH camera, even when
      it is fine (at least a sentence per image).
@@ -214,6 +214,8 @@ decide whether this clip would ship in a modern FPS (CS:S, CS2, Valorant, Apex).
      Minor defects count: a pass needs zero defects of any severity.
    - "categories_clean": for every rubric category with no defect, the frames that show it is clean.
    - "production_ready": true only if "defects" is empty; "justification" says why, category by category.
+You have only Read and Write: to change the verdict, Write the whole file again (never patch it; a verdict that is not
+exactly what you Wrote is refused as forged).
 Be strict and specific ("the magazine is about 3x the magwell, in still_02"). A thin justification is a wrong verdict.
 EOF
 }
@@ -257,10 +259,10 @@ PY
 # Writes evidence.json; fails (printing why) when the judge did not Read an image or verdict.json is not what it wrote.
 evidence() {
   python3 - "$1" "$model" "$2" "$3" "$4" "$pass" "$variant" "$round" "$source" "$renderer" "$out" "$passes" << 'PY'
-import hashlib, json, os, sys
+import hashlib, json, os, re, sys
 d, model = sys.argv[1], sys.argv[2]
 item, clip, mp4, pas, variant, rnd, source, renderer, out, need = sys.argv[3:13]
-sid, reads, writes, failed = None, [], [], set()
+sid, reads, writes, failed, patched = None, [], [], set(), []
 target = os.path.realpath(os.path.join(d, "verdict.json"))
 for line in open(os.path.join(d, "judge.jsonl"), errors="replace"):
     try: e = json.loads(line)
@@ -273,6 +275,12 @@ for line in open(os.path.join(d, "judge.jsonl"), errors="replace"):
         if c.get("type") == "tool_result" and c.get("is_error"): failed.add(c.get("tool_use_id"))
         if c.get("type") != "tool_use": continue
         inp = c.get("input") if isinstance(c.get("input"), dict) else {}
+        # Anything but Write that changes verdict.json (Edit, MultiEdit, a Bash redirect or sed) leaves a file the judge
+        # never Wrote whole. This is the abort builders hit: with only --allowedTools the judge still had Edit.
+        if c.get("name") in ("Edit", "MultiEdit", "NotebookEdit") and os.path.basename(str(inp.get("file_path", ""))) == "verdict.json":
+            patched.append(c.get("name"))
+        if c.get("name") == "Bash" and "verdict.json" in str(inp.get("command", "")) and re.search(r"[>]|sed\s+-i|tee|mv\s|cp\s|truncate", str(inp.get("command", ""))):
+            patched.append("Bash")
         if c.get("name") == "Read": reads.append(os.path.basename(str(inp.get("file_path", ""))))
         if c.get("name") == "Write" and os.path.basename(str(inp.get("file_path", ""))) == "verdict.json":
             writes.append((c.get("id"), os.path.realpath(str(inp.get("file_path"))),
@@ -291,6 +299,7 @@ have = hashlib.sha256(open(os.path.join(d, "verdict.json"), "rb").read()).hexdig
 if wrote != have:
     why = "%d Write(s) of a verdict.json, %d refused, %d to this path" % (len(writes), sum(1 for w in writes if w[0] in failed), sum(1 for w in writes if w[1] == target))
     if not any(w[2] == have for w in writes): why += ", none matches the file"
+    if patched: why += "; the judge also changed it with %s (it may only Write the whole file)" % ", ".join(sorted(set(patched)))
     bad.append("verdict.json is not the file the judge wrote (%s)" % why)
 json.dump({"judge_session": sid, "judge_model": model, "reads": reads, "images": hashes, "verdict_sha256": have,
            "item": item, "clip": clip, "mp4": mp4, "mp4_sha256": hashlib.sha256(open(mp4, "rb").read()).hexdigest(),
@@ -306,7 +315,7 @@ run_judge() {
     rm -f "$dir/verdict.json" "$dir/evidence.json"
     judge_cmd
     (cd "$dir" && "${jc[@]}" -p "$(judge_prompt "$subj" "$item" "$(ls "$dir"/*sheet* 2> /dev/null)")" --model "$model" \
-      --allowedTools "Read,Write" --permission-mode acceptEdits --add-dir "$(dirname "$rubric")" \
+      --tools "Read,Write" --allowedTools "Read,Write" --permission-mode acceptEdits --add-dir "$(dirname "$rubric")" \
       --output-format stream-json --verbose > "$dir/judge.jsonl" 2> "$dir/judge.log")
     rc=$?
     if ((rc == 124 || rc == 137)); then why="the judge ran past ${judge_timeout}s and was killed"

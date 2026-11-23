@@ -69,6 +69,11 @@ expect 1 "a pack recorded on llvmpipe is refused" "never llvmpipe" -- python3 "$
 expect 5 "a judge that skips an image is invalid" "never Read" -- env STUB_MODE=skipread bash "$judge" --clips "$c" --out "$t/o3" --only pistol
 expect 5 "a transcript whose Write differs is invalid" "not the file the judge wrote|did not write this verdict" -- env STUB_MODE=badwrite bash "$judge" --clips "$c" --out "$t/o3" --only pistol
 expect 0 "a refused second Write leaves the first as the judge's file" "" -- env STUB_MODE=errwrite bash "$judge" --clips "$c" --out "$t/o4" --only pistol
+# The abort builders hit (medieval-weapons dagger block): the judge Wrote verdict.json, then patched it with Edit, so the
+# file was no longer its Write. The integrity check stays; the cause is fixed by giving the judge only Read and Write.
+expect 5 "a verdict patched after the Write is still refused, and the reason names Edit" "not the file the judge wrote.*changed it with Edit" -- env STUB_MODE=edit bash "$judge" --clips "$c" --out "$t/o5" --only pistol
+STUB_ARGV_LOG=$t/argv.log run --out "$t/o6" --only pistol > /dev/null 2>&1
+expect 0 "the judge is started with only the Read and Write tools" "" -- bash -c 'grep -q -- "--tools Read,Write --allowedTools" "$1"' _ "$t/argv.log"
 expect 5 "a judge with no transcript is invalid" "no transcript" -- env STUB_MODE=notranscript bash "$judge" --clips "$c" --out "$t/o3" --only pistol
 expect 5 "odd verdict types are invalid, not a crash" "defects is not a list" -- env STUB_MODE=badtypes bash "$judge" --clips "$c" --out "$t/o3" --only pistol
 expect 5 "a hung judge is killed at the timeout" "killed" -- env STUB_MODE=hang VISUAL_JUDGE_TIMEOUT=2 bash "$judge" --clips "$c" --out "$t/o3" --only pistol
@@ -136,6 +141,20 @@ printf 'fps: 30\n| item | clip | verdict | why |\n| rifle | fire | PASS | ok |\n
 expect 1 "the post tool refuses test transcripts (production lookup)" "refusing rifle fire.*Claude transcript" -- bash "$g/addons/gs_game/tools/gs_game_visual_qa_post.sh" test-key
 o=$(bash "$g/addons/gs_game/tools/gs_game_visual_qa_post.sh" test-key 2>&1)
 grep -q "verdict at PASS" <<< "$o" && bad "the post tool passed the metric as the verdict path" "$o" || ok "the post tool keeps the verdict path"
+
+# 10. the capture falls back to software rendering loudly (nightly #11234: a user without the box key got llvmpipe silently).
+q=$t/qa; mkdir -p "$q/repo/addons/gs_game/tools" "$q/repo/tools" "$q/bin"
+cp "$repo/addons/gs_game/tools/gs_game_visual_qa.sh" "$q/repo/addons/gs_game/tools/"
+printf '#!/bin/sh\nexit 0\n' > "$q/repo/tools/shot.sh"; printf '#!/bin/sh\nshift\nexec "$@"\n' > "$q/bin/heavy"
+printf '#!/bin/sh\nexit 75\n' > "$q/gpu.sh"; chmod +x "$q/repo/tools/shot.sh" "$q/bin/heavy" "$q/gpu.sh"
+qa() { (cd "$q/repo" && PATH=$q/bin:$PATH bash addons/gs_game/tools/gs_game_visual_qa.sh --shot tools/shot.sh --no-report --out "$q/out" "$@"); }
+expect 0 "no GPU box (gpu.sh exit 75): the fallback to llvmpipe warns on stderr" "WARNING: rendering on SOFTWARE.*no GPU box" -- qa
+grep -q "WARNING: rendering on SOFTWARE" "$q/out/capture.log" && ok "the warning is also in capture.log" || bad "no warning in capture.log"
+expect 0 "--soft warns too" "WARNING: rendering on SOFTWARE.*--soft" -- qa --soft
+rm "$q/gpu.sh"
+expect 0 "no gpu.sh at all warns" "WARNING: rendering on SOFTWARE.*no executable gpu.sh" -- qa
+printf '#!/bin/sh\nexit 0\n' > "$q/gpu.sh"; chmod +x "$q/gpu.sh"
+o=$(qa 2>&1); grep -q "SOFTWARE" <<< "$o" && bad "a GPU box that took the shot still warned" "$o" || ok "no warning when a GPU box takes the shot"
 
 echo "$((n - fails))/$n passed"
 ((fails == 0))

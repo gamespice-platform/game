@@ -41,6 +41,13 @@ elif [[ -n $fresh ]]; then
   done
 fi
 [[ $soft == 1 ]] && export GPU_OFFLOAD=0
+# Software rendering must never happen quietly (nightly #11234: a user without the laptop ssh key got llvmpipe frames
+# and no word of it). Says why on stderr and in the capture log, so a builder cannot miss it.
+warn_soft() {
+  local msg="gs_game_visual_qa.sh: WARNING: rendering on SOFTWARE (llvmpipe) as $(id -un): $1. These frames are not valid visual evidence (the judge refuses llvmpipe); run as gamedev, who holds the GPU box key, or fix gpu.sh routing."
+  printf '\n!!!!!!!! %s !!!!!!!!\n\n' "$msg" >&2
+  printf '\n%s\n' "$msg" >> "$log"
+}
 # The clips come back through a scratch directory at the same absolute path on the box and here.
 clips=$(mktemp -d /tmp/visual-qa-clips.XXXXXX)
 chmod 755 "$clips"
@@ -59,7 +66,11 @@ if [[ $soft == 0 && -x $gpu ]]; then
 fi
 if [[ $rc == 75 ]]; then
   rc=0
+  if ((soft == 1)); then why="--soft was given"
+  elif [[ ! -x $gpu ]]; then why="no executable gpu.sh at $gpu"
+  else why="gpu.sh --route found no GPU box that takes the shot (no box key for this user, or every box busy)"; fi
   heavy -- "${run[@]}" "${cmd[@]}" > "$log" 2>&1 || rc=$?
+  warn_soft "$why"
 fi
 for c in "$clips"/*__*.mp4; do
   [[ -e $c ]] || continue

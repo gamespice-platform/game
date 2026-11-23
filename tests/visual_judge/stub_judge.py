@@ -4,7 +4,7 @@
 Runs in the pack dir like the real judge: Reads every image, Writes verdict.json, prints stream-json on stdout and
 writes the session's transcript under $VISUAL_JUDGE_TRANSCRIPTS/<project>/<session>.jsonl, the way Claude does.
 STUB_MODE: clean (default), defect (one minor defect when the pack path contains $STUB_DEFECT, else clean),
-errwrite (a second Write that the tool refused), skipread (never Reads the first image), badwrite (the transcript records other content than the file),
+edit (Edits verdict.json after the Write, as a judge with the Edit tool did), errwrite (a second Write that the tool refused), skipread (never Reads the first image), badwrite (the transcript records other content than the file),
 badtypes (defects is a string), hang (sleeps forever), notranscript (writes no transcript).
 """
 import hashlib
@@ -15,6 +15,9 @@ import time
 import uuid
 
 mode = os.environ.get("STUB_MODE", "clean")
+if os.environ.get("STUB_ARGV_LOG"):
+    with open(os.environ["STUB_ARGV_LOG"], "a") as f:
+        f.write(" ".join(sys.argv[1:]) + "\n")
 if mode == "hang":
     time.sleep(3600)
 cwd = os.getcwd()
@@ -34,8 +37,11 @@ entries.append({"type": "tool_use", "id": "w1", "name": "Write", "input": {"file
                                                                "content": content + (" " if mode == "badwrite" else "")}})
 if mode == "errwrite":  # a second Write the tool refused: the file stays what the first one wrote
     entries.append({"type": "tool_use", "id": "w2", "name": "Write", "input": {"file_path": os.path.join(cwd, "verdict.json"), "content": content + "{}"}})
+if mode == "edit":  # the judge patches its own file: a changed category, as the real one did
+    entries.append({"type": "tool_use", "id": "e1", "name": "Edit", "input": {"file_path": os.path.join(cwd, "verdict.json"),
+                                                                              "old_string": "hands", "new_string": "grip"}})
 with open(os.path.join(cwd, "verdict.json"), "w") as f:
-    f.write(content)
+    f.write(content.replace("Every category", "Every   category") if mode == "edit" else content)
 lines = [{"type": "system", "subtype": "init", "session_id": sid, "cwd": cwd}]
 lines += [{"type": "assistant", "session_id": sid, "message": {"content": [e]}} for e in entries]
 if mode == "errwrite":
