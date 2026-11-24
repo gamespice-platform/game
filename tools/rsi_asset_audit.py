@@ -17,6 +17,7 @@ for checks that need game code; none is required.
   tools/rsi_asset_audit.py --config rsi-config.json [--out DIR] [--source NAME ...] [--tier high] [--no-glb]
 """
 import argparse
+import base64
 import datetime
 import fnmatch
 import importlib
@@ -28,6 +29,7 @@ import re
 import struct
 import subprocess
 import sys
+import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -41,9 +43,25 @@ GL_TRIANGLES = 4
 
 
 # ---------------------------------------------------------------- GLB reading
+def read_gltf_text(path, data):
+    """A text .gltf: the JSON plus its first buffer (external .bin or a base64 data: URI), the pair read_glb returns."""
+    gltf = json.loads(data.decode("utf-8"))
+    binc = b""
+    bufs = gltf.get("buffers") or []
+    uri = bufs[0].get("uri") if bufs else None
+    if uri and uri.startswith("data:"):
+        binc = base64.b64decode(uri.split(",", 1)[1])
+    elif uri:
+        with open(os.path.join(os.path.dirname(path), urllib.parse.unquote(uri)), "rb") as f:
+            binc = f.read()
+    return gltf, binc
+
+
 def read_glb(path):
     with open(path, "rb") as f:
         data = f.read()
+    if data[:4] != b"glTF" and data.lstrip()[:1] == b"{":
+        return read_gltf_text(path, data)
     magic, _ver, _len = struct.unpack_from("<III", data, 0)
     if magic != 0x46546C67:
         raise ValueError("not a GLB")
@@ -451,6 +469,9 @@ def kind_flags(rec, B, tier):
 def tex_flags(rec, B, tier, add):
     tx = rec["textures"]
     need = (B.get("min_tex") or {}).get(tier)
+    gone = [t["name"] for t in tx if t["format"] == "missing"]
+    if gone:   # the model names an image file that is not on disk: a broken link, not a flat-colour design
+        add("TEX_FILE_MISSING", "error", "%d image file(s) referenced by the model are missing: %s" % (len(gone), ", ".join(gone[:4])))
     if not tx:
         if need is not None or B.get("require_normal") or B.get("require_orm"):
             add("NO_TEXTURES", "error", "flat-colour materials only")
