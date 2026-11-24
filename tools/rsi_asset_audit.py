@@ -282,7 +282,34 @@ def textures(gltf, binc, glb_dir, glb_base=""):
         if "albedo" in rec["maps"] and raw:
             rec["luma_std"] = luminance_std(raw)
         out.append(rec)
+    if not out and glb_base:   # external images named <glb stem>_*.png beside a glb that carries none (launcher_rocket_diffuse.png)
+        for f in sorted(os.listdir(glb_dir)):
+            if not f.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) or not f.startswith(glb_base + "_"):
+                continue
+            raw = open(os.path.join(glb_dir, f), "rb").read()
+            fmt, w, h = image_info(raw)
+            low = f.lower()
+            maps = ["normal"] if "normal" in low else ["roughness"] if "rough" in low else ["metallic"] if "metal" in low else ["orm"] if "orm" in low else ["emissive"] if "emis" in low else ["ao"] if "_ao" in low else ["albedo"]
+            rec = {"name": os.path.splitext(f)[0], "w": w, "h": h, "format": fmt, "bytes": len(raw), "maps": maps, "embedded": False,
+                   "pot": w > 0 and h > 0 and (w & (w - 1)) == 0 and (h & (h - 1)) == 0}
+            rec["import"], q = import_mode(os.path.join(glb_dir, f))
+            if q is not None:
+                rec["lossy_quality"] = q
+            if "albedo" in maps:
+                rec["luma_std"] = luminance_std(raw)
+            out.append(rec)
     return out
+
+
+def flat_colour(gltf):
+    """True when no material references a texture and the colour comes from material factors or vertex colours (a palette model by design)."""
+    mats = gltf.get("materials", [])
+    for m in mats:
+        pbr = m.get("pbrMetallicRoughness", {})
+        if pbr.get("baseColorTexture") or pbr.get("metallicRoughnessTexture") or m.get("normalTexture") or m.get("emissiveTexture") or m.get("occlusionTexture"):
+            return False
+    vc = any("COLOR_0" in p.get("attributes", {}) for me in gltf.get("meshes", []) for p in me.get("primitives", []))
+    return bool(mats) or vc
 
 
 def animations(gltf, binc):
@@ -474,7 +501,10 @@ def tex_flags(rec, B, tier, add):
         add("TEX_FILE_MISSING", "error", "%d image file(s) referenced by the model are missing: %s" % (len(gone), ", ".join(gone[:4])))
     if not tx:
         if need is not None or B.get("require_normal") or B.get("require_orm"):
-            add("NO_TEXTURES", "error", "flat-colour materials only")
+            if rec["model"].get("flat_colour"):   # palette model by design, not a gap
+                add("FLAT_COLOUR", "info", "flat-colour materials by design (no texture referenced)")
+            else:
+                add("NO_TEXTURES", "error", "no textures: the model should carry images and has none")
         return
     big = max(max(t["w"], t["h"]) for t in tx)
     if need is not None and big < need:
@@ -542,6 +572,7 @@ def audit_model(source, kinds, rel, glb, adapter, ctx, tier, out_dir, export, no
                         primitive_meshes=sorted({n for n, pm in inst if 0 < pm["tris"] <= THRESHOLDS["primitive_tris"]}))
     if wmn[0] != math.inf:
         rec["model"]["bounds"] = {"min": [round(v, 4) for v in wmn], "max": [round(v, 4) for v in wmx]}
+    rec["model"]["flat_colour"] = flat_colour(gltf)
     rec["textures"] = textures(gltf, binc, os.path.dirname(glb), os.path.splitext(os.path.basename(glb))[0])
     rec["animations"] = animations(gltf, binc)
     flags = rec["flags"]
