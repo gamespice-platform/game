@@ -132,6 +132,41 @@ func _test_services_hooks() -> void:
 	_done()
 
 
+## The admin abilities every round game answered the same way, now one base class.
+func _test_player_services_base() -> void:
+	_section("GSPlayerGameServices: the shared admin abilities and their hooks")
+
+	var services := TestPlayerServices.new()
+	var ada := TestPlayerServices.FakePlayer.new()
+	var game := TestPlayerServices.FakeGame.new()
+	game.players[&"u7"] = ada
+	services.game = game
+
+	_check(services._mod_player(&"7") == ada and services._mod_player(&"8") == null and services._mod_player(&"x") == null,
+		"a session id finds its player under u<id>, and a stranger or a non-number finds nothing")
+
+	var table: Dictionary = services._mod_abilities()
+	var stock_ok := true
+	for key in ["noclip", "freeze", "speed", "gravity", "god", "buddha", "health", "slay", "slap", "rename", "blind", "beacon"]:
+		stock_ok = stock_ok and table.has(key)
+	_check(stock_ok, "the stock table has every stock verb")
+	_check(table.has("respawn"), "the game's extra ability joins the table")
+
+	var renamed: GSResult = table["rename"].call(&"7", {"name": "  Grace  "})
+	_check(renamed.ok and ada.display_name == "Grace", "rename trims and stores the name")
+	var blind: GSResult = table["blind"].call(&"7", {"on": true})
+	_check(blind.ok and ada.blinded, "blind sets the screen flag")
+	var gone: GSResult = table["beacon"].call(&"9", {"on": true})
+	_check(not gone.ok, "a verb on an absent player is refused")
+
+	_check(services._mod_position(&"7") == null, "a body the game says cannot be moved has no position to bring")
+	services.movable = true
+	_check(services._mod_position(&"7") == Vector3(1.0, 2.0, 3.0), "a movable one answers with its simulated position")
+	game.free()
+	services.free()
+	_done()
+
+
 class GuardLink extends RefCounted:
 	var up: bool = false
 	func is_connected_to_server() -> bool:

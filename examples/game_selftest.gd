@@ -73,6 +73,7 @@ func _run_wiring() -> void:
 	_test_movement_cvars()
 	await _test_services_without_the_addons()
 	await _test_services_hooks()
+	_test_player_services_base()
 	await _test_chat_client_without_the_addons()
 	await _test_chat_client_server_lines()
 	await _test_map_content()

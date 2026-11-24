@@ -5,6 +5,7 @@ extends Node
 const TestGame := preload("../fixtures/test_game.gd")
 const TestModule := preload("../fixtures/test_module.gd")
 const TestHookServices := preload("../fixtures/test_hook_services.gd")
+const TestPlayerServices := preload("../fixtures/test_player_services.gd")
 const TestLink := preload("../fixtures/test_link.gd")
 const MODULE_PATH := "res://examples/fixtures/test_module.gd"
 

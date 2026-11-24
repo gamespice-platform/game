@@ -16,6 +16,8 @@ The cost is real: the base cannot type-check anything it builds. What protects i
 
 `GSGameServices` builds GameSpice Moderation's `GSModTools` straight after the manager (by path, like every layer here) and binds `GSModToolCommands` onto the server's console, so a subclass gets noclip, god, slay, bring and the rest by answering `_mod_abilities()` with a table of callables keyed by plain strings (`"noclip"`), which needs no GameSpice Moderation name either. `_mod_unsupported()` is the reasons for what it refuses, `_mod_can_teleport()` / `_mod_position()` / `_mod_teleport()` the teleport verbs, `_mod_configure_commands()` the last word on `alive_fn` and `team_fn`. The ids are the session userid as a string, and `_mod_session` resolves one.
 
+`GSPlayerGameServices` extends it for a round game whose `game.players` is a Dictionary of player objects (`u<session id>` keys, each with `controller`, `health`, `entity_id`, `team`, `place_at`): it answers the stock admin verbs, the teleport hooks, the team seam and the round hook, so a game keeps only its chat rules, its voice and `_mod_extra_abilities()` (a respawn). Hooks: `_mod_movable(p)`, `_persist_on_respawn()`, `_player_key(id)`; set `bridge` before `setup`.
+
 Two things are the base's rather than the game's, and both have a bug behind them in the obvious alternative:
 
 - **The commands are unbound in `_exit_tree`.** They are registered on the server's console, which outlives this layer; a module unload that left them there hands the next `noclip` to a freed object.

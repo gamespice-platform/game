@@ -47,6 +47,7 @@ func _game_load() -> GSResult:
 | `GSGameNetcode` | Builds a `GSNetManager` with the right settings and attaches your bridge. Usable alone. |
 | `GSGameRoster` | Who is in the game, as opposed to who is connected, and everything that must hear when that changes. |
 | `GSGameServices`, hooks | The services layer every game needs: relay, rules and voice range. See [docs/services.md](docs/services.md). |
+| `GSPlayerGameServices` | `GSGameServices` with the stock admin abilities, teleport and team seams for a round game with a `players` dictionary. See [docs/services.md](docs/services.md). |
 | `GSGameClient` | The client's platform layer: a loading cover (held until the player exists and a camera is current), the settings and Escape menu, console, HUD in the player's theme, Tab scoreboard, M map menu, pointer handling, chat keys, one `input_blocked_changed` signal, and a `user://` flush on exit in a browser. Each piece can be switched off or replaced. See [docs/client-migration.md](docs/client-migration.md). |
 | `GSGameChatClient` | Chat box and push-to-talk, with the server's lines and the player's block list. |
 | Avatar actions | Emotes, poses and gestures checked by the server and played on every client. [docs/avatar-actions.md](docs/avatar-actions.md) |
