@@ -57,6 +57,8 @@ A `godot --script` tool that writes project files (`gs_game_cfg_templates.gd`, a
 - `GSLoadProbe`: `_make_client` (required), `_default_frames`, `_gate`, `_covered`, `_body`, `_columns` (the text between `covered=` and `pos=`), `_line`, `_shot_wanted`, `_shot_path`, `_started`, `_done`, `_finish`, `report`.
 - `GSAudioProbe`: `_make_audio` and `_cue_ids` (required), `_min_length`, `_cue_position`, `_after_cues(sink)` (the game's own checks, awaited, return false to fail), `report`, `_finish`. GameSpice Audio is duck-typed: the audio node needs `setup()` returning something with `ok` and a `manager` whose `sink` has a `bank`.
 
+- `GSAudioSceneProbe` (extends `SceneTree`, run with `--script tools/audio_probe.gd`): the same question for games whose probe asks the sink `is_playing` and exits 2 without a device. Hooks: `_make_node` and `_probe_ids` (required), `_audio_of(node)` (the object with `sink`, `catalogue`, `play_at`; default the node), `_prepare`, `_cue_position`, `_id_width`, `_free_before_quit`.
+
 Not covered: Airdrift's `load_probe` (a server-tick cost bench, nothing to do with the client), and the audio probes that drive a real client (look-at-me, dangerous-delivery, playlot, smash-copter, FC, Airdrift). Suite: `examples/headless_probes.tscn`.
 
 
