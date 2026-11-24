@@ -3,11 +3,8 @@ class_name GSPlayerGameServices
 extends GSGameServices
 
 ## [GSGameServices] for a round game whose `game.players` is a Dictionary of player objects: the admin abilities every such game answered the same way.
-##
 ## A player object is duck-typed: `controller` (a GSFpsController), `health` (a GSHealth), `entity_id`, `display_name`, `blinded`, `beacon`, `player_id`, `place_at(pos, yaw)`, `is_alive()`, `team`. The game holds `players` (keyed `u<session id>`), `combat` (a GSCombatManager) and `team_of(player_id)`, and emits `round_began(number, layout)`.
-##
-## A game overrides [method _chat_channels], [method _chat_rules] and the voice hooks, and adds its own abilities through [method _mod_extra_abilities] (a respawn goes there: where a body starts again is the game's); an extra with a stock key replaces it.
-## What differs between games is a hook: [method _mod_movable], [method _persist_on_respawn], [method _player_key].
+## A game overrides [method _chat_channels], [method _chat_rules] and the voice hooks, and adds its own abilities through [method _mod_extra_abilities] (a respawn goes there: where a body starts again is the game's); an extra with a stock key replaces it. What differs between games is a hook: [method _mod_movable], [method _persist_on_respawn], [method _player_key].
 
 ## GSFpsAdminModifiers by path, so this file parses in a build without gs_player_controller (a game that has none never calls it).
 const ADMIN_MODIFIERS := "res://addons/gs_player_controller/fp/core/gs_fps_admin_modifiers.gd"

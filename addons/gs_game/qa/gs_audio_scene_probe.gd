@@ -60,7 +60,7 @@ func report(line: String) -> void:
 func _run() -> void:
 	for _i in SETTLE:
 		await process_frame
-	if not GSAudioSink.device_present():
+	if AudioServer.get_driver_name() == "Dummy":
 		report("\nNo audio device. Run this through tools/audio_probe.sh, which uses xvfb-run;")
 		report("--headless gives a Dummy driver and this probe cannot say anything.")
 		quit(2)
@@ -74,14 +74,14 @@ func _run() -> void:
 		quit(1)
 		return
 	var audio := _audio_of(node)
-	var sink := audio.get("sink") as GSAudioSinkGodot
+	var sink: Object = audio.get("sink")
 	report("sink:    %s" % audio.get("sink").sink_name())
-	if sink == null:
+	if sink == null or not (sink.get("bank") is Dictionary):
 		report("\nThe device is present and the manager still built a null sink.")
 		quit(1)
 		return
 	var catalogue: Object = audio.get("catalogue")
-	report("bank:    %d entries over %d ids" % [sink.bank.size(), catalogue.ids().size()])
+	report("bank:    %d entries over %d ids" % [(sink.get("bank") as Dictionary).size(), catalogue.ids().size()])
 	report("files:   %d of the catalogue's paths do not exist\n" % catalogue.missing_files().size())
 	# A voice needs a moment to start before is_playing means anything.
 	await process_frame
@@ -96,16 +96,16 @@ func _run() -> void:
 
 
 ## Plays every probe id; returns the exit code.
-func _sound(audio: Object, sink: GSAudioSinkGodot) -> int:
+func _sound(audio: Object, sink: Object) -> int:
 	var ids := _probe_ids()
 	for id in ids:
 		var handle: int = audio.call("play_at", id, _cue_position())
-		var sounding: bool = handle != 0 and sink.is_playing(handle)
+		var sounding: bool = handle != 0 and bool(sink.call("is_playing", handle))
 		report("  %-*s %s" % [_id_width(), String(id), "sounding" if sounding else "SILENT"])
 		if not sounding:
 			_failed += 1
 	if _failed > 0:
 		report("\nRESULT: %d of %d made no sound." % [_failed, ids.size()])
 		return 1
-	report("\nRESULT: all %d sounded, from %d synthesised stand-ins." % [ids.size(), sink.bank.size()])
+	report("\nRESULT: all %d sounded, from %d synthesised stand-ins." % [ids.size(), (sink.get("bank") as Dictionary).size()])
 	return 0
