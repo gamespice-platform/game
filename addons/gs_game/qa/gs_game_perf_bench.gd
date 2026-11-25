@@ -29,6 +29,8 @@ var _nodes_added := 0
 ## Moving things in the window: Node3D subtrees whose root moved more than MOVER_METERS while its parent did not. A game that moves
 ## its world without making nodes (runners on a course, traps, props) is alive by this count where `nodes_added` reads ~0.
 const MOVER_METERS := 1.0
+## gs-profiler is a game's addon, not this one's, so it loads by path and is named nowhere.
+const PROFILER_SCRIPTS := "res://addons/gs_profiler/runtime/gs_profiler_scripts.gd"
 var _movers := 0
 var _pos0 := {}
 var client: Node = null
@@ -184,23 +186,19 @@ func time_first_use(what: String, action: Callable, after := Callable(), after_a
 	var resources0 := int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT))
 	# `--first-use-prof N` (with the .sh's -d): the N GDScript functions with the most self time over this row's window alone (ms are the window's totals).
 	var prof_top := int(args.get("first-use-prof", 0))
-	var prof := GSProfilerScripts.new() if prof_top > 0 and not _spans_wanted(what) else null
-	if prof != null and not prof.start().ok:
-		prof = null
+	var prof: Variant = _start_profiler() if prof_top > 0 and not _spans_wanted(what) else null
 	# `--first-use-spans NAME` (NAME a row name, or 1 for every row): one line per frame of the window with the engine's own
 	# counters (script, physics, draw, nodes, resources, compiles), and with -d + `--first-use-prof N` the top script functions
 	# of each frame that ran long, so the worst frame gets a name.
 	var spans := _spans_wanted(what)
-	var frame_prof: GSProfilerScripts = null
+	var frame_prof: Variant = null
 	var snap0 := _span_snapshot()
 	action.call()
 	var ms := PackedFloat32Array()
 	var last := Time.get_ticks_usec()
 	for i in frames:
 		if spans and prof_top > 0:
-			frame_prof = GSProfilerScripts.new()
-			if not frame_prof.start().ok:
-				frame_prof = null
+			frame_prof = _start_profiler()
 		await get_tree().process_frame
 		var now := Time.get_ticks_usec()
 		ms.append((now - last) / 1000.0)
@@ -229,6 +227,14 @@ func time_first_use(what: String, action: Callable, after := Callable(), after_a
 	_first_use_rows.append(row)
 	say("first_use %s worst %.1f ms (base %.1f) at f%d, %d compiles, %+d resources" % [what, worst, base, at, row.compiles, row.resources])
 	return row
+
+
+## A started script profiler, or null when the game has no gs-profiler or was not started with -d.
+func _start_profiler() -> Variant:
+	if not ResourceLoader.exists(PROFILER_SCRIPTS):
+		return null
+	var p: Variant = load(PROFILER_SCRIPTS).new()
+	return p if p.start().ok else null
 
 
 func _spans_wanted(what: String) -> bool:
