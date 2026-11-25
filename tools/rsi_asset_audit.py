@@ -35,7 +35,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Measurement constants (how a model is read), not budgets; budgets come from the config.
 THRESHOLDS = {"faceted_vpt": 1.6, "flat_albedo_std": 16.0, "primitive_tris": 64, "mag_epsilon": 0.01,
-              "uncompressed_bytes": 1 << 20}
+              "uncompressed_bytes": 1 << 20, "tex_blotch": 15.0}
 SEVERITY_COST = {"error": 20, "warn": 7, "info": 2}
 DEFAULT_MODELS = ["**/*.glb", "**/*.gltf"]
 
@@ -217,6 +217,105 @@ def luminance_std(raw):
     return round(math.sqrt(sum(c * (i - mean) ** 2 for i, c in enumerate(hist)) / n), 1)
 
 
+def _gblur(a, r):
+    """Separable Gaussian blur of a 2-D float array (numpy only, reflect edges)."""
+    import numpy as np
+    k = int(3 * r + 1)
+    x = np.arange(-k, k + 1, dtype=np.float32)
+    w = np.exp(-x * x / (2 * r * r))
+    w /= w.sum()
+    p = np.pad(a, k, mode="reflect")
+    o = np.zeros((p.shape[0], a.shape[1]), np.float32)
+    for i in range(2 * k + 1):
+        o += w[i] * p[:, i:i + a.shape[1]]
+    o2 = np.zeros(a.shape, np.float32)
+    for i in range(2 * k + 1):
+        o2 += w[i] * o[i:i + a.shape[0], :]
+    return o2
+
+
+def uv_cover(gltf, binc, image_index, n=1024):
+    """n x n bool mask of the texels the mesh actually samples from image `image_index` as base colour: TEXCOORD_0
+    triangles of the primitives whose material uses it, rasterised (UVs wrapped into 0..1). The padding around UV
+    islands is never seen in game, so the blotch index skips it. None when numpy/PIL is missing or nothing maps."""
+    try:
+        import numpy as np
+        from PIL import Image, ImageDraw
+    except ImportError:
+        return None
+    texs = gltf.get("textures", [])
+    mats = set()
+    for mi, m in enumerate(gltf.get("materials", [])):
+        t = m.get("pbrMetallicRoughness", {}).get("baseColorTexture")
+        if t and t["index"] < len(texs):
+            tex = texs[t["index"]]
+            src = tex.get("source")
+            for ext in tex.get("extensions", {}).values():
+                src = ext.get("source", src)
+            if src == image_index and t.get("texCoord", 0) == 0:
+                mats.add(mi)
+    im = Image.new("L", (n, n), 0)
+    dr = ImageDraw.Draw(im)
+    drawn = 0
+    for mesh in gltf.get("meshes", []):
+        for prim in mesh.get("primitives", []):
+            if prim.get("material") not in mats or "TEXCOORD_0" not in prim.get("attributes", {}) or prim.get("mode", 4) != 4:
+                continue
+            try:
+                uv = np.array(accessor_values(gltf, binc, prim["attributes"]["TEXCOORD_0"]), np.float64).reshape(-1, 2)
+                idx = np.array(accessor_values(gltf, binc, prim["indices"]) if "indices" in prim else range(len(uv)), np.int64)
+            except (struct.error, KeyError, IndexError, ValueError):
+                continue
+            tri = idx[: len(idx) // 3 * 3].reshape(-1, 3)
+            if not len(tri) or tri.max() >= len(uv):
+                continue
+            pts = uv[tri]
+            pts = pts - np.floor(pts.mean(1, keepdims=True))     # wrap each triangle into the 0..1 tile
+            pts = pts * n
+            for t in pts:
+                dr.polygon([tuple(p) for p in t], fill=255)
+            drawn += len(pts)
+    if not drawn:
+        return None
+    m = np.asarray(im) > 0
+    return m if m.mean() > 0.02 else None
+
+
+def texture_blotch(raw, n=1024, cover=None):
+    """Blotch index of an albedo (docs/rsi-asset-audit.md, TEXTURE_QUALITY): how much of the texture's contrast is soft
+    mid-frequency patches (AI/voronoi mottling) rather than crisp detail or straight panel lines. Measured on luminance
+    resampled to n x n:
+      mf    = RMS(blur3 - blur12) x 1000      mid-frequency (3-12 px) energy: the patches
+      ratio = RMS(L - blur1) / RMS(blur3 - blur12)   fine detail against patches; crisp grain, screws and edges raise it
+      axis  = share of the strongest 10% gradients within 8 deg of the UV axes; panel lines and trims raise it (0.18 random)
+      blotch = mf x (1 - axis) x (1 - min(ratio, 1))
+    Energies and gradients are taken over `cover` (uv_cover: the texels the mesh samples) when given, else the whole image.
+    Returns {"blotch", "mf", "ratio", "axis", "cover"} or None without numpy/PIL or for an unreadable image."""
+    try:
+        import numpy as np
+        from PIL import Image
+    except ImportError:
+        return None
+    try:
+        im = Image.open(io.BytesIO(raw)).convert("L").resize((n, n), Image.LANCZOS)
+    except Exception:
+        return None
+    lum = np.asarray(im, np.float32) / 255
+    b1, b3, b12 = _gblur(lum, 1.0), _gblur(lum, 3.0), _gblur(lum, 12.0)
+    sel = cover if cover is not None and cover.shape == lum.shape else np.ones(lum.shape, bool)
+    e_hf = float(np.sqrt(((lum - b1)[sel] ** 2).mean()))
+    e_mf = float(np.sqrt(((b3 - b12)[sel] ** 2).mean()))
+    gy, gx = np.gradient(b1)
+    g = np.hypot(gx, gy)[sel]
+    ang = (np.degrees(np.arctan2(gy, gx)) % 90)[sel]
+    strong = g > np.percentile(g, 90)
+    axis = float(((np.minimum(ang, 90 - ang) < 8) & strong).sum() / max(int(strong.sum()), 1))
+    ratio = e_hf / e_mf if e_mf > 1e-6 else 1.0
+    blotch = e_mf * 1000 * (1 - axis) * (1 - min(ratio, 1.0))
+    return {"blotch": round(blotch, 1), "mf": round(e_mf * 1000, 1), "ratio": round(ratio, 3), "axis": round(axis, 3),
+            "cover": round(float(sel.mean()), 3)}
+
+
 def import_mode(path):
     """Godot texture import compression (lossless|lossy|vram|basis|uncompressed) and the lossy quality (0..1, None)."""
     imp = path + ".import"
@@ -281,6 +380,9 @@ def textures(gltf, binc, glb_dir, glb_base=""):
                 rec["lossy_quality"] = q
         if "albedo" in rec["maps"] and raw:
             rec["luma_std"] = luminance_std(raw)
+            q = texture_blotch(raw, cover=uv_cover(gltf, binc, i))
+            if q:
+                rec["quality"] = q
         out.append(rec)
     if not out and glb_base:   # external images named <glb stem>_*.png beside a glb that carries none (launcher_rocket_diffuse.png)
         for f in sorted(os.listdir(glb_dir)):
@@ -297,6 +399,9 @@ def textures(gltf, binc, glb_dir, glb_base=""):
                 rec["lossy_quality"] = q
             if "albedo" in maps:
                 rec["luma_std"] = luminance_std(raw)
+                q = texture_blotch(raw)
+                if q:
+                    rec["quality"] = q
             out.append(rec)
     return out
 
@@ -521,6 +626,12 @@ def tex_flags(rec, B, tier, add):
     flat = [t for t in alb if t.get("luma_std") is not None and t["luma_std"] < THRESHOLDS["flat_albedo_std"]]
     if flat and len(flat) == len(alb):
         add("FLAT_TEX", "warn", "albedo nearly uniform (luma std %s)" % ", ".join(str(t["luma_std"]) for t in flat))
+    lim = B.get("max_tex_blotch", THRESHOLDS["tex_blotch"])
+    blot = [t for t in alb if (t.get("quality") or {}).get("blotch", 0) > lim]
+    if blot:
+        add("TEXTURE_QUALITY", "warn", "albedo blotch index > %s (soft mid-frequency patches, docs/rsi-asset-audit.md): %s" % (lim, ", ".join(
+            "%s %s (mf %s, detail ratio %s, axis %s)" % (t["name"], t["quality"]["blotch"], t["quality"]["mf"], t["quality"]["ratio"],
+                                                        t["quality"]["axis"]) for t in blot)))
 
 
 def rig_flags(rec, B, add):
