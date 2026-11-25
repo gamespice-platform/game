@@ -46,6 +46,24 @@ def inert_note(head):
     return ""
 
 
+def parse_report(first, after):
+    """The report JSON; when the engine's stderr (a leaked-texture ERROR and its `at:` line, other PERF_ lines) landed in the middle of the one long line, the rest of it is a later stray line: join the stray lines on until it parses."""
+    try:
+        return json.loads(first)
+    except json.JSONDecodeError:
+        pass
+    joined = first
+    for line in after:
+        if line.startswith(("PERF_", "ERROR:", "WARNING:", "   at:", "gpu")):
+            continue
+        joined += line
+        try:
+            return json.loads(joined)
+        except json.JSONDecodeError:
+            continue
+    raise ValueError("PERF_BENCH line is cut and could not be rejoined")
+
+
 def load(path):
     label = None
     if "=" in path and not path.startswith("/") and path.split("=", 1)[0].isidentifier():
@@ -56,11 +74,12 @@ def load(path):
     if text.lstrip().startswith("{"):
         report = json.loads(text)
     else:
-        for line in text.splitlines():
+        lines = text.splitlines()
+        for at, line in enumerate(lines):
             if line.startswith("PERF_BENCH_REPORT "):
-                report = json.loads(line.split(" ", 1)[1])
+                report = parse_report(line.split(" ", 1)[1], lines[at + 1:])
             elif line.startswith("PERF_BENCH_SIDECAR "):
-                side = json.loads(line.split(" ", 1)[1])
+                side = parse_report(line.split(" ", 1)[1], lines[at + 1:])
     if report is None:
         sys.exit(f"{path}: no report in it")
     frames = max(report.get("frames", 1), 1)
