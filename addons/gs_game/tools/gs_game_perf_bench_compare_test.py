@@ -53,5 +53,18 @@ class RenamedPrefix(unittest.TestCase):
         self.assertEqual(err, "")
 
 
+class CutReport(unittest.TestCase):
+    def test_stderr_inside_the_report_line_is_rejoined(self):
+        whole = json.dumps(_report("fc."))
+        cut = len(whole) // 2
+        log = "PERF_BENCH_REPORT " + whole[:cut] + "\nERROR: Texture leaked\n   at: ~Utilities\n" + whole[cut:] + "\n"
+        with tempfile.TemporaryDirectory() as t:
+            path = os.path.join(t, "r.log")
+            with open(path, "w") as f:
+                f.write(log)
+            rows = compare.load(path)[3]
+        self.assertIn("fc.bot_brain", rows)
+
+
 if __name__ == "__main__":
     unittest.main()
