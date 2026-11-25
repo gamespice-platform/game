@@ -184,17 +184,35 @@ func time_first_use(what: String, action: Callable, after := Callable(), after_a
 	var resources0 := int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT))
 	# `--first-use-prof N` (with the .sh's -d): the N GDScript functions with the most self time over this row's window alone (ms are the window's totals).
 	var prof_top := int(args.get("first-use-prof", 0))
-	var prof := GSProfilerScripts.new() if prof_top > 0 else null
+	var prof := GSProfilerScripts.new() if prof_top > 0 and not _spans_wanted(what) else null
 	if prof != null and not prof.start().ok:
 		prof = null
+	# `--first-use-spans NAME` (NAME a row name, or 1 for every row): one line per frame of the window with the engine's own
+	# counters (script, physics, draw, nodes, resources, compiles), and with -d + `--first-use-prof N` the top script functions
+	# of each frame that ran long, so the worst frame gets a name.
+	var spans := _spans_wanted(what)
+	var frame_prof: GSProfilerScripts = null
+	var snap0 := _span_snapshot()
 	action.call()
 	var ms := PackedFloat32Array()
 	var last := Time.get_ticks_usec()
 	for i in frames:
+		if spans and prof_top > 0:
+			frame_prof = GSProfilerScripts.new()
+			if not frame_prof.start().ok:
+				frame_prof = null
 		await get_tree().process_frame
 		var now := Time.get_ticks_usec()
 		ms.append((now - last) / 1000.0)
 		last = now
+		if spans:
+			var snap := _span_snapshot()
+			var funcs := []
+			if frame_prof != null:
+				funcs = frame_prof.stop(prof_top, 1).get("functions", [])
+				frame_prof = null
+			say("first_use_span %s f%d %.1f ms | %s | %s" % [what, i, ms[i], _span_line(snap0, snap), JSON.stringify(funcs) if ms[i] > base * 1.6 else ""])
+			snap0 = snap
 		if i == after_at and after.is_valid():
 			after.call()
 	if prof != null:
@@ -211,6 +229,37 @@ func time_first_use(what: String, action: Callable, after := Callable(), after_a
 	_first_use_rows.append(row)
 	say("first_use %s worst %.1f ms (base %.1f) at f%d, %d compiles, %+d resources" % [what, worst, base, at, row.compiles, row.resources])
 	return row
+
+
+func _spans_wanted(what: String) -> bool:
+	var want := str(args.get("first-use-spans", "0"))
+	return want == "1" or want == what or want in what.split(" ")
+
+
+## The counters a span line differences: engine monitors, the render thread's measured time, pipeline compiles.
+func _span_snapshot() -> Dictionary:
+	var rid := get_viewport().get_viewport_rid()
+	RenderingServer.viewport_set_measure_render_time(rid, true)
+	return {
+		"proc": Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+		"phys": Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+		"steps": Engine.get_physics_frames(),
+		"draws": int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
+		"objs": int(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)),
+		"nodes": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+		"res": int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)),
+		"bodies": int(Performance.get_monitor(Performance.PHYSICS_3D_ACTIVE_OBJECTS)),
+		"vram": Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
+		"cpu": RenderingServer.viewport_get_measured_render_time_cpu(rid),
+		"gpu": RenderingServer.viewport_get_measured_render_time_gpu(rid),
+		"compiles": pipeline_compiles(),
+	}
+
+
+func _span_line(a: Dictionary, b: Dictionary) -> String:
+	return "proc %.1f phys %.1f steps %d render cpu %.1f gpu %.1f draws %d objs %d bodies %d nodes %+d res %+d vram %+.1f compiles %+d" % [
+		b.proc, b.phys, int(b.steps) - int(a.steps), b.cpu, b.gpu, b.draws, b.objs, b.bodies,
+		int(b.nodes) - int(a.nodes), int(b.res) - int(a.res), b.vram - a.vram, int(b.compiles) - int(a.compiles)]
 
 
 ## Waits for the client's loading gate (`gate.is_open()`), when it has one.
