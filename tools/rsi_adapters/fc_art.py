@@ -2,7 +2,8 @@
 
 Source config: {"adapter": "fc-art", "addon": "<dir under the source root>"}. The addon holds aw_weapon_art.gd and
 view/aw_view_model_core.gd; models are matched by file stem against the art table's "model" names. Without an art row the
-model is skipped, so this adapter only adds checks and never changes what is listed.
+model is skipped, so this adapter only adds checks and never changes what is listed. A source whose addon has no
+aw_weapon_art.gd (a weapons pack that is not built on the FC art table, e.g. zee-gs-weapons) gets no context and no checks.
 """
 import os
 import re
@@ -14,7 +15,10 @@ CLIPS = ("fire", "reload", "draw", "reload_empty", "inspect", "holster")
 
 def context(source):
     addon = os.path.join(source["root"], source.get("addon", ""))
-    art = open(os.path.join(addon, "aw_weapon_art.gd"), encoding="utf-8").read()
+    art_path = os.path.join(addon, "aw_weapon_art.gd")
+    if not os.path.isfile(art_path):
+        return None
+    art = open(art_path, encoding="utf-8").read()
     rows = {}
     for m in re.finditer(r'^\t&"(\w+)": \{"model": "(\w+)"(.*)$', art, re.M):
         style = re.search(r'"reload": \{"style": "(\w+)"', m.group(3))
@@ -36,6 +40,8 @@ def context(source):
 
 
 def check(source, rec, glb, ctx, audit):
+    if ctx is None:   # no art table in this pack: the adapter does not apply
+        return
     stem = os.path.splitext(os.path.basename(glb))[0]
     row = ctx["rows"].get(stem)
     if row is None:
