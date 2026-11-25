@@ -182,6 +182,11 @@ func time_first_use(what: String, action: Callable, after := Callable(), after_a
 	var base := frame_stats(await frame_times(base_frames)).p50 as float
 	var compiles0 := pipeline_compiles()
 	var resources0 := int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT))
+	# `--first-use-prof N` (with the .sh's -d): the N GDScript functions with the most self time over this row's window alone (ms are the window's totals).
+	var prof_top := int(args.get("first-use-prof", 0))
+	var prof := GSProfilerScripts.new() if prof_top > 0 else null
+	if prof != null and not prof.start().ok:
+		prof = null
 	action.call()
 	var ms := PackedFloat32Array()
 	var last := Time.get_ticks_usec()
@@ -192,6 +197,8 @@ func time_first_use(what: String, action: Callable, after := Callable(), after_a
 		last = now
 		if i == after_at and after.is_valid():
 			after.call()
+	if prof != null:
+		say("first_use_prof %s %s" % [what, JSON.stringify(prof.stop(prof_top, 1).get("functions", []))])
 	var worst := 0.0
 	var at := 0
 	for i in ms.size():
