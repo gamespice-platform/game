@@ -13,8 +13,8 @@ const EXPORT_DIR := "user://map_data/export/"
 const MAX_LIST := 40
 const MAX_TOKENS := 32
 const MAX_TEXT := 64
-# GSGameMapEdit's parser names this class back, so it is loaded by uid at use (a script loop is never freed in Godot 4.7).
-const _PARSE_UID := "uid://c64gi15ndtwo7"
+# GSGameMapEdit's parser names this class back, so it is loaded by path at use (a script loop is never freed in Godot 4.7).
+const _PARSE_PATH := "res://addons/gs_game/runtime/gs_game_map_edit_parse.gd"
 
 const KINDS: Array[String] = ["player", "npc", "both"]
 const SIGHTS: Array[String] = ["any", "hidden_from_players", "visible_to_players"]
@@ -602,12 +602,12 @@ func _take(sections: Variant) -> GSResult:
 # Parsing and helpers
 
 func _parse_pairs(args: PackedStringArray) -> GSResult:
-	return (load(_PARSE_UID) as GDScript).parse_pairs(args)
+	return (load(_PARSE_PATH) as GDScript).parse_pairs(args)
 
 
 ## Parses key=value words into typed values. [param allow_id] lets `id=` through (a new point only).
 func _parse_settings(args: PackedStringArray, allow_id: bool) -> GSResult:
-	return (load(_PARSE_UID) as GDScript).parse_settings(args, allow_id)
+	return (load(_PARSE_PATH) as GDScript).parse_settings(args, allow_id)
 
 
 func _apply(def: Object, settings: Dictionary) -> GSResult:
@@ -731,7 +731,7 @@ func _changed(what: String) -> void:
 
 
 static func _token_ok(text: String) -> bool:
-	return (load(_PARSE_UID) as GDScript).token_ok(text)
+	return (load(_PARSE_PATH) as GDScript).token_ok(text)
 
 
 func _caller(ctx: Object) -> String:

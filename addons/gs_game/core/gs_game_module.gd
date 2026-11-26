@@ -25,10 +25,10 @@ signal loading_changed(seat: int, loading: bool)
 ## The property a game object may declare to be handed [method is_peer_loading]: `var peer_loading_fn: Callable`. Assigned before [method _game_load], cleared at unload.
 const PEER_LOADING_PROPERTY := &"peer_loading_fn"
 const _Profiler := preload("res://addons/gs_game/runtime/gs_game_profiler.gd")
-# GSGameModuleWiring and GSGameStatsReport take the module typed, so they are loaded by uid at use:
+# GSGameModuleWiring and GSGameStatsReport take the module typed, so they are loaded by path at use:
 # naming them here would put the three in one script loop, which Godot 4.7 never frees.
-const _WIRING_UID := "uid://d1wk1ddon2tyq"
-const _STATS_REPORT_UID := "uid://b0alyooc3qid7"
+const _WIRING_PATH := "res://addons/gs_game/core/gs_game_module_wiring.gd"
+const _STATS_REPORT_PATH := "res://addons/gs_game/runtime/gs_game_stats_report.gd"
 
 ## Seconds a seat may stay loading before it counts as loaded anyway, with a warning.
 @export var load_timeout_sec: float = 30.0
@@ -178,7 +178,7 @@ func bind_movement_cvars(targets: Array = []) -> Array:
 
 ## Registers the family's `stats_report` cvar (default 0) and aliases for a game's old names; see [GSGameStatsReport].
 func bind_stats_report(apply: Callable = Callable(), legacy: PackedStringArray = PackedStringArray()) -> GSConVar:
-	return (load(_STATS_REPORT_UID) as GDScript).bind(self, apply, legacy)
+	return (load(_STATS_REPORT_PATH) as GDScript).bind(self, apply, legacy)
 
 
 ## Wires a GSNpcSpawner to `sv_threads_npc` and the `npc_lod*` / `npc_sense_quiet` cvars (all off by default; see [GSGameNpcLod]). Call it once the spawner is in the tree; [param players] returns the positions NPCs measure distance from (default: the spawner's candidates).
@@ -755,6 +755,6 @@ func describe_lines() -> PackedStringArray:
 	return lines
 
 
-## GSGameModuleWiring, loaded (see [constant _WIRING_UID]).
+## GSGameModuleWiring, loaded (see [constant _WIRING_PATH]).
 static func _wiring() -> GDScript:
-	return load(_WIRING_UID) as GDScript
+	return load(_WIRING_PATH) as GDScript
