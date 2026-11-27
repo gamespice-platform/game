@@ -55,6 +55,8 @@ var _wear_wait := 0.0
 var _wear_tried: Dictionary = {}
 ## Whether the keys were last built with a placeholder url, to rebuild them once the library names the real one.
 var _flags: Dictionary = {}
+## The `enabled` last written to [member input] (1 on, 0 off, -1 not yet), so [method _process] writes it only on a change.
+var _told_enabled := -1
 
 
 ## [param p_net] is null offline: the action plays locally and goes nowhere.
@@ -62,6 +64,7 @@ func attach(p_net: GSNetManager, p_input: Object, p_figure_fn: Callable) -> void
 	net = p_net
 	input = p_input
 	figure_fn = p_figure_fn
+	_told_enabled = -1
 	input.connect(&"action_requested", _on_requested)
 	if net != null:
 		var on := net.messages.on(GSGameAvatarActionMessage.NAME, _on_message)
@@ -89,7 +92,11 @@ func _process(delta: float) -> void:
 		if _ask_wait <= 0.0:
 			_ask()
 	if input != null and blocked_fn.is_valid():
-		input.set(&"enabled", not bool(blocked_fn.call()))
+		# Written when it changes: a property set by name every frame for a flag that flips a few times a match.
+		var enabled := 0 if bool(blocked_fn.call()) else 1
+		if enabled != _told_enabled:
+			_told_enabled = enabled
+			input.set(&"enabled", enabled == 1)  # perf-lint: allow dynamic_call the input is duck-typed; only on a change
 	_wear_wait -= delta
 	if _wear_wait <= 0.0 and not worn.is_empty():
 		_wear_wait = WEAR_RETRY_SEC

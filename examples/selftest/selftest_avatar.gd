@@ -340,6 +340,22 @@ func _test_avatar_loadout_client() -> void:
 	deliver.call(lm)
 	client._process(10.0)
 	_check(asks.size() == 2, "and stops once one arrives")
+	var blocked := [true]
+	client.blocked_fn = func() -> bool: return blocked[0]
+	client._process(0.01)
+	var off := not input.enabled
+	blocked[0] = false
+	client._process(0.01)
+	var on := input.enabled
+	input.enabled = false
+	client._process(0.01)
+	var kept := not input.enabled
+	blocked[0] = true
+	client._process(0.01)
+	blocked[0] = false
+	client._process(0.01)
+	_check(off and on and kept and input.enabled, "the input follows blocked_fn, written only when it changes")
+	client.blocked_fn = Callable()
 	for i in 3:
 		await get_tree().process_frame
 	_check(fetched == ["action/9/1"], "the upload is fetched once, the built-in not at all", str(fetched))
