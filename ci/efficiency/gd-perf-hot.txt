@@ -1,0 +1,18 @@
+# check-gd-perf (gs-ci): the scripts a game runs per server tick or per client frame through GSGameModule
+# and GSGameClient. Config, schema, describe and map-edit code is not here: it runs on a change, not a tick.
+addons/gs_game/core/gs_game_module.gd
+addons/gs_game/net/gs_game_netcode.gd
+addons/gs_game/net/gs_game_relevance.gd
+addons/gs_game/runtime/gs_game_npc_lod.gd
+addons/gs_game/runtime/gs_game_roster.gd
+addons/gs_game/runtime/gs_game_client.gd
+addons/gs_game/runtime/gs_game_client_feel.gd
+addons/gs_game/runtime/gs_game_combat_feel.gd
+addons/gs_game/runtime/gs_game_hit_flinch.gd
+addons/gs_game/runtime/gs_game_landing.gd
+addons/gs_game/runtime/gs_game_slide_sounds.gd
+addons/gs_game/runtime/gs_game_page_guard.gd
+addons/gs_game/runtime/gs_game_screen_fit.gd
+# Setup, cvar declarations and menu wiring run once per load or per change.
+cold+: ^(declare|declare_on|cvar_spec|surf_cvar_specs|ensure_cvars|sprint_defaults|track_tunables|_make)$
+cold+: ^(_module_load|_wire_menu|_settings_menu|_finish_setup|set_hud|refuse_peer|begin_map_change|detach)$
